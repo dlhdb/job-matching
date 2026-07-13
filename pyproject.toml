@@ -7,3 +7,9 @@ requires-python = ">=3.14"
 dependencies = [
     "requests>=2.34.2",
 ]
+
+[dependency-groups]
+dev = [
+    "mypy>=2.2.0",
+    "types-requests>=2.33.0.20260712",
+]
