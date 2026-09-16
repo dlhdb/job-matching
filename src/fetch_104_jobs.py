@@ -16,8 +16,8 @@
 7. 提供豐富的欄位提取，包含職缺名稱、公司名稱、薪資區間、地區、工作描述、電腦專長、科系要求、更新日期及直接應徵連結等。
 
 使用說明：
-- 互動模式：直接執行 `python fetch_104_jobs.py`
-- 命令列模式：`python fetch_104_jobs.py --keyword "Python,React,AI" --pages 3 --area "台北市"`
+- 互動模式：直接執行 `uv run src/fetch_104_jobs.py`
+- 命令列模式：`uv run src/fetch_104_jobs.py --keyword "Python,React,AI" --pages 3 --area "台北市"`
 """
 
 import sys
