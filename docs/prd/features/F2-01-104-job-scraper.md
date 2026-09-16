@@ -54,11 +54,11 @@
 
 ## 6. 驗收標準
 
-以下離線驗證都用同一段載入方式（`104/` 不是合法的 Python 套件名稱，無法直接 import）：
+以下離線驗證都用同一段載入方式（`src/104/` 不是合法的 Python 套件名稱，無法直接 import）：
 
 ```python
 import importlib.util as u
-s = u.spec_from_file_location("f104", "104/fetch_104_jobs.py")
+s = u.spec_from_file_location("f104", "src/104/fetch_104_jobs.py")
 m = u.module_from_spec(s); s.loader.exec_module(m)
 ```
 
@@ -72,7 +72,7 @@ m = u.module_from_spec(s); s.loader.exec_module(m)
   ```bash
   uv run python - <<'EOF'
   import importlib.util as u
-  s = u.spec_from_file_location("f104", "104/fetch_104_jobs.py")
+  s = u.spec_from_file_location("f104", "src/104/fetch_104_jobs.py")
   m = u.module_from_spec(s); s.loader.exec_module(m)
   assert m.parse_keywords("Python, React，AI") == ["Python", "React", "AI"]
   assert m.parse_keywords("Python,React, Python") == ["Python", "React"]
@@ -92,7 +92,7 @@ m = u.module_from_spec(s); s.loader.exec_module(m)
   ```bash
   uv run python - <<'EOF'
   import importlib.util as u
-  s = u.spec_from_file_location("f104", "104/fetch_104_jobs.py")
+  s = u.spec_from_file_location("f104", "src/104/fetch_104_jobs.py")
   m = u.module_from_spec(s); s.loader.exec_module(m)
   assert m.resolve_area("台北市") == ("6001001000", "台北市")
   assert m.resolve_area("新竹") == ("6001006000", "新竹市")
@@ -114,7 +114,7 @@ m = u.module_from_spec(s); s.loader.exec_module(m)
   ```bash
   uv run python - <<'EOF'
   import importlib.util as u
-  s = u.spec_from_file_location("f104", "104/fetch_104_jobs.py")
+  s = u.spec_from_file_location("f104", "src/104/fetch_104_jobs.py")
   m = u.module_from_spec(s); s.loader.exec_module(m)
   m.fetch_job_detail = lambda job_id: None
   m.time.sleep = lambda sec: None
@@ -142,12 +142,12 @@ m = u.module_from_spec(s); s.loader.exec_module(m)
   ```bash
   uv run python - <<'EOF'
   import importlib.util as u
-  s = u.spec_from_file_location("f104", "104/fetch_104_jobs.py")
+  s = u.spec_from_file_location("f104", "src/104/fetch_104_jobs.py")
   m = u.module_from_spec(s); s.loader.exec_module(m)
   assert {"User-Agent", "Referer"} <= set(m.DEFAULT_HEADERS)
   print("AC-4 標頭通過")
   EOF
-  grep -n "requests.get(" 104/fetch_104_jobs.py
+  grep -n "requests.get(" src/104/fetch_104_jobs.py
   ```
 
   通過條件：印出 `AC-4 標頭通過`，且 grep 列出的每一行都含 `timeout=`。
@@ -160,7 +160,7 @@ m = u.module_from_spec(s); s.loader.exec_module(m)
 - **驗證方式**：
 
   ```bash
-  uv run 104/fetch_104_jobs.py -k "Python,Python工程師" -p 1 -a 台北市
+  uv run src/104/fetch_104_jobs.py -k "Python,Python工程師" -p 1 -a 台北市
   uv run python - <<'EOF'
   import csv, json, glob, os
   j = max(glob.glob("output/104/jobs_104_Python_Python工程師_*.json"), key=os.path.getmtime)
@@ -188,7 +188,7 @@ m = u.module_from_spec(s); s.loader.exec_module(m)
   ```bash
   uv run python - <<'EOF'
   import signal, subprocess, sys, time
-  p = subprocess.Popen([sys.executable, "104/fetch_104_jobs.py"],
+  p = subprocess.Popen([sys.executable, "src/104/fetch_104_jobs.py"],
                        stdin=subprocess.PIPE, stdout=subprocess.PIPE, text=True)
   time.sleep(1.5)
   p.send_signal(signal.SIGINT)

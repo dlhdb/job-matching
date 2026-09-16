@@ -10,8 +10,8 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ```bash
 uv sync                      # 安裝依賴（含 dev group）
-uv run main.py               # 目前仍是 uv 樣板，尚未成為真正進入點
-uv run mypy 104/             # 型別檢查（mypy 已列為 dev 依賴，但尚無設定檔）
+uv run src/main.py           # 目前仍是 uv 樣板，尚未成為真正進入點
+uv run mypy src/104/         # 型別檢查（mypy 已列為 dev 依賴，但尚無設定檔）
 uv add <pkg>                 # 新增依賴
 ```
 
