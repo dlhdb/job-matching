@@ -1,0 +1,41 @@
+{
+  "name": "job-matching-agent",
+  "build": {
+    "dockerfile": "Dockerfile",
+    "args": {
+      "TZ": "Asia/Taipei",
+      "CLAUDE_CODE_VERSION": "latest"
+    }
+  },
+  // init-firewall.sh 需要這兩個權限才能設定 iptables
+  "runArgs": ["--cap-add=NET_ADMIN", "--cap-add=NET_RAW"],
+  "remoteUser": "node",
+  "workspaceMount": "source=${localWorkspaceFolder},target=/workspace,type=bind,consistency=delegated",
+  "workspaceFolder": "/workspace",
+  "mounts": [
+    // Claude Code 的登入狀態與設定，重建容器後仍保留
+    "source=claude-code-config-${devcontainerId},target=/home/node/.claude,type=volume"
+  ],
+  "containerEnv": {
+    "CLAUDE_CONFIG_DIR": "/home/node/.claude",
+    // 虛擬環境放在工作目錄外，避免與主機（macOS）的 .venv 互相覆蓋
+    "UV_PROJECT_ENVIRONMENT": "/home/node/.venv",
+    "UV_LINK_MODE": "copy",
+    // 遙測主機不在防火牆允許清單內，直接關閉以免連線失敗重試
+    "DISABLE_TELEMETRY": "1",
+    "DISABLE_ERROR_REPORTING": "1"
+  },
+  "customizations": {
+    "vscode": {
+      "extensions": ["anthropic.claude-code", "ms-python.python"],
+      "settings": {
+        "claudeCode.allowDangerouslySkipPermissions": true,
+        "python.defaultInterpreterPath": "/home/node/.venv/bin/python"
+      }
+    }
+  },
+  // postCreate 在 postStart 之前執行，此時防火牆尚未啟用
+  "postCreateCommand": "uv sync",
+  "postStartCommand": "sudo /usr/local/bin/init-firewall.sh",
+  "waitFor": "postStartCommand"
+}

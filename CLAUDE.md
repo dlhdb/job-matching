@@ -34,6 +34,8 @@ uv add <pkg>                 # 新增依賴
 | 104 爬蟲的架構、請求標頭與頻率限制、職缺欄位字典、執行方式與輸出位置 | [docs/spec/104-scraper.md](docs/spec/104-scraper.md) |
 | 工作評分的維度、淘汰與薪資規則、偏好檔格式、提示詞設計、輸出欄位、LLM 抽象層 | [docs/spec/job-scoring.md](docs/spec/job-scoring.md) |
 | 程式碼風格、docstring 格式、文件繪圖（mermaid）、終端輸出慣例、依賴管理、測試慣例 | [docs/spec/conventions.md](docs/spec/conventions.md) |
+| 隔離容器與防火牆白名單設計（所有 AI coding 工具共用） | [docs/ai-coding-setup/devcontainer.md](docs/ai-coding-setup/devcontainer.md) |
+| Claude Code 專屬的權限規則（deny/ask）與設計理由 | [docs/ai-coding-setup/claude-code.md](docs/ai-coding-setup/claude-code.md) |
 
 `docs/spec/` 寫「怎麼做」，`docs/prd/` 寫「要做什麼、做到哪算完成」。
 

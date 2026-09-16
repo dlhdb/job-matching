@@ -70,6 +70,27 @@ uv run src/fetch_104_jobs.py -k "後端工程師,Backend,Python" -a 新竹
 
 結果是包含各維度分數、理由與 0–100 總分的 JSON。薪資太低、公司或職稱在排除清單中的職缺會直接淘汰，不呼叫 AI。想調整提示詞時，加上 `--dry-run` 就只會印出提示詞，不呼叫 AI。評分方式見 [工作評分規格](docs/spec/job-scoring.md)。
 
+## 在隔離環境中讓 Coding Agent 自主執行
+
+[.devcontainer/](.devcontainer/) 提供一個 Docker 容器，讓 AI coding agent（目前設定的是 Claude Code）可以不經逐步確認直接執行：容器內的指令不會碰到主機，對外連線也只允許必要的網域。設計細節見 [docs/ai-coding-setup/devcontainer.md](docs/ai-coding-setup/devcontainer.md)。
+
+1. 安裝 Docker Desktop 與 VS Code 的 [Dev Containers 擴充套件](https://marketplace.visualstudio.com/items?itemName=ms-vscode-remote.remote-containers)，並啟動 Docker Desktop。
+2. 在 VS Code 執行 **Dev Containers: Reopen in Container**。第一次建置會安裝 Python 3.14、依賴與 Claude Code。
+3. 在容器的終端機執行：
+
+   ```bash
+   claude --dangerously-skip-permissions
+   ```
+
+   也可以使用 Claude Code 擴充套件，在模式選單選 **Bypass permissions**。
+
+注意事項：
+
+- 專案資料夾是直接掛載進容器的，agent 的修改會直接出現在主機上。建議在獨立分支上工作。
+- 容器內看得到 `.env`，AI API key 建議設定用量上限。
+- 允許清單是在容器啟動時把網域解析成 IP。如果某個服務的 IP 變了而連不上，執行 `sudo /usr/local/bin/init-firewall.sh` 重新套用。
+- 需要新的網域時，編輯 [init-firewall.sh](.devcontainer/init-firewall.sh) 的 `ALLOWED_DOMAINS`，然後重建容器。
+
 ## 專案結構
 
 ```
@@ -83,9 +104,11 @@ output/104/            爬蟲輸出（不進版控）
 profile/               求職偏好與工作經歷（評分用；真實資料不進版控）
 .env.example           API key 範本，複製成 .env 後填入
 TODO.md                已確認、但尚未要做的事項
+.devcontainer/         讓 AI coding 工具自主執行的隔離容器（含對外連線防火牆）
 docs/
   prd/                 產品需求：要做什麼、做到哪算完成
   spec/                技術規格：怎麼做
+  ai-coding-setup/     Claude Code 等 AI 輔助開發工具的執行環境設定
 ```
 
 ## 文件導覽
@@ -98,6 +121,8 @@ docs/
 | [docs/spec/104-scraper.md](docs/spec/104-scraper.md) | 104 爬蟲技術規格與欄位字典 |
 | [docs/spec/job-scoring.md](docs/spec/job-scoring.md) | 工作評分邏輯技術規格 |
 | [docs/spec/conventions.md](docs/spec/conventions.md) | 開發慣例 |
+| [docs/ai-coding-setup/devcontainer.md](docs/ai-coding-setup/devcontainer.md) | 隔離容器與防火牆白名單（所有 AI coding 工具共用） |
+| [docs/ai-coding-setup/claude-code.md](docs/ai-coding-setup/claude-code.md) | Claude Code 專屬的權限規則（deny/ask） |
 
 ## 使用聲明
 
