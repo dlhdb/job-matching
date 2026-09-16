@@ -59,6 +59,9 @@ src/
   main.py              uv 產生的樣板，尚未成為真正的進入點
   fetch_104_jobs.py    104 職缺爬蟲
 output/104/            爬蟲輸出（不進版控）
+profile/               求職偏好與工作經歷（評分用；真實資料不進版控）
+.env.example           API key 範本，複製成 .env 後填入
+TODO.md                已確認、但尚未要做的事項
 docs/
   prd/                 產品需求：要做什麼、做到哪算完成
   spec/                技術規格：怎麼做
@@ -72,6 +75,7 @@ docs/
 | [docs/prd/features/](docs/prd/features/) | 各功能的需求與驗收標準 |
 | [docs/spec/architecture.md](docs/spec/architecture.md) | 系統架構：模組間的資料流與輸入契約 |
 | [docs/spec/104-scraper.md](docs/spec/104-scraper.md) | 104 爬蟲技術規格與欄位字典 |
+| [docs/spec/job-scoring.md](docs/spec/job-scoring.md) | 工作評分邏輯技術規格（規劃中） |
 | [docs/spec/conventions.md](docs/spec/conventions.md) | 開發慣例 |
 
 ## 使用聲明

@@ -29,9 +29,14 @@ uv add <pkg>                 # 新增依賴
 | 專案檔案結構 | [README.md](README.md) 的「專案結構」 |
 | 模組間的資料流與輸入契約 | [docs/spec/architecture.md](docs/spec/architecture.md) |
 | 104 爬蟲的架構、請求標頭與頻率限制、職缺欄位字典、執行方式與輸出位置 | [docs/spec/104-scraper.md](docs/spec/104-scraper.md) |
+| 工作評分的維度、淘汰與薪資規則、偏好檔格式、提示詞設計、輸出欄位、LLM 抽象層 | [docs/spec/job-scoring.md](docs/spec/job-scoring.md) |
 | 程式碼風格、docstring 格式、終端輸出慣例、依賴管理 | [docs/spec/conventions.md](docs/spec/conventions.md) |
 
 `docs/spec/` 寫「怎麼做」，`docs/prd/` 寫「要做什麼、做到哪算完成」。
+
+## 待辦事項
+
+討論中出現、但確認不是現在要做的事（文件修正、延後的功能、後續改善），一律記到 [TODO.md](TODO.md)，不要順手處理。開始做某項時，再把它從 TODO.md 移除。
 
 ## 功能開發流程
 

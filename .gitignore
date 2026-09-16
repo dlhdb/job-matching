@@ -12,5 +12,10 @@ wheels/
 # Scraper outputs
 output/
 
+# Personal profile and secrets (templates are *.example and stay tracked)
+profile/preferences.yaml
+profile/experience.md
+.env
+
 # Claude Code personal settings
 .claude/settings.local.json
