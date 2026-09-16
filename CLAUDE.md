@@ -26,7 +26,8 @@ uv add <pkg>                 # 新增依賴
 | 產品目標、用例、五項核心技術定義、功能清單與狀態 | [docs/prd/README.md](docs/prd/README.md) |
 | 單一功能的需求、範圍、驗收標準 | `docs/prd/features/F<編號>-*.md` |
 | 撰寫新 PRD 的格式 | [docs/prd/_template.md](docs/prd/_template.md) |
-| 程式碼地圖、資料流、各核心技術對應的技術文件 | [docs/spec/architecture.md](docs/spec/architecture.md) |
+| 專案檔案結構 | [README.md](README.md) 的「專案結構」 |
+| 模組間的資料流與輸入契約 | [docs/spec/architecture.md](docs/spec/architecture.md) |
 | 104 爬蟲的架構、請求標頭與頻率限制、職缺欄位字典、執行方式與輸出位置 | [docs/spec/104-scraper.md](docs/spec/104-scraper.md) |
 | 程式碼風格、docstring 格式、終端輸出慣例、依賴管理 | [docs/spec/conventions.md](docs/spec/conventions.md) |
 

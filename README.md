@@ -52,13 +52,25 @@ uv run src/fetch_104_jobs.py -k "後端工程師,Backend,Python" -a 新竹
 
 各欄位的意義見 [104 爬蟲規格 §3](docs/spec/104-scraper.md#3-資料欄位對應字典-data-dictionary)，完整參數說明見 [§4](docs/spec/104-scraper.md#4-使用指南與執行範例)。
 
+## 專案結構
+
+```
+src/
+  main.py              uv 產生的樣板，尚未成為真正的進入點
+  fetch_104_jobs.py    104 職缺爬蟲
+output/104/            爬蟲輸出（不進版控）
+docs/
+  prd/                 產品需求：要做什麼、做到哪算完成
+  spec/                技術規格：怎麼做
+```
+
 ## 文件導覽
 
 | 文件 | 內容 |
 | :--- | :--- |
 | [docs/prd/README.md](docs/prd/README.md) | 產品需求：目標、用例、核心技術、功能清單與狀態 |
 | [docs/prd/features/](docs/prd/features/) | 各功能的需求與驗收標準 |
-| [docs/spec/architecture.md](docs/spec/architecture.md) | 系統架構：程式碼地圖、資料流 |
+| [docs/spec/architecture.md](docs/spec/architecture.md) | 系統架構：模組間的資料流與輸入契約 |
 | [docs/spec/104-scraper.md](docs/spec/104-scraper.md) | 104 爬蟲技術規格與欄位字典 |
 | [docs/spec/conventions.md](docs/spec/conventions.md) | 開發慣例 |
 
