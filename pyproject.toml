@@ -11,5 +11,14 @@ dependencies = [
 [dependency-groups]
 dev = [
     "mypy>=2.2.0",
+    "pytest>=9.1.1",
     "types-requests>=2.33.0.20260712",
 ]
+
+[tool.pytest]
+testpaths = ["tests"]
+# 讓測試可以直接 import src/ 底下的模組
+pythonpath = ["src"]
+addopts = ["-m", "not network"]
+strict_markers = true
+markers = ["network: 需要連線到外部服務，預設跳過；用 -m network 執行"]

@@ -11,11 +11,13 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 ```bash
 uv sync                      # 安裝依賴（含 dev group）
 uv run src/main.py           # 目前仍是 uv 樣板，尚未成為真正進入點
+uv run pytest                # 離線測試（預設跳過需要網路的測試）
+uv run pytest -m network     # 只跑需要網路的測試（會實際連線到外部服務）
 uv run mypy src/             # 型別檢查（mypy 已列為 dev 依賴，但尚無設定檔）
 uv add <pkg>                 # 新增依賴
 ```
 
-尚無測試框架與 lint 設定。
+尚無 lint 設定。
 
 ## 文件索引
 
@@ -30,7 +32,7 @@ uv add <pkg>                 # 新增依賴
 | 模組間的資料流與輸入契約 | [docs/spec/architecture.md](docs/spec/architecture.md) |
 | 104 爬蟲的架構、請求標頭與頻率限制、職缺欄位字典、執行方式與輸出位置 | [docs/spec/104-scraper.md](docs/spec/104-scraper.md) |
 | 工作評分的維度、淘汰與薪資規則、偏好檔格式、提示詞設計、輸出欄位、LLM 抽象層 | [docs/spec/job-scoring.md](docs/spec/job-scoring.md) |
-| 程式碼風格、docstring 格式、終端輸出慣例、依賴管理 | [docs/spec/conventions.md](docs/spec/conventions.md) |
+| 程式碼風格、docstring 格式、終端輸出慣例、依賴管理、測試慣例 | [docs/spec/conventions.md](docs/spec/conventions.md) |
 
 `docs/spec/` 寫「怎麼做」，`docs/prd/` 寫「要做什麼、做到哪算完成」。
 

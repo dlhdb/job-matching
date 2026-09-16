@@ -6,7 +6,8 @@
 
 - [ ] **實作 F1-01 工作評分邏輯**：依 [PRD](docs/prd/features/F1-01-job-scoring.md) 與 [規格](docs/spec/job-scoring.md) 實作
   - 新增依賴：`google-genai`、`pydantic`、`pyyaml`、`python-dotenv`（dev：`types-PyYAML`）
-  - 新增範本 `profile/preferences.example.yaml`、`profile/experience.example.md`（PRD 的測試資料準備會用到）
+  - 新增範本 `profile/preferences.example.yaml`、`profile/experience.example.md`（PRD 的共用測試資料會用到）
+  - 依 PRD §6 撰寫 `tests/conftest.py` 的共用 fixture，以及 `tests/test_job_scoring_*.py`、`tests/test_score_job_cli.py`
   - 目前 `profile/` 裡的是測試用的虛構資料，實際使用前要換成自己的偏好與經歷
 
 ## 文件修正
@@ -20,6 +21,10 @@
 - [ ] **工作型態與福利**（遠端、彈性工時等）：遠端資訊要先擴充爬蟲才拿得到
 - [ ] **競爭程度與新鮮度**（應徵人數、更新日期）：比較適合當參考資訊或篩選條件，不算進適配分
 - [ ] F3 完成後，把公司評價納入「產業公司吸引力」
+
+## 評分規則（待決定）
+
+- [ ] 考慮在「`工作內容` 為 null 且 `電腦專長` 為空」時，由程式直接把 `技能匹配度` 設為 null，不交給 AI 判斷。這樣 F1-01 AC-9 可以離線驗證，結果也會穩定；但需要修改 [job-scoring.md §3.1](docs/spec/job-scoring.md#31-ai-維度的錨點描述)
 
 ## LLM
 

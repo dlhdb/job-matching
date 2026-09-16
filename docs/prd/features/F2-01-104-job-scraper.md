@@ -54,12 +54,12 @@
 
 ## 6. 驗收標準
 
-以下離線驗證都用同一段載入方式（`src/` 不在 Python 的 import 路徑上，無法直接 import）：
+測試都在 [tests/test_fetch_104_jobs.py](../../../tests/test_fetch_104_jobs.py)。除了 AC-5，其餘都離線執行：API 請求與等待都以 monkeypatch 取代，檔案寫到暫存目錄。
 
-```python
-import importlib.util as u
-s = u.spec_from_file_location("f104", "src/fetch_104_jobs.py")
-m = u.module_from_spec(s); s.loader.exec_module(m)
+一次跑完所有離線驗收：
+
+```bash
+uv run pytest tests/test_fetch_104_jobs.py
 ```
 
 ### AC-1：關鍵字拆分（涵蓋 FR-2）
@@ -67,139 +67,56 @@ m = u.module_from_spec(s); s.loader.exec_module(m)
 - **Given**：關鍵字字串混用半形、全形逗號與空白，或含重複的關鍵字
 - **When**：呼叫 `parse_keywords`
 - **Then**：得到去除空白、不重複且保留原順序的關鍵字列表
-- **驗證方式**：
-
-  ```bash
-  uv run python - <<'EOF'
-  import importlib.util as u
-  s = u.spec_from_file_location("f104", "src/fetch_104_jobs.py")
-  m = u.module_from_spec(s); s.loader.exec_module(m)
-  assert m.parse_keywords("Python, React，AI") == ["Python", "React", "AI"]
-  assert m.parse_keywords("Python,React, Python") == ["Python", "React"]
-  print("AC-1 通過")
-  EOF
-  ```
-
-  通過條件：印出 `AC-1 通過`。
+- **驗證方式**：`uv run pytest tests/test_fetch_104_jobs.py -k parse_keywords`
+- **通過條件**：全部 passed。
 
 ### AC-2：地區解析（涵蓋 FR-3）
 
 - **Given**：輸入精準名稱、模糊名稱、無法辨識的名稱與空值
 - **When**：呼叫 `resolve_area`
-- **Then**：前兩者得到正確代碼，後兩者得到 `(None, "全台灣")`
-- **驗證方式**：
+- **Then**：前兩者得到正確代碼（`新竹` 對應新竹市），後兩者得到 `(None, "全台灣")`
+- **驗證方式**：`uv run pytest tests/test_fetch_104_jobs.py -k resolve_area`
+- **通過條件**：全部 passed。
 
-  ```bash
-  uv run python - <<'EOF'
-  import importlib.util as u
-  s = u.spec_from_file_location("f104", "src/fetch_104_jobs.py")
-  m = u.module_from_spec(s); s.loader.exec_module(m)
-  assert m.resolve_area("台北市") == ("6001001000", "台北市")
-  assert m.resolve_area("新竹") == ("6001006000", "新竹市")
-  assert m.resolve_area("火星") == (None, "全台灣")
-  assert m.resolve_area(None) == (None, "全台灣")
-  print("AC-2 通過")
-  EOF
-  ```
+### AC-3：欄位解析與詳情失敗時不回填（涵蓋 FR-5、FR-8）
 
-  通過條件：印出 `AC-2 通過`。
+- **Given**：含搜尋摘要的原始職缺；詳情 API 分別成功、失敗（回傳 `None`），以及職缺連結中沒有 job id
+- **When**：呼叫 `parse_jobs`
+- **Then**：詳情成功時填入完整的工作內容與薪資待遇；失敗時兩欄為 `None`，不以搜尋摘要回填；日期與連結已正規化；欄位順序等於 `CSV_FIELDNAMES`
+- **驗證方式**：`uv run pytest tests/test_fetch_104_jobs.py -k "parse_jobs or format_date or normalize_url or extract"`
+- **通過條件**：全部 passed。
 
-### AC-3：詳情失敗時不回填（涵蓋 FR-5、FR-8）
+### AC-4：請求標頭、逾時與頻率限制（涵蓋 FR-7）
 
-- **Given**：詳情 API 失敗（`fetch_job_detail` 回傳 `None`）
-- **When**：以含搜尋摘要的原始資料呼叫 `parse_jobs`
-- **Then**：`薪資待遇`、`工作內容` 為 `None`；日期與連結已正規化
-- **驗證方式**：
+- **Given**：以假函式取代 `requests.get` 與 `time.sleep`，並記錄呼叫參數
+- **When**：呼叫 `fetch_jobs`、`fetch_job_detail`、`execute_scraping`
+- **Then**：每個請求都帶 `User-Agent`、`Referer` 與 `timeout`；詳情請求的 Referer 是職缺自己的頁面；分頁間、關鍵字間、詳情請求前的延遲都在規定範圍內；HTTP 錯誤或網路例外時回傳空結果，不會讓程式中斷
+- **驗證方式**：`uv run pytest tests/test_fetch_104_jobs.py -k "fetch_job or dedups"`
+- **通過條件**：全部 passed。
 
-  ```bash
-  uv run python - <<'EOF'
-  import importlib.util as u
-  s = u.spec_from_file_location("f104", "src/fetch_104_jobs.py")
-  m = u.module_from_spec(s); s.loader.exec_module(m)
-  m.fetch_job_detail = lambda job_id: None
-  m.time.sleep = lambda sec: None
-  raw = [{"jobNo": "1", "description": "摘要片段", "appearDate": "20260521",
-          "link": {"job": "//www.104.com.tw/job/8s12x", "cust": "//www.104.com.tw/company/abc"}}]
-  job = m.parse_jobs(raw)[0]
-  assert job["薪資待遇"] is None and job["工作內容"] is None
-  assert job["更新日期"] == "2026-05-21"
-  assert job["職缺連結"] == "https://www.104.com.tw/job/8s12x"
-  assert job["公司連結"] == "https://www.104.com.tw/company/abc"
-  assert list(job) == m.CSV_FIELDNAMES
-  print("AC-3 通過")
-  EOF
-  ```
+### AC-5：去重、輸出檔與 CLI（涵蓋 FR-1、FR-4、FR-6）
 
-  通過條件：印出 `AC-3 通過`。
-
-### AC-4：請求標頭與逾時（涵蓋 FR-7）
-
-- **Given**：程式原始碼
-- **When**：檢查標頭常數與所有 `requests.get` 呼叫
-- **Then**：標頭包含 `User-Agent` 與 `Referer`；每個 `requests.get` 都帶 `timeout`
-- **驗證方式**：
-
-  ```bash
-  uv run python - <<'EOF'
-  import importlib.util as u
-  s = u.spec_from_file_location("f104", "src/fetch_104_jobs.py")
-  m = u.module_from_spec(s); s.loader.exec_module(m)
-  assert {"User-Agent", "Referer"} <= set(m.DEFAULT_HEADERS)
-  print("AC-4 標頭通過")
-  EOF
-  grep -n "requests.get(" src/fetch_104_jobs.py
-  ```
-
-  通過條件：印出 `AC-4 標頭通過`，且 grep 列出的每一行都含 `timeout=`。
-
-### AC-5：實際抓取與輸出 〔需網路〕（涵蓋 FR-1、FR-4、FR-5、FR-6）
-
-- **Given**：可連線到 104
-- **When**：以兩個搜尋結果會重疊的關鍵字、1 頁、台北市執行 CLI 模式
-- **Then**：`output/104/` 產生 CSV 與 JSON；職缺代碼不重複；CSV 以 BOM 開頭且表頭與 `CSV_FIELDNAMES` 一致；大多數職缺有完整工作內容
-- **驗證方式**：
-
-  ```bash
-  uv run src/fetch_104_jobs.py -k "Python,Python工程師" -p 1 -a 台北市
-  uv run python - <<'EOF'
-  import csv, json, glob, os
-  j = max(glob.glob("output/104/jobs_104_Python_Python工程師_*.json"), key=os.path.getmtime)
-  c = j[:-5] + ".csv"
-  jobs = json.load(open(j, encoding="utf-8"))
-  ids = [x["職缺代碼"] for x in jobs]
-  assert jobs and len(ids) == len(set(ids)), "職缺代碼重複或無資料"
-  assert open(c, "rb").read(3) == b"\xef\xbb\xbf", "CSV 缺少 BOM"
-  header = next(csv.reader(open(c, encoding="utf-8-sig")))
-  assert header == list(jobs[0]), "CSV 表頭與 JSON 欄位不一致"
-  filled = sum(1 for x in jobs if x["工作內容"])
-  print(f"AC-5 通過：{len(jobs)} 筆，{filled} 筆有工作內容")
-  EOF
-  ```
-
-  通過條件：印出 `AC-5 通過`；終端輸出中第二個關鍵字的「新增去重職缺」少於「本頁職缺」（代表跨關鍵字去重有生效）；有工作內容的筆數不為 0。
+- **Given**：以假資料取代搜尋 API，兩個關鍵字的結果有重疊
+- **When**：呼叫 `execute_scraping`，以及用不同參數呼叫 `main` 和 `run_interactive`
+- **Then**：輸出中每筆職缺唯一；產生同名的 CSV（以 BOM 開頭、表頭等於 `CSV_FIELDNAMES`）與 JSON；到達最後一頁或遇到空頁時停止；有帶 `--keyword` 時使用 CLI 模式，沒帶時進入互動模式
+- **驗證方式**：`uv run pytest tests/test_fetch_104_jobs.py -k "execute_scraping or save or main or interactive"`
+- **通過條件**：全部 passed。
 
 ### AC-6：Ctrl+C 優雅退出（涵蓋 FR-9）
 
 - **Given**：程式處於互動模式等待輸入
 - **When**：送出 SIGINT
 - **Then**：印出取消訊息，結束碼為 0
-- **驗證方式**：
+- **驗證方式**：`uv run pytest tests/test_fetch_104_jobs.py -k ctrl_c`
+- **通過條件**：passed。
 
-  ```bash
-  uv run python - <<'EOF'
-  import signal, subprocess, sys, time
-  p = subprocess.Popen([sys.executable, "src/fetch_104_jobs.py"],
-                       stdin=subprocess.PIPE, stdout=subprocess.PIPE, text=True)
-  time.sleep(1.5)
-  p.send_signal(signal.SIGINT)
-  out, _ = p.communicate(timeout=5)
-  assert p.returncode == 0, p.returncode
-  assert "使用者取消操作" in out
-  print("AC-6 通過")
-  EOF
-  ```
+### AC-7：實際抓取與輸出 〔需網路〕（涵蓋 FR-1、FR-4、FR-5、FR-6）
 
-  通過條件：印出 `AC-6 通過`。
+- **Given**：可以連線到 104
+- **When**：以兩個搜尋結果會重疊的關鍵字（`Python`、`Python工程師`）、1 頁、台北市執行抓取，輸出寫到暫存目錄
+- **Then**：職缺代碼不重複，而且少於兩個關鍵字抓到的原始筆數（代表跨關鍵字去重有生效）；CSV 以 BOM 開頭且表頭一致；至少一筆有完整的工作內容
+- **驗證方式**：`uv run pytest -m network tests/test_fetch_104_jobs.py`
+- **通過條件**：passed。
 
 ## 7. 待決問題
 

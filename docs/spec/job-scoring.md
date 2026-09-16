@@ -231,9 +231,16 @@ src/
     llm.py                   LLMClient Protocol、GeminiClient、get_client(provider, model)
     scorer.py                compute_total(scores, weights) -> int | None（第 6 節，scores 的值可為 None）
                              score_job(job, prefs, experience, client) -> JobScore
+tests/
+  conftest.py                共用 fixture（測試資料、假的 LLM client）
+  test_job_scoring_profile.py
+  test_job_scoring_rules.py
+  test_job_scoring_scorer.py
+  test_score_job_cli.py
+  test_job_scoring_network.py  需要網路的測試（network 標記）
 ```
 
-用 `uv run src/score_job.py` 執行時，`src/` 會在 import 路徑上，可以直接 `import job_scoring`。在其他地方驗證時，使用 `PYTHONPATH=src uv run python ...`。
+用 `uv run src/score_job.py` 執行時，`src/` 會在 import 路徑上，可以直接 `import job_scoring`。pytest 已在 `pyproject.toml` 設定 `pythonpath = ["src"]`，測試中也可以直接 import。
 
 新增的依賴：`google-genai`、`pydantic`、`pyyaml`、`python-dotenv`（dev：`types-PyYAML`）。
 
@@ -294,5 +301,7 @@ uv run src/score_job.py --jobs output/104/<檔名>.json [--job-no <職缺代碼>
 | `--dry-run` | 先執行硬性淘汰與薪資計分，再印出完整的 system 與 user 提示詞，**不建立 LLM client、不發出網路請求** |
 
 評分結果以 JSON 印到 stdout（`ensure_ascii=False`，縮排 2）。進度與錯誤訊息印到 stderr，方便把 stdout 導向檔案。
+
+進入點是 `main(argv: list[str] | None = None) -> int`，回傳結束碼；`if __name__ == "__main__"` 區塊只負責 `sys.exit(main())`。測試直接呼叫 `main([...])`，不必另外啟動子行程。
 
 結束碼：成功（包括被淘汰）為 0；個人資料檔缺少或格式錯誤、找不到職缺、缺少 API key、AI 回應格式錯誤時，印出 `[-]` 並以 1 結束。

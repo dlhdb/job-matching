@@ -58,6 +58,7 @@ uv run src/fetch_104_jobs.py -k "後端工程師,Backend,Python" -a 新竹
 src/
   main.py              uv 產生的樣板，尚未成為真正的進入點
   fetch_104_jobs.py    104 職缺爬蟲
+tests/                 pytest 測試（uv run pytest）
 output/104/            爬蟲輸出（不進版控）
 profile/               求職偏好與工作經歷（評分用；真實資料不進版控）
 .env.example           API key 範本，複製成 .env 後填入
