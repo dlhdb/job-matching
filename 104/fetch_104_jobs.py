@@ -28,7 +28,11 @@ import json
 import csv
 import argparse
 from datetime import datetime
+from pathlib import Path
 import requests
+
+# 輸出目錄以專案根目錄為基準，不受執行時的工作目錄影響（已列入 .gitignore）
+OUTPUT_DIR = Path(__file__).resolve().parent.parent / "output" / "104"
 
 # 104 熱門縣市代碼對應表
 POPULAR_AREAS = {
@@ -517,8 +521,9 @@ def execute_scraping(keywords, pages, area_code, area_label, ro):
     if not clean_keyword:
         clean_keyword = "all"
     
-    csv_filename = f"jobs_104_{clean_keyword}_{timestamp}.csv"
-    json_filename = f"jobs_104_{clean_keyword}_{timestamp}.json"
+    OUTPUT_DIR.mkdir(parents=True, exist_ok=True)
+    csv_filename = OUTPUT_DIR / f"jobs_104_{clean_keyword}_{timestamp}.csv"
+    json_filename = OUTPUT_DIR / f"jobs_104_{clean_keyword}_{timestamp}.json"
 
     # 持久化寫入硬碟
     save_to_csv(parsed_jobs, csv_filename)
