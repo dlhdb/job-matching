@@ -23,7 +23,7 @@ uv add <pkg>                 # 新增依賴
 
 | 想知道什麼 | 讀哪份 |
 | :--- | :--- |
-| 產品目標、五項核心技術定義、功能清單與狀態 | [docs/prd/README.md](docs/prd/README.md) |
+| 產品目標、用例、五項核心技術定義、功能清單與狀態 | [docs/prd/README.md](docs/prd/README.md) |
 | 單一功能的需求、範圍、驗收標準 | `docs/prd/features/F<編號>-*.md` |
 | 撰寫新 PRD 的格式 | [docs/prd/_template.md](docs/prd/_template.md) |
 | 程式碼地圖、資料流、各核心技術對應的技術文件 | [docs/spec/architecture.md](docs/spec/architecture.md) |

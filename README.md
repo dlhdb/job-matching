@@ -56,7 +56,7 @@ uv run 104/fetch_104_jobs.py -k "後端工程師,Backend,Python" -a 新竹
 
 | 文件 | 內容 |
 | :--- | :--- |
-| [docs/prd/README.md](docs/prd/README.md) | 產品需求：目標、核心技術、功能清單與狀態 |
+| [docs/prd/README.md](docs/prd/README.md) | 產品需求：目標、用例、核心技術、功能清單與狀態 |
 | [docs/prd/features/](docs/prd/features/) | 各功能的需求與驗收標準 |
 | [docs/spec/architecture.md](docs/spec/architecture.md) | 系統架構：程式碼地圖、資料流 |
 | [docs/spec/104-scraper.md](docs/spec/104-scraper.md) | 104 爬蟲技術規格與欄位字典 |
