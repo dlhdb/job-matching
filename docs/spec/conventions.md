@@ -27,14 +27,6 @@ def resolve_area(area_input):
 
 專案由 **uv** 管理（`uv.lock`），Python 3.14。新增依賴走 `uv add` / `uv add --dev`，不要手改 `pyproject.toml` 之後跑 `pip`。
 
-## Commit
-
-規範定義在 [.claude/commands/commit.md](../../.claude/commands/commit.md)，要點：
-
-- 繁體中文，首行 `<type>: <精簡摘要>`（Conventional Commits，摘要 ≤ 50 字元）
-- 內文條列式，**第一項先說明這個改動的效益**，後續項目才描述做了什麼
-- 產生後先顯示給使用者確認，不要直接 commit（除非明確要求）
-
 ## 防禦性設計
 
 所有外部資料以 `.get()` 安全提取、對外請求一律設 `timeout`、缺值就是 `null`——**不自行腦補預設值或做 fallback 回填**。資料的真實性優先於欄位的完整度。

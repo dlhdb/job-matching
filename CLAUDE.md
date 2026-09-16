@@ -23,8 +23,17 @@ uv add <pkg>                 # 新增依賴
 
 | 想知道什麼 | 讀哪份 |
 | :--- | :--- |
-| 專案要做什麼、五項核心技術各自的實作現況、程式碼地圖、資料流 | [docs/spec/overview.md](docs/spec/overview.md) |
+| 產品目標、五項核心技術定義、功能清單與狀態 | [docs/prd/README.md](docs/prd/README.md) |
+| 單一功能的需求、範圍、驗收標準 | `docs/prd/features/F<編號>-*.md` |
+| 撰寫新 PRD 的格式 | [docs/prd/_template.md](docs/prd/_template.md) |
+| 程式碼地圖、資料流、各核心技術對應的技術文件 | [docs/spec/architecture.md](docs/spec/architecture.md) |
 | 104 爬蟲的架構、請求標頭與頻率限制、職缺欄位字典、執行方式與輸出位置 | [docs/spec/104-scraper.md](docs/spec/104-scraper.md) |
-| 程式碼風格、docstring 格式、終端輸出慣例、依賴管理、commit 規範 | [docs/spec/conventions.md](docs/spec/conventions.md) |
+| 程式碼風格、docstring 格式、終端輸出慣例、依賴管理 | [docs/spec/conventions.md](docs/spec/conventions.md) |
 
-要新增功能時，先讀 overview.md 確認它對應到哪一項核心技術。
+`docs/spec/` 寫「怎麼做」，`docs/prd/` 寫「要做什麼、做到哪算完成」。
+
+## 功能開發流程
+
+1. 先讀 docs/prd/README.md 確認功能對應哪一項核心技術，再讀該功能的 PRD。沒有 PRD 或 PRD 仍有待決問題時，先與使用者釐清，不要直接實作。
+2. 實作時只做「功能需求」列出的事，不碰「範圍外」。
+3. 完成後逐條執行 PRD 的驗收標準，回報每條 ✅ / ❌ 與實際輸出；全部通過才把 PRD、PRD 索引與根目錄 README.md 的狀態改為已完成。
