@@ -6,7 +6,7 @@
 
 ```
 src/main.py                  uv 產生的樣板，尚未成為真正的進入點
-src/104/fetch_104_jobs.py    104 職缺爬蟲（單檔自足腳本，無 package 結構）
+src/fetch_104_jobs.py        104 職缺爬蟲（單檔自足腳本，無 package 結構）
 output/104/                  爬蟲輸出（不進版控）
 docs/prd/                    產品需求文件（每個功能一份，含驗收標準）
 docs/spec/                   技術設計文件

@@ -32,7 +32,7 @@ from pathlib import Path
 import requests
 
 # 輸出目錄以專案根目錄為基準，不受執行時的工作目錄影響（已列入 .gitignore）
-OUTPUT_DIR = Path(__file__).resolve().parents[2] / "output" / "104"
+OUTPUT_DIR = Path(__file__).resolve().parents[1] / "output" / "104"
 
 # 104 熱門縣市代碼對應表
 POPULAR_AREAS = {

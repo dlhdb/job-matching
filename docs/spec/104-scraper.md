@@ -124,13 +124,13 @@ uv sync
 #### 互動模式（推薦新手使用）
 執行後，腳本會一步步引導您完成條件配置，即便不具備程式背景也能輕鬆上手：
 ```bash
-uv run src/104/fetch_104_jobs.py
+uv run src/fetch_104_jobs.py
 ```
 
 #### 進階命令列（CLI）模式
 您可以利用腳本提供的豐富選項，整合進您個人的自動化 Pipeline 中：
 ```bash
-uv run src/104/fetch_104_jobs.py --keyword "關鍵字1,關鍵字2" --pages 頁數 --area "縣市名稱" --type 性質代碼
+uv run src/fetch_104_jobs.py --keyword "關鍵字1,關鍵字2" --pages 頁數 --area "縣市名稱" --type 性質代碼
 ```
 
 * **參數參數說明**：

@@ -20,7 +20,7 @@ uv sync
 用互動模式，照提示依序輸入關鍵字、縣市、頁數與職缺性質：
 
 ```bash
-uv run src/104/fetch_104_jobs.py
+uv run src/fetch_104_jobs.py
 ```
 
 ### 我已經知道要找什麼
@@ -28,7 +28,7 @@ uv run src/104/fetch_104_jobs.py
 用命令列模式直接指定條件，例如在台北市找全職的 Python 職缺，抓 2 頁：
 
 ```bash
-uv run src/104/fetch_104_jobs.py -k Python -a 台北市 -t 1 -p 2
+uv run src/fetch_104_jobs.py -k Python -a 台北市 -t 1 -p 2
 ```
 
 ### 我想一次搜尋多個相關職稱
@@ -36,7 +36,7 @@ uv run src/104/fetch_104_jobs.py -k Python -a 台北市 -t 1 -p 2
 用逗號分隔多個關鍵字，重複的職缺會自動合併：
 
 ```bash
-uv run src/104/fetch_104_jobs.py -k "後端工程師,Backend,Python" -a 新竹
+uv run src/fetch_104_jobs.py -k "後端工程師,Backend,Python" -a 新竹
 ```
 
 縣市可以簡寫（如 `台北`），不填則搜尋全台灣。同名的市與縣會對應到清單中先出現的那個，例如 `新竹` 會視為新竹市，要搜新竹縣請寫全名。
