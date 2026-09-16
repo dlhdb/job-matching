@@ -6,17 +6,16 @@
 
 ## 1. 評分流程
 
-```
-職缺 dict ─────────┐
-preferences.yaml ──┼─→ ① 硬性淘汰 ──淘汰──→ JobScore（淘汰: true，不呼叫 AI）
-experience.md ─────┘         │
-                            通過
-                             ↓
-                     ② 薪資規則計分（程式）
-                             ↓
-                     ③ AI 評分三個維度（LLM）
-                             ↓
-                     ④ 加權總分 ─→ JobScore
+```mermaid
+flowchart TD
+    J[職缺 dict] --> F{① 硬性淘汰}
+    P[preferences.yaml] --> F
+    E[experience.md] --> F
+    F -->|淘汰| X["JobScore（淘汰: true，不呼叫 AI）"]
+    F -->|通過| S["② 薪資規則計分（程式）"]
+    S --> A["③ AI 評分三個維度（LLM）"]
+    A --> W[④ 加權總分]
+    W --> O[JobScore]
 ```
 
 - 被淘汰的職缺在 ① 就停止，**不呼叫 AI**，以節省費用，也不需要 API key。
