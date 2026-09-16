@@ -37,7 +37,7 @@
 ## 4. 功能需求
 
 - **FR-1**：支援以 `-k/--keyword`、`-p/--pages`、`-a/--area`、`-t/--type` 參數執行；未帶 `--keyword` 時進入互動引導模式。
-- **FR-2**：多個關鍵字可用半形或全形逗號分隔，逐一搜尋。
+- **FR-2**：多個關鍵字可用半形或全形逗號分隔，逐一搜尋；重複的關鍵字只搜尋一次，保留首次出現的順序。
 - **FR-3**：縣市名稱可精準或模糊比對（如 `台北`）到 104 地區代碼；無法辨識或未填時搜尋全台灣。
 - **FR-4**：單次執行內，以 `職缺代碼` 去重，輸出中每筆職缺唯一。
 - **FR-5**：對每筆職缺呼叫詳情 API 取得完整「工作內容」與「薪資待遇」；詳情失敗時兩欄為 `null`，不以搜尋摘要回填。
@@ -64,9 +64,9 @@ m = u.module_from_spec(s); s.loader.exec_module(m)
 
 ### AC-1：關鍵字拆分（涵蓋 FR-2）
 
-- **Given**：關鍵字字串混用半形、全形逗號與空白
+- **Given**：關鍵字字串混用半形、全形逗號與空白，或含重複的關鍵字
 - **When**：呼叫 `parse_keywords`
-- **Then**：得到去除空白後的關鍵字列表
+- **Then**：得到去除空白、不重複且保留原順序的關鍵字列表
 - **驗證方式**：
 
   ```bash
@@ -75,6 +75,7 @@ m = u.module_from_spec(s); s.loader.exec_module(m)
   s = u.spec_from_file_location("f104", "104/fetch_104_jobs.py")
   m = u.module_from_spec(s); s.loader.exec_module(m)
   assert m.parse_keywords("Python, React，AI") == ["Python", "React", "AI"]
+  assert m.parse_keywords("Python,React, Python") == ["Python", "React"]
   print("AC-1 通過")
   EOF
   ```
@@ -154,15 +155,15 @@ m = u.module_from_spec(s); s.loader.exec_module(m)
 ### AC-5：實際抓取與輸出 〔需網路〕（涵蓋 FR-1、FR-4、FR-5、FR-6）
 
 - **Given**：可連線到 104
-- **When**：以重複關鍵字、1 頁、台北市執行 CLI 模式
+- **When**：以兩個搜尋結果會重疊的關鍵字、1 頁、台北市執行 CLI 模式
 - **Then**：`output/104/` 產生 CSV 與 JSON；職缺代碼不重複；CSV 以 BOM 開頭且表頭與 `CSV_FIELDNAMES` 一致；大多數職缺有完整工作內容
 - **驗證方式**：
 
   ```bash
-  uv run 104/fetch_104_jobs.py -k "Python,Python" -p 1 -a 台北市
+  uv run 104/fetch_104_jobs.py -k "Python,Python工程師" -p 1 -a 台北市
   uv run python - <<'EOF'
   import csv, json, glob, os
-  j = max(glob.glob("output/104/jobs_104_Python_Python_*.json"), key=os.path.getmtime)
+  j = max(glob.glob("output/104/jobs_104_Python_Python工程師_*.json"), key=os.path.getmtime)
   c = j[:-5] + ".csv"
   jobs = json.load(open(j, encoding="utf-8"))
   ids = [x["職缺代碼"] for x in jobs]
@@ -175,7 +176,7 @@ m = u.module_from_spec(s); s.loader.exec_module(m)
   EOF
   ```
 
-  通過條件：印出 `AC-5 通過`；終端輸出中第二個關鍵字的「新增去重職缺」為 0 筆；有工作內容的筆數不為 0。
+  通過條件：印出 `AC-5 通過`；終端輸出中第二個關鍵字的「新增去重職缺」少於「本頁職缺」（代表跨關鍵字去重有生效）；有工作內容的筆數不為 0。
 
 ### AC-6：Ctrl+C 優雅退出（涵蓋 FR-9）
 

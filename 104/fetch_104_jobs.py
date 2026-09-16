@@ -153,14 +153,15 @@ def resolve_area(area_input):
 
 def parse_keywords(raw_input):
     """
-    拆分關鍵字輸入，支援半形與全形逗號
+    拆分關鍵字輸入，支援半形與全形逗號，並移除重複的關鍵字（保留首次出現的順序）
     
     :param raw_input: str, 使用者輸入的關鍵字原始字串
-    :return: list, 清理後的關鍵字列表
+    :return: list, 清理且不重複的關鍵字列表
     """
     if raw_input == "":
         return [""]
-    return [k.strip() for k in raw_input.replace('，', ',').split(',') if k.strip()]
+    keywords = [k.strip() for k in raw_input.replace('，', ',').split(',') if k.strip()]
+    return list(dict.fromkeys(keywords))
 
 # ---------------------------------------------------------------------------
 # API 請求函式
