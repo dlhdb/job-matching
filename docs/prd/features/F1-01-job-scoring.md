@@ -48,7 +48,7 @@
 - **FR-2**：依 [§4](../../spec/job-scoring.md#4-硬性淘汰規則) 檢查硬性淘汰條件，並收集所有淘汰原因；被淘汰的職缺不呼叫 AI。
 - **FR-3**：依 [§5](../../spec/job-scoring.md#5-薪資換算與計分) 換算月薪並計算薪資分數；面議、時薪、日薪、論件計酬與缺值都視為未知（`null`），不會因此被淘汰。
 - **FR-4**：由 AI 依 [§3.1](../../spec/job-scoring.md#31-ai-維度的錨點描述) 的錨點，為三個 AI 維度各給 1–5 分或 `null`，每個維度都附上理由，另外提供總評；AI 回應必須通過 schema 驗證，否則視為失敗。
-- **FR-5**：依 [§6](../../spec/job-scoring.md#6-總分) 計算 0–100 的加權總分；已知維度的權重不到一半時，總分為 `null`，評語標示「資料不足」。
+- **FR-5**：依 [§6](../../spec/job-scoring.md#6-總分) 計算 0–100 的加權總分；已知維度的權重不到一半時，總分為 `null`。
 - **FR-6**：提供 `src/score_job.py` CLI，參數與結束碼依 [§8.5](../../spec/job-scoring.md#85-cli)；`--dry-run` 只印出提示詞，不建立 LLM client。
 - **FR-7**：LLM 呼叫透過 `LLMClient` 介面與 `get_client(provider, model)` 工廠函式；預設使用 Gemini。API key 讀取環境變數 `GEMINI_API_KEY`，CLI 啟動時會從專案根目錄的 `.env` 載入，但不覆寫已存在的環境變數；`.env` 不進版控，版控中提供 `.env.example`。只有 `llm.py` 可以依賴特定供應商的 SDK。
 
@@ -58,11 +58,11 @@
   - 職缺：F2-01 輸出的 JSON，欄位定義見 [104-scraper.md §3](../../spec/104-scraper.md#3-資料欄位對應字典-data-dictionary)
   - 個人資料：見 [job-scoring.md §2](../../spec/job-scoring.md#2-輸入個人資料檔)
 - **輸出**：`JobScore` JSON，印到 stdout，欄位定義見 [job-scoring.md §7](../../spec/job-scoring.md#7-輸出jobscore)。
-- **缺值處理**：職缺欄位為 `null` 時，對應維度的分數為 `null`，並列入 `未知維度`，不猜分數；提示詞中以「（無資料）」標示缺值。
+- **缺值處理**：職缺欄位為 `null` 或空字串時，在提示詞中以「（無資料）」標示。AI 維度由 AI 判斷剩下的資料是否足以評分，不足時給 `null`，不猜分數；薪資無法換算時由程式給 `null`。分數為 `null` 的維度都列入 `未知維度`。
 
 ## 6. 驗收標準
 
-測試與實作一起撰寫，依 [conventions.md 的測試章節](../../spec/conventions.md#測試)。除了 AC-8、AC-9，其餘都離線執行，也不需要 API key。
+測試與實作一起撰寫，依 [conventions.md 的測試章節](../../spec/conventions.md#測試)。除了 AC-8，其餘都離線執行，也不需要 API key。
 
 ### 共用測試資料
 
@@ -145,11 +145,12 @@ uv run pytest tests/test_job_scoring_*.py tests/test_score_job_cli.py
 
 ### AC-4：評分流程與 AI 回應處理（涵蓋 FR-2、FR-4、FR-5）
 
-- **Given**：假的 LLM client，回傳 `career_fit` 5 分、`skill_match` 為 `null`、`industry_fit` 3 分、總評為 `總評`；另有一份 `career_fit` 為 6 分的回應
+- **Given**：假的 LLM client，回傳 `career_fit` 5 分、`skill_match` 為 `null`、`industry_fit` 3 分、總評為 `總評`；另有一份 `career_fit` 與 `skill_match` 都是 `null` 的回應，以及一份 `career_fit` 為 6 分的回應
 - **When**：分別對 `out` 與 `ok` 職缺呼叫 `score_job`，並驗證超出範圍的回應
 - **Then**：
   - `out`：client 沒有被呼叫；結果為 `淘汰` true，`維度` 與 `總分` 都是 `None`
   - `ok`：client 被呼叫 1 次；`model_dump(by_alias=True)` 的鍵依序是四個中文維度名稱；`技能匹配度` 的分數為 `None`、`薪資水準` 為 4；`總分` 83；`未知維度` 為 `[技能匹配度]`；`評語` 為 `總評`
+  - 兩個維度都是 `null` 的回應（已知權重 0.35，不到一半）：`總分` 為 `None`；`未知維度` 為 `[職涯方向契合度, 技能匹配度]`；`評語` 維持 `總評`，不加任何前綴
   - 6 分的回應會讓 `AIAssessment.model_validate` 拋出 `ValidationError`
 - **驗證方式**：`uv run pytest tests/test_job_scoring_scorer.py -k score_job`
 - **通過條件**：全部 passed。
@@ -193,18 +194,10 @@ uv run pytest tests/test_job_scoring_*.py tests/test_score_job_cli.py
 - **Then**：
   - 輸出符合 [§7](../../spec/job-scoring.md#7-輸出jobscore)，四個維度依序出現
   - 每個維度都有非空的理由，分數是 1–5 或 `None`
-  - 總分在 0–100 之間，或是 `None` 且評語以「資料不足」開頭
+  - 總分在 0–100 之間，或是 `None` 且 `未知維度` 不為空
   - 測試會印出完整結果（用 `-s` 顯示）
 - **驗證方式**：`uv run pytest -m network -s tests/test_job_scoring_network.py -k real_scoring`
 - **通過條件**：passed；使用者閱讀印出的理由，確認內容確實引用了職缺內容，而且與自己的判斷大致相符。
-
-### AC-9：缺少工作內容時不猜分數 〔需網路〕（涵蓋 FR-4、FR-5）
-
-- **Given**：AC-8 的前提，並把職缺改成 `工作內容` 為 null、`電腦專長` 為空字串
-- **When**：呼叫 `main` 評分
-- **Then**：`技能匹配度` 為 `None` 並列在 `未知維度` 中；總分為 `None` 時，評語以「資料不足」開頭
-- **驗證方式**：`uv run pytest -m network tests/test_job_scoring_network.py -k no_description`
-- **通過條件**：passed。
 
 ## 7. 待決問題
 
