@@ -11,3 +11,6 @@ wheels/
 
 # Scraper outputs
 output/
+
+# Claude Code personal settings
+.claude/settings.local.json

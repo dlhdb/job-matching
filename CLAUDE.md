@@ -24,7 +24,7 @@ uv add <pkg>                 # 新增依賴
 | 想知道什麼 | 讀哪份 |
 | :--- | :--- |
 | 專案要做什麼、五項核心技術各自的實作現況、程式碼地圖、資料流 | [docs/spec/overview.md](docs/spec/overview.md) |
-| 104 爬蟲的架構、反爬機制、職缺欄位字典、執行方式與輸出位置 | [docs/spec/104-scraper.md](docs/spec/104-scraper.md) |
+| 104 爬蟲的架構、請求標頭與頻率限制、職缺欄位字典、執行方式與輸出位置 | [docs/spec/104-scraper.md](docs/spec/104-scraper.md) |
 | 程式碼風格、docstring 格式、終端輸出慣例、依賴管理、commit 規範 | [docs/spec/conventions.md](docs/spec/conventions.md) |
 
 要新增功能時，先讀 overview.md 確認它對應到哪一項核心技術。

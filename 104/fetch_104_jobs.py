@@ -10,7 +10,7 @@
 1. 支援「多個關鍵字批量撈取」：可同時輸入多個獨立關鍵字，腳本會自動輪詢、合併並自動進行「資料去重」(Deduplication)，避免重複的職缺重複寫入。
 2. 支援命令列參數 (CLI Args) 與親切的互動式引導模式。
 3. 內建熱門縣市名稱自動對應 104 地區代碼 (Area Code)。
-4. 自動進行請求頻率限制 (Rate Limiting) 與隨機延遲，降低被封鎖的風險。
+4. 自動進行請求頻率限制 (Rate Limiting) 與隨機延遲，避免對 104 伺服器造成負擔。
 5. 提供美觀的終端機表格預覽，並使用 Emojis 提升視覺體驗。
 6. 匯出 CSV 採用帶有 BOM 的 UTF-8 編碼 (utf-8-sig)，確保 Microsoft Excel 開啟時中文不會亂碼。
 7. 提供豐富的欄位提取，包含職缺名稱、公司名稱、薪資區間、地區、工作描述、電腦專長、科系要求、更新日期及直接應徵連結等。
@@ -60,7 +60,7 @@ POPULAR_AREAS = {
     "連江縣": "6001022000"
 }
 
-# 模擬真實瀏覽器訪問。缺少 User-Agent 或 Referer 時，104 一律回 403，兩者皆不可移除
+# 104 API 要求的請求標頭。缺少 User-Agent 或 Referer 時，104 一律回 403，兩者皆不可移除
 DEFAULT_HEADERS = {
     'User-Agent': 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, Gecko) Chrome/120.0.0.0 Safari/537.36',
     'Referer': 'https://www.104.com.tw/jobs/search/',
@@ -261,7 +261,7 @@ def parse_jobs(raw_jobs):
         job_id = _extract_job_id(job_url)
         detail_data = None
         if job_id:
-            # 逐筆發送詳情請求，不加延遲會觸發 104 的高頻封鎖
+            # 逐筆發送詳情請求，加入延遲以控制請求頻率；不加延遲會被 104 拒絕請求
             time.sleep(random.uniform(0.1, 0.3))
             detail_data = fetch_job_detail(job_id)
 
@@ -488,7 +488,7 @@ def execute_scraping(keywords, pages, area_code, area_label, ro):
                 print(f"   [i] 已到達此關鍵字最後一頁 (共 {last_page} 頁)，停止此關鍵字撈取。")
                 break
                 
-            # 分頁間隨機安全延遲 1 ~ 2 秒，防止觸發安全鎖
+            # 分頁間隨機延遲 1 ~ 2 秒，控制請求頻率
             if p < pages:
                 delay = round(random.uniform(1.0, 2.0), 2)
                 time.sleep(delay)
