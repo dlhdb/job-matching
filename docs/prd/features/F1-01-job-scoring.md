@@ -4,7 +4,7 @@
 | :--- | :--- |
 | ID | F1-01 |
 | 核心技術 | 1 — 工作評分邏輯（見 [PRD 索引](../README.md#核心技術)） |
-| 狀態 | 待實作 |
+| 狀態 | 實作中 |
 | 依賴 | F2-01（使用其輸出的職缺 JSON 作為輸入） |
 | 技術規格 | [job-scoring.md](../../spec/job-scoring.md) |
 
@@ -28,7 +28,7 @@
 - 讀取並驗證 `profile/preferences.yaml` 與 `profile/experience.md`，並提供 `.example` 範本
 - 硬性淘汰規則
 - 四個評分維度：職涯方向契合度、技能匹配度、產業公司吸引力（AI 判斷），以及薪資水準（程式計算）
-- 加權總分與「資料不足」判定
+- 加權總分（未知維度以 3 分代入）
 - 提示詞模板
 - LLM 供應商抽象層與 Gemini 實作
 - 對單筆職缺評分的 CLI，包含 `--dry-run`
@@ -48,7 +48,7 @@
 - **FR-2**：依 [§4](../../spec/job-scoring.md#4-硬性淘汰規則) 檢查硬性淘汰條件，並收集所有淘汰原因；被淘汰的職缺不呼叫 AI。
 - **FR-3**：依 [§5](../../spec/job-scoring.md#5-薪資換算與計分) 換算月薪並計算薪資分數；面議、時薪、日薪、論件計酬與缺值都視為未知（`null`），不會因此被淘汰。
 - **FR-4**：由 AI 依 [§3.1](../../spec/job-scoring.md#31-ai-維度的錨點描述) 的錨點，為三個 AI 維度各給 1–5 分或 `null`，每個維度都附上理由，另外提供總評；AI 回應必須通過 schema 驗證，否則視為失敗。
-- **FR-5**：依 [§6](../../spec/job-scoring.md#6-總分) 計算 0–100 的加權總分；已知維度的權重不到一半時，總分為 `null`。
+- **FR-5**：依 [§6](../../spec/job-scoring.md#6-總分) 計算 0–100 的加權總分；分數為 `null` 的維度以 3 分代入，讓所有沒被淘汰的職缺都有可以互相比較的總分。
 - **FR-6**：提供 `src/score_job.py` CLI，參數與結束碼依 [§8.5](../../spec/job-scoring.md#85-cli)；`--dry-run` 只印出提示詞，不建立 LLM client。
 - **FR-7**：LLM 呼叫透過 `LLMClient` 介面與 `get_client(provider, model)` 工廠函式；預設使用 Gemini。API key 讀取環境變數 `GEMINI_API_KEY`，CLI 啟動時會從專案根目錄的 `.env` 載入，但不覆寫已存在的環境變數；`.env` 不進版控，版控中提供 `.env.example`。只有 `llm.py` 可以依賴特定供應商的 SDK。
 
@@ -96,9 +96,9 @@ uv run pytest tests/test_job_scoring_*.py tests/test_score_job_cli.py
 
 ### AC-1：個人資料檔驗證與版控（涵蓋 FR-1、FR-6）
 
-- **Given**：(a) `preferences.yaml` 缺少 `權重`；(b) `權重` 多了一個不存在的維度；(c) `底線月薪` 大於 `期望月薪`
+- **Given**：(a) `preferences.yaml` 缺少 `權重`；(b) `權重` 多了一個不存在的維度；(c) `底線月薪` 大於 `期望月薪`；(d) `淘汰條件.職稱關鍵字` 含空字串
 - **When**：以 `--dry-run` 呼叫 CLI 的 `main`
-- **Then**：三種情況都回傳 1，stderr 含 `[-]`；以 `git check-ignore` 檢查時，`profile/preferences.yaml`、`profile/experience.md`、`.env` 被忽略，對應的範本檔沒有被忽略
+- **Then**：四種情況都回傳 1，stderr 含 `[-]`；以 `git check-ignore` 檢查時，`profile/preferences.yaml`、`profile/experience.md`、`.env` 被忽略，對應的範本檔沒有被忽略
 - **驗證方式**：`uv run pytest tests/test_job_scoring_profile.py`
 - **通過條件**：全部 passed。
 
@@ -137,8 +137,8 @@ uv run pytest tests/test_job_scoring_*.py tests/test_score_job_cli.py
   | 5 | 5 | 5 | 5 | 100 | |
   | 1 | 1 | 1 | 1 | 0 | |
   | 4 | 4 | 5 | 4 | 79 | |
-  | 5 | 3 | `None` | `None` | 81 | 已知權重 0.65 |
-  | `None` | `None` | 5 | 4 | `None` | 已知權重 0.35，不到一半 |
+  | 5 | 3 | `None` | `None` | 70 | 未知維度以 3 分代入 |
+  | `None` | `None` | `None` | `None` | 50 | 全部未知，等同全部 3 分 |
 
 - **驗證方式**：`uv run pytest tests/test_job_scoring_scorer.py -k compute_total`
 - **通過條件**：全部 passed。
@@ -149,8 +149,8 @@ uv run pytest tests/test_job_scoring_*.py tests/test_score_job_cli.py
 - **When**：分別對 `out` 與 `ok` 職缺呼叫 `score_job`，並驗證超出範圍的回應
 - **Then**：
   - `out`：client 沒有被呼叫；結果為 `淘汰` true，`維度` 與 `總分` 都是 `None`
-  - `ok`：client 被呼叫 1 次；`model_dump(by_alias=True)` 的鍵依序是四個中文維度名稱；`技能匹配度` 的分數為 `None`、`薪資水準` 為 4；`總分` 83；`未知維度` 為 `[技能匹配度]`；`評語` 為 `總評`
-  - 兩個維度都是 `null` 的回應（已知權重 0.35，不到一半）：`總分` 為 `None`；`未知維度` 為 `[職涯方向契合度, 技能匹配度]`；`評語` 維持 `總評`，不加任何前綴
+  - `ok`：client 被呼叫 1 次；`model_dump(by_alias=True)` 的鍵依序是四個中文維度名稱；`技能匹配度` 的分數為 `None`、`薪資水準` 為 4；`總分` 75；`未知維度` 為 `[技能匹配度]`；`評語` 為 `總評`
+  - 兩個維度都是 `null` 的回應：`總分` 為 55；`未知維度` 為 `[職涯方向契合度, 技能匹配度]`；`評語` 維持 `總評`，不加任何前綴
   - 6 分的回應會讓 `AIAssessment.model_validate` 拋出 `ValidationError`
 - **驗證方式**：`uv run pytest tests/test_job_scoring_scorer.py -k score_job`
 - **通過條件**：全部 passed。
@@ -194,7 +194,7 @@ uv run pytest tests/test_job_scoring_*.py tests/test_score_job_cli.py
 - **Then**：
   - 輸出符合 [§7](../../spec/job-scoring.md#7-輸出jobscore)，四個維度依序出現
   - 每個維度都有非空的理由，分數是 1–5 或 `None`
-  - 總分在 0–100 之間，或是 `None` 且 `未知維度` 不為空
+  - 總分在 0–100 之間
   - 測試會印出完整結果（用 `-s` 顯示）
 - **驗證方式**：`uv run pytest -m network -s tests/test_job_scoring_network.py -k real_scoring`
 - **通過條件**：passed；使用者閱讀印出的理由，確認內容確實引用了職缺內容，而且與自己的判斷大致相符。

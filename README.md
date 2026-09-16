@@ -52,12 +52,32 @@ uv run src/fetch_104_jobs.py -k "後端工程師,Backend,Python" -a 新竹
 
 各欄位的意義見 [104 爬蟲規格 §3](docs/spec/104-scraper.md#3-資料欄位對應字典-data-dictionary)，完整參數說明見 [§4](docs/spec/104-scraper.md#4-使用指南與執行範例)。
 
+### 我想讓 AI 幫我評估某個職缺適不適合
+
+1. 複製範本，填入自己的偏好與經歷，並在 `.env` 填入 [Gemini API key](https://aistudio.google.com/apikey)：
+
+   ```bash
+   cp profile/preferences.example.yaml profile/preferences.yaml
+   cp profile/experience.example.md profile/experience.md
+   cp .env.example .env
+   ```
+
+2. 對爬蟲結果中的一筆職缺評分（省略 `--job-no` 時評分第一筆）：
+
+   ```bash
+   uv run src/score_job.py --jobs output/104/<檔名>.json --job-no <職缺代碼>
+   ```
+
+結果是包含各維度分數、理由與 0–100 總分的 JSON。薪資太低、公司或職稱在排除清單中的職缺會直接淘汰，不呼叫 AI。想調整提示詞時，加上 `--dry-run` 就只會印出提示詞，不呼叫 AI。評分方式見 [工作評分規格](docs/spec/job-scoring.md)。
+
 ## 專案結構
 
 ```
 src/
   main.py              uv 產生的樣板，尚未成為真正的進入點
   fetch_104_jobs.py    104 職缺爬蟲
+  score_job.py         單筆職缺評分 CLI
+  job_scoring/         工作評分邏輯（規則、提示詞、LLM 抽象層）
 tests/                 pytest 測試（uv run pytest）
 output/104/            爬蟲輸出（不進版控）
 profile/               求職偏好與工作經歷（評分用；真實資料不進版控）
@@ -76,7 +96,7 @@ docs/
 | [docs/prd/features/](docs/prd/features/) | 各功能的需求與驗收標準 |
 | [docs/spec/architecture.md](docs/spec/architecture.md) | 系統架構：模組間的資料流與輸入契約 |
 | [docs/spec/104-scraper.md](docs/spec/104-scraper.md) | 104 爬蟲技術規格與欄位字典 |
-| [docs/spec/job-scoring.md](docs/spec/job-scoring.md) | 工作評分邏輯技術規格（規劃中） |
+| [docs/spec/job-scoring.md](docs/spec/job-scoring.md) | 工作評分邏輯技術規格 |
 | [docs/spec/conventions.md](docs/spec/conventions.md) | 開發慣例 |
 
 ## 使用聲明

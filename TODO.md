@@ -2,17 +2,18 @@
 
 尚未要做、但已經確認之後要處理的事項。開始做某項時，從這裡移除，並依 CLAUDE.md 的功能開發流程進行。
 
-## 待實作
+## 實際使用前
 
-- [ ] **實作 F1-01 工作評分邏輯**：依 [PRD](docs/prd/features/F1-01-job-scoring.md) 與 [規格](docs/spec/job-scoring.md) 實作
-  - 新增依賴：`google-genai`、`pydantic`、`pyyaml`、`python-dotenv`（dev：`types-PyYAML`）
-  - 新增範本 `profile/preferences.example.yaml`、`profile/experience.example.md`（PRD 的共用測試資料會用到）
-  - 依 PRD §6 撰寫 `tests/conftest.py` 的共用 fixture，以及 `tests/test_job_scoring_*.py`、`tests/test_score_job_cli.py`
-  - 目前 `profile/` 裡的是測試用的虛構資料，實際使用前要換成自己的偏好與經歷
+- [ ] `profile/preferences.yaml` 與 `profile/experience.md` 目前是測試用的虛構資料，執行 F1-01 AC-8（真實評分）前要換成自己的偏好與經歷，才能判斷 AI 的理由是否與自己的判斷相符
 
 ## 文件修正
 
 - [ ] [104-scraper.md §3](docs/spec/104-scraper.md#3-資料欄位對應字典-data-dictionary) 的「薪資上限」寫「無上限時回傳大於 9999999 的數值」，實際資料是剛好 `9999999`（例如「月薪50,000元以上」），要改成「≥ 9999999」
+
+## 評分邏輯
+
+- [ ] [job-scoring.md §6](docs/spec/job-scoring.md#6-總分) 的 `round()` 在 Python 是「四捨六入五成雙」，例如 62.5 會變成 62、67.5 會變成 68；要決定是否改成一律進位，並在規格寫明
+- [ ] 目前沒有測試會算出剛好 .5 的總分；確認 `round()` 的處理方式後，補上這個邊界情況的測試
 
 ## 評分維度（F1-01 範圍外，之後另開功能）
 

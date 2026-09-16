@@ -2,8 +2,6 @@
 
 本文描述單筆職缺的評分方法：維度定義、規則、提示詞設計與輸出格式。需求與驗收標準見 [F1-01 PRD](../prd/features/F1-01-job-scoring.md)，職缺欄位定義見 [104-scraper.md §3](104-scraper.md#3-資料欄位對應字典-data-dictionary)。
 
-> **狀態：規劃，尚未實作。** 第 8 節的模組佈局與函式簽名是實作時要遵守的介面。
-
 ## 1. 評分流程
 
 ```mermaid
@@ -43,7 +41,7 @@ flowchart TD
 | `薪資.底線月薪` | int | 可接受的最低月薪（元），必須 ≤ `期望月薪` |
 | `薪資.年薪換算月數` | int | 年薪換算月薪時的除數（例如 14） |
 | `淘汰條件.公司` | list[str] | 直接淘汰的公司名稱（完全比對 `公司名稱`），可以是空清單 |
-| `淘汰條件.職稱關鍵字` | list[str] | `職缺名稱` 含其中任一字串就淘汰（不分大小寫），可以是空清單 |
+| `淘汰條件.職稱關鍵字` | list[str] | `職缺名稱` 含其中任一字串就淘汰（不分大小寫），可以是空清單，但不可含空字串（空字串會命中所有職稱） |
 | `權重` | dict[str, float] | 鍵必須剛好是第 3 節的四個維度名稱，值 ≥ 0，且總和 > 0。不要求總和為 1 |
 
 範例：
@@ -167,10 +165,10 @@ flowchart TD
 
 ## 6. 總分
 
-1. 取所有分數不是 `null` 的維度，計算加權平均 `avg = Σ(wᵢ·sᵢ) / Σwᵢ`。
-2. 換算成 0–100 分：`總分 = round((avg − 1) / 4 × 100)`。
-3. 如果非 null 維度的權重合計**小於全部權重的 50%**，`總分` 為 `null`。缺少哪些維度由 `未知維度` 表示，`評語` 維持 AI 的原文，不另外加註。
-4. 分數為 `null` 的維度名稱依第 3 節的順序列入 `未知維度`。
+1. 分數為 `null` 的維度以 **3 分**（中性）代入。所有職缺都用相同的四個維度與權重計算，總分才能互相比較；若只用已知維度計算，等於假設缺少的維度與其他維度表現相同，缺資料的職缺反而可能排在前面。
+2. 計算四個維度的加權平均 `avg = Σ(wᵢ·sᵢ) / Σwᵢ`。
+3. 換算成 0–100 分：`總分 = round((avg − 1) / 4 × 100)`。沒被淘汰的職缺一定有總分。
+4. 分數為 `null` 的維度名稱依第 3 節的順序列入 `未知維度`，讓使用者知道哪些分數是代入的；`維度` 中的分數仍保留 `null`，`評語` 維持 AI 的原文，不另外加註。
 
 ## 7. 輸出：JobScore
 
@@ -182,7 +180,7 @@ flowchart TD
 | `淘汰` | bool | 是否被硬性淘汰 |
 | `淘汰原因` | list[str] | 第 4 節的原因；沒被淘汰時是空清單 |
 | `維度` | dict[str, {分數: int \| null, 理由: str}] \| null | 鍵依第 3 節的順序排列；被淘汰時為 `null` |
-| `總分` | int \| null | 0–100；被淘汰或資料不足時為 `null` |
+| `總分` | int \| null | 0–100；被淘汰時為 `null` |
 | `未知維度` | list[str] | 分數為 `null` 的維度；被淘汰時是空清單 |
 | `評語` | str \| null | AI 產生的一到兩句總評，程式不修改；被淘汰時為 `null` |
 
@@ -209,7 +207,7 @@ flowchart TD
 
 ## 8. 實作設計
 
-### 8.1 模組佈局（規劃）
+### 8.1 模組佈局
 
 ```
 .env.example                 API key 範本（進版控）
@@ -230,13 +228,14 @@ src/
     prompt.py                build_prompt(job, prefs, experience) -> tuple[str, str]（system, user）
     prompts/scoring.md       提示詞模板
     llm.py                   LLMClient Protocol、GeminiClient、get_client(provider, model)
-    scorer.py                compute_total(scores, weights) -> int | None（第 6 節，scores 的值可為 None）
+    scorer.py                compute_total(scores, weights) -> int（第 6 節，scores 的值可為 None）
                              score_job(job, prefs, experience, client) -> JobScore
 tests/
   conftest.py                共用 fixture（測試資料、假的 LLM client）
   test_job_scoring_profile.py
   test_job_scoring_rules.py
   test_job_scoring_scorer.py
+  test_job_scoring_llm.py       GeminiClient 的請求與錯誤處理（以假的 SDK client 測試）
   test_score_job_cli.py
   test_job_scoring_network.py  需要網路的測試（network 標記）
 ```
@@ -255,7 +254,7 @@ tests/
   - 使用繁體中文
 - **user**：`目標方向`、`產業偏好`、experience.md 全文，以及職缺欄位（職缺名稱、公司名稱、產業類別、工作內容、電腦專長、科系要求）。欄位為 null 或空字串時，明確寫出「（無資料）」。
 - **不把薪資與淘汰條件交給 AI**，避免重複判斷，也避免 AI 的判斷和規則衝突。
-- 溫度設低（例如 0.2），讓同一筆職缺的評分盡量穩定。
+- 不設定溫度等取樣參數：Gemini 3.8 Flash 已不支援 `temperature`、`top_p`、`top_k`（[官方說明](https://ai.google.dev/gemini-api/docs/latest-model)）。
 
 ### 8.3 AI 輸出 schema（AIAssessment）
 
@@ -279,7 +278,10 @@ class LLMClient(Protocol):
     def assess(self, system: str, user: str) -> AIAssessment: ...
 ```
 
-- `GeminiClient(model)`：使用 `google-genai`。呼叫 `client.interactions.create(model=..., input=..., system_instruction=..., response_format={"type": "text", "mime_type": "application/json", "schema": AIAssessment.model_json_schema()})`，再用 `AIAssessment.model_validate_json(interaction.output_text)` 驗證（參考 [Gemini structured output 文件](https://ai.google.dev/gemini-api/docs/structured-output)，實作時以當下文件為準）。
+- `GeminiClient(model)`：使用 `google-genai`（≥ 2.3.0，Interactions API）。呼叫 `client.interactions.create(model=..., input=..., system_instruction=..., response_format={"type": "text", "mime_type": "application/json", "schema_": AIAssessment.model_json_schema()}, store=False, stream=False, timeout=120)`，再用 `AIAssessment.model_validate_json(interaction.output_text)` 驗證（參考 [Gemini structured output 文件](https://ai.google.dev/gemini-api/docs/structured-output)）。
+  - SDK 的 TypedDict 鍵名是 `schema_`，送出時會序列化成 API 的 `schema`。
+  - `store=False`：提示詞含個人經歷，不在伺服器端保存互動紀錄。
+  - SDK 的錯誤類別（HTTP、連線、逾時）沒有公開匯出，因此 `interactions.create` 拋出的任何例外都轉成 `LLMError`；`output_text` 為空時也是 `LLMError`。
 - API key 從環境變數 `GEMINI_API_KEY` 讀取，由 `GeminiClient` 建構時檢查，**沒有設定或是空字串**就拋出例外。CLI 只在「沒被淘汰、也不是 `--dry-run`」時才建立 client，所以只有真的要呼叫 AI 時才需要 key。
 - API key 放在專案根目錄的 `.env`（不進版控，範本是 `.env.example`）。`score_job.py` 啟動時用 `python-dotenv` 的 `load_dotenv(專案根目錄 / ".env")` 載入。`load_dotenv` 預設**不覆寫已經存在的環境變數**（[python-dotenv](https://github.com/theskumar/python-dotenv)），所以 shell 設定的值優先；測試時用 `GEMINI_API_KEY=` 設成空字串，就能模擬沒有 key 的情況，不受 `.env` 影響。
 - 預設模型：`gemini-3.8-flash`，可用 `--model` 覆寫。
