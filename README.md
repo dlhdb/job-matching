@@ -120,7 +120,6 @@ TODO.md                已確認、但尚未要做的事項
 docs/
   README.md            專案總覽：目標、核心技術、功能清單與現況
   features/            各功能的需求、設計與驗收標準（一個功能一份）
-  architecture.md      跨功能的資料流
   conventions.md       開發慣例
   ai-coding-setup/     Claude Code 等 AI 輔助開發工具的執行環境設定
 ```
@@ -132,8 +131,7 @@ docs/
 | [docs/README.md](docs/README.md) | 專案總覽：目標、用例、核心技術、功能清單與現況 |
 | [docs/features/F1-01-job-scoring.md](docs/features/F1-01-job-scoring.md) | 單筆職缺評分：需求、評分規則、提示詞、LLM 抽象層、驗收標準 |
 | [docs/features/F2-01-104-job-scraper.md](docs/features/F2-01-104-job-scraper.md) | 104 爬蟲：需求、API 限制、欄位字典、驗收標準 |
-| [docs/features/F4-01-batch-job-scoring.md](docs/features/F4-01-batch-job-scoring.md) | 職缺批次評分與排序（待實作） |
-| [docs/architecture.md](docs/architecture.md) | 系統架構：模組間的資料流與輸入契約 |
+| [docs/features/F1-02-batch-job-scoring.md](docs/features/F1-02-batch-job-scoring.md) | 職缺批次評分與排序（待實作） |
 | [docs/conventions.md](docs/conventions.md) | 開發慣例 |
 | [docs/ai-coding-setup/devcontainer.md](docs/ai-coding-setup/devcontainer.md) | 隔離容器與防火牆白名單（所有 AI coding 工具共用） |
 | [docs/ai-coding-setup/claude-code.md](docs/ai-coding-setup/claude-code.md) | Claude Code 專屬的權限規則（deny/ask） |

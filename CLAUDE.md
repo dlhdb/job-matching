@@ -27,11 +27,10 @@ uv add <pkg>                 # 新增依賴
 
 | 想知道什麼 | 讀哪份 |
 | :--- | :--- |
-| 產品目標、用例、五項核心技術定義、功能清單與現況 | [docs/README.md](docs/README.md) |
+| 產品目標、用例、核心技術定義、功能清單與現況 | [docs/README.md](docs/README.md) |
 | 單一功能的需求、範圍、設計、驗收標準 | `docs/features/F<編號>-*.md` |
 | 撰寫新功能文件的格式 | [docs/feature_template.md](docs/feature_template.md) |
 | 專案檔案結構 | [README.md](README.md) 的「專案結構」 |
-| 模組間的資料流與輸入契約 | [docs/architecture.md](docs/architecture.md) |
 | 104 爬蟲的請求標頭與頻率限制、職缺欄位字典、執行方式與輸出位置 | [docs/features/F2-01-104-job-scraper.md](docs/features/F2-01-104-job-scraper.md) |
 | 工作評分的維度、淘汰與薪資規則、偏好檔格式、提示詞設計、輸出欄位、LLM 抽象層 | [docs/features/F1-01-job-scoring.md](docs/features/F1-01-job-scoring.md) |
 | 程式碼風格、docstring 格式、文件撰寫規範（內容、格式、繪圖）、終端輸出慣例、依賴管理、測試慣例 | [docs/conventions.md](docs/conventions.md) |
