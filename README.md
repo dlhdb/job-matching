@@ -111,26 +111,14 @@ uv run src/fetch_104_jobs.py -k "後端工程師,Backend,Python" -a 新竹
 ## 專案結構
 
 ```
-src/
-  main.py              uv 產生的樣板，尚未成為真正的進入點
-  fetch_104_jobs.py    104 職缺爬蟲
-  score_job.py         職缺評分 CLI（單筆或整批）
-  job_scoring/         工作評分邏輯（規則、提示詞、LLM 抽象層）
-tests/                 pytest 測試（uv run pytest）
-notebooks/             分析爬蟲資料的 Jupyter notebook（輸出含職缺資料，由 git filter 在提交時移除）
-scripts/
-  setup-dev-env.sh     建立開發環境：安裝依賴、設定 git filter（主機與容器共用）
-output/104/            爬蟲輸出（不進版控）
-output/scores/         整批評分結果（不進版控）
-profile/               求職偏好與工作經歷（評分用；真實資料不進版控）
-.env.example           API key 範本，複製成 .env 後填入
-TODO.md                已確認、但尚未要做的事項
-.devcontainer/         讓 AI coding 工具自主執行的隔離容器（含對外連線防火牆）
-docs/
-  README.md            專案總覽：目標、核心技術、功能清單與現況
-  features/            各功能的需求、設計與驗收標準（一個功能一份）
-  conventions.md       開發慣例
-  ai-coding-setup/     Claude Code 等 AI 輔助開發工具的執行環境設定
+src/            程式碼：爬蟲、評分 CLI 與評分邏輯
+tests/          pytest 測試
+notebooks/      分析資料的 Jupyter notebook
+scripts/        工具腳本
+profile/        用戶求職偏好與工作經歷（真實資料不進版控）
+output/         應用程式輸出結果（不進版控）
+docs/           專案總覽、功能文件與開發慣例
+.devcontainer/  開發環境隔離容器設定
 ```
 
 ## 文件導覽
