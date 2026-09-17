@@ -1,5 +1,6 @@
 """評分流程：硬性淘汰 → 薪資計分 → AI 評分 → 加權總分。"""
 
+from fractions import Fraction
 from typing import Any
 
 from job_scoring.llm import LLMClient
@@ -14,7 +15,7 @@ from job_scoring.models import (
     Preferences,
 )
 from job_scoring.prompt import build_prompt
-from job_scoring.rules import check_hard_filters, score_salary
+from job_scoring.rules import check_hard_filters, round_half_up, score_salary
 
 # 分數未知的維度以此分數（中性）代入，讓每筆職缺都用相同的維度與權重計算，總分才能互相比較
 UNKNOWN_SCORE = 3
@@ -29,8 +30,10 @@ def compute_total(scores: dict[str, int | None], weights: dict[str, float]) -> i
     :return: int, 0–100 的總分
     """
     filled = {name: UNKNOWN_SCORE if s is None else s for name, s in scores.items()}
-    avg = sum(weights[name] * s for name, s in filled.items()) / sum(weights.values())
-    return round((avg - 1) / 4 * 100)
+    # 經過 str() 再轉 Fraction，0.4 才會是精確的 2/5，而不是浮點數的近似值
+    exact_weights = {name: Fraction(str(w)) for name, w in weights.items()}
+    avg = sum((exact_weights[name] * s for name, s in filled.items()), Fraction(0)) / sum(exact_weights.values(), Fraction(0))
+    return round_half_up((avg - 1) / 4 * 100)
 
 
 def score_job(job: dict[str, Any], prefs: Preferences, experience: str, client: LLMClient) -> JobScore:

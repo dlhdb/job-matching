@@ -34,6 +34,15 @@ def test_score_salary_table(make_job, prefs, text, low, high, expected):
     assert check_hard_filters(job, prefs) == []
 
 
+def test_score_salary_annual_rounds_half_up(make_job, prefs):
+    # 980007 / 14 = 70000.5、1260007 / 14 = 90000.5
+    job = _salary_job(make_job, "年薪980,007~1,260,007元", 980007, 1260007)
+
+    _, reason = score_salary(job, prefs)
+
+    assert "換算月薪 70,001–90,001" in reason
+
+
 @pytest.mark.parametrize("text, low, high", [
     ("月薪40,000~50,000元", 40000, 50000),
     ("年薪560,000~700,000元", 560000, 700000),

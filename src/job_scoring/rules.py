@@ -1,11 +1,23 @@
 """程式規則：硬性淘汰與薪資換算、計分。"""
 
+import math
+from fractions import Fraction
 from typing import Any, NamedTuple
 
 from job_scoring.models import Preferences
 
 # 104 以此值代表「以上」（沒有上限）
 NO_UPPER_BOUND = 9999999
+
+
+def round_half_up(value: Fraction) -> int:
+    """
+    四捨五入到整數，.5 一律進位（Python 內建的 round() 是五成雙）。
+
+    :param value: Fraction, 非負數；用 Fraction 才不會因浮點誤差把 x.5 算成 x.4999…
+    :return: int, 四捨五入後的整數
+    """
+    return math.floor(value + Fraction(1, 2))
 
 
 class MonthlyRange(NamedTuple):
@@ -38,8 +50,8 @@ def _monthly_range(job: dict[str, Any], prefs: Preferences) -> MonthlyRange | No
         return MonthlyRange("月薪", raw_low, raw_high, raw_low, raw_high)
     if salary_text.startswith("年薪"):
         months = prefs.salary.annual_months
-        high = round(raw_high / months) if raw_high is not None else None
-        return MonthlyRange("年薪", raw_low, raw_high, round(raw_low / months), high)
+        high = round_half_up(Fraction(raw_high, months)) if raw_high is not None else None
+        return MonthlyRange("年薪", raw_low, raw_high, round_half_up(Fraction(raw_low, months)), high)
     return None
 
 
