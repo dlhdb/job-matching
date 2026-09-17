@@ -122,7 +122,7 @@ uv run src/fetch_104_jobs.py -k "關鍵字1,關鍵字2" -p 頁數 -a 縣市 -t �
 
 ## 6. 驗收標準
 
-測試都在 [tests/test_fetch_104_jobs.py](../../tests/test_fetch_104_jobs.py)。除了 AC-7，其餘都離線執行：API 請求與等待都以 monkeypatch 取代，檔案寫到暫存目錄。
+離線測試在 [tests/test_fetch_104_jobs.py](../../tests/test_fetch_104_jobs.py)，AC-7 的連網測試在 [tests/e2e/test_fetch_104_jobs.py](../../tests/e2e/test_fetch_104_jobs.py)。除了 AC-7，其餘都離線執行：API 請求與等待都以 monkeypatch 取代，檔案寫到暫存目錄。
 
 一次跑完所有離線驗收：
 
@@ -183,7 +183,7 @@ uv run pytest tests/test_fetch_104_jobs.py
 - **Given**：可以連線到 104
 - **When**：以兩個搜尋結果會重疊的關鍵字（`Python`、`Python工程師`）、1 頁、台北市執行抓取，輸出寫到暫存目錄
 - **Then**：職缺代碼不重複，而且少於兩個關鍵字抓到的原始筆數（代表跨關鍵字去重有生效）；CSV 以 BOM 開頭且表頭一致；至少一筆有完整的工作內容
-- **驗證方式**：`uv run pytest -m network tests/test_fetch_104_jobs.py`
+- **驗證方式**：`uv run pytest -m network tests/e2e/test_fetch_104_jobs.py`
 - **通過條件**：passed。
 
 ## 7. 待決問題

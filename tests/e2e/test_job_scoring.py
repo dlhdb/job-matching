@@ -12,7 +12,7 @@ from job_scoring.models import DIMENSIONS
 from job_scoring.profile import load_preferences
 from job_scoring.rules import check_hard_filters
 
-PROJECT_ROOT = Path(__file__).resolve().parents[1]
+PROJECT_ROOT = Path(__file__).resolve().parents[2]
 PROFILE_DIR = PROJECT_ROOT / "profile"
 OUTPUT_DIR = PROJECT_ROOT / "output" / "104"
 BATCH_SIZE = 5

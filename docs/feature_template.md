@@ -57,7 +57,7 @@
 
 - 驗證方式優先寫成 pytest 指令，例如 `uv run pytest tests/test_x.py -k <函式名>`。測試程式與實作一起撰寫，不要把腳本貼在功能文件裡（測試慣例見 [conventions.md](../conventions.md#測試)）。
 - 「輸入 → 預期結果」可以寫成表格留在功能文件，測試再用 `parametrize` 實作。
-- 需要網路或外部服務的條目，標題標註 `〔需網路〕`，測試加上 `@pytest.mark.network`，驗證方式寫 `uv run pytest -m network ...`。
+- 需要網路或外部服務的條目，標題標註 `〔需網路〕`，測試放在 `tests/e2e/` 並加上 `@pytest.mark.network`，驗證方式寫 `uv run pytest -m network tests/e2e/...`。
 - 只能由人判斷的部分（例如 AI 的理由是否合理），在通過條件中明確寫出由誰判斷、看什麼。
 
 ### AC-1：<標題>（涵蓋 FR-1）

@@ -12,7 +12,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 scripts/setup-dev-env.sh     # 建立開發環境：uv sync + 設定 nbstripout git filter（可重複執行）
 uv sync                      # 只安裝依賴（含 dev group）
 uv run pytest                # 離線測試（預設跳過需要網路的測試）
-uv run pytest -m network     # 只跑需要網路的測試（會實際連線到外部服務）
+uv run pytest -m network     # 只跑需要網路的測試，都在 tests/e2e（會實際連線到外部服務）
 uv run mypy src/             # 型別檢查（mypy 已列為 dev 依賴，但尚無設定檔）
 uv add <pkg>                 # 新增依賴
 ```

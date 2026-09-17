@@ -112,7 +112,7 @@ uv run src/fetch_104_jobs.py -k "後端工程師,Backend,Python" -a 新竹
 
 ```
 src/            程式碼：爬蟲、評分 CLI 與評分邏輯
-tests/          pytest 測試
+tests/          測試
 notebooks/      分析資料的 Jupyter notebook
 scripts/        工具腳本
 profile/        用戶求職偏好與工作經歷（真實資料不進版控）

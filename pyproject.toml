@@ -27,6 +27,7 @@ dev = [
 testpaths = ["tests"]
 # 讓測試可以直接 import src/ 底下的模組
 pythonpath = ["src"]
-addopts = ["-m", "not network"]
+# importlib 模式允許 tests/ 與 tests/e2e/ 底下有同名的測試檔
+addopts = ["--import-mode=importlib", "-m", "not network"]
 strict_markers = true
 markers = ["network: 需要連線到外部服務，預設跳過；用 -m network 執行"]

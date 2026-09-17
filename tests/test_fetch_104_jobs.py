@@ -1,4 +1,4 @@
-"""104 職缺爬蟲的測試。除了標記 network 的測試外，外部呼叫一律以 monkeypatch 取代。"""
+"""104 職缺爬蟲的離線測試。HTTP 請求與等待一律以 monkeypatch 取代。"""
 
 import csv
 import json
@@ -15,6 +15,8 @@ import fetch_104_jobs as m
 
 SCRIPT = Path(__file__).resolve().parents[1] / "src" / "fetch_104_jobs.py"
 BOM = b"\xef\xbb\xbf"
+SEARCH_URL = "https://www.104.com.tw/jobs/search/api/jobs"
+DETAIL_URL = "https://www.104.com.tw/job/ajax/content/"
 DETAIL = {
     "jobDescription": "完整工作內容",
     "salary": "月薪60,000~80,000元",
@@ -386,27 +388,33 @@ def test_display_summary_table_empty(capsys):
 # ---------------------------------------------------------------------------
 
 @pytest.fixture
-def fake_search(monkeypatch, tmp_path, detail_ok, no_sleep):
+def fake_search(monkeypatch, tmp_path, no_sleep):
     """
-    以假資料取代搜尋 API，並把輸出目錄改到 tmp_path
+    以假函式取代 requests.get，依網址回傳搜尋與詳情 API 的假回應，並把輸出目錄改到 tmp_path
 
-    :return: callable, fake_search(pages) -> list[tuple]（呼叫紀錄）；
-             pages 為 {(keyword, page): (jobNo 清單, lastPage)}，未列出的頁面回傳空結果
+    :return: callable, fake_search(pages) -> list[tuple]（搜尋請求的呼叫紀錄）；
+             pages 為 {(keyword, page): (jobNo 清單, lastPage)}，未列出的頁面回傳空結果；
+             詳情 API 一律回傳 DETAIL
     """
     monkeypatch.setattr(m, "OUTPUT_DIR", tmp_path)
 
     def _install(pages):
         calls = []
 
-        def _fetch(keyword, page=1, area_code=None, ro=0):
-            calls.append((keyword, page, area_code, ro))
+        def _get(url, params=None, **kwargs):
+            if url.startswith(DETAIL_URL):
+                return FakeResponse(200, {"data": {"jobDetail": DETAIL}})
+            assert url == SEARCH_URL
+            # 關鍵字為空字串時，fetch_jobs 不帶 keyword 參數
+            keyword, page = params.get("keyword", ""), params["page"]
+            calls.append((keyword, page, params.get("area"), params["ro"]))
             if (keyword, page) not in pages:
-                return [], {}
+                return FakeResponse(200, {"data": [], "metadata": {}})
             job_nos, last_page = pages[(keyword, page)]
             jobs = [{"jobNo": no, "link": {"job": f"//www.104.com.tw/job/{no}"}} for no in job_nos]
-            return jobs, {"lastPage": last_page}
+            return FakeResponse(200, {"data": jobs, "metadata": {"pagination": {"lastPage": last_page}}})
 
-        monkeypatch.setattr(m, "fetch_jobs", _fetch)
+        monkeypatch.setattr(m.requests, "get", _get)
         return calls
     return _install
 
@@ -562,35 +570,3 @@ def test_ctrl_c_exits_gracefully():
 
     assert proc.returncode == 0
     assert "使用者取消操作" in out
-
-
-# ---------------------------------------------------------------------------
-# 真實抓取
-# ---------------------------------------------------------------------------
-
-@pytest.mark.network
-def test_real_scraping(monkeypatch, tmp_path):
-    monkeypatch.setattr(m, "OUTPUT_DIR", tmp_path)
-    fetched = []
-    real_fetch_jobs = m.fetch_jobs
-
-    def counting_fetch_jobs(*args, **kwargs):
-        jobs, pagination = real_fetch_jobs(*args, **kwargs)
-        fetched.extend(job.get("jobNo") for job in jobs)
-        return jobs, pagination
-
-    monkeypatch.setattr(m, "fetch_jobs", counting_fetch_jobs)
-
-    m.execute_scraping(["Python", "Python工程師"], 1, "6001001000", "台北市", 0)
-
-    (json_file,) = output_files(tmp_path, ".json")
-    (csv_file,) = output_files(tmp_path, ".csv")
-    jobs = json.loads(json_file.read_text(encoding="utf-8"))
-    ids = [job["職缺代碼"] for job in jobs]
-    assert ids, "沒有抓到任何職缺"
-    assert len(ids) == len(set(ids)) == len(set(fetched))
-    assert len(ids) < len(fetched), "兩個關鍵字的結果沒有重疊，無法確認去重生效"
-    assert csv_file.read_bytes().startswith(BOM)
-    with open(csv_file, encoding="utf-8-sig", newline="") as f:
-        assert next(csv.reader(f)) == m.CSV_FIELDNAMES
-    assert any(job["工作內容"] for job in jobs), "沒有任何職缺取得完整工作內容"

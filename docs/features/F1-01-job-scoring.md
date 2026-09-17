@@ -295,14 +295,15 @@ src/
     jobs.py                  讀取並驗證爬蟲輸出的職缺 JSON
     batch.py                 整批評分、寫出結果檔
 tests/
-  conftest.py                共用 fixture（測試資料、假的 LLM client）
-  test_job_scoring_profile.py
+  conftest.py                  共用 fixture（測試資料、假的 LLM client）
+  test_job_scoring_profile.py  透過 main 驗證偏好檔、個人資料的版控設定
   test_job_scoring_rules.py
   test_job_scoring_scorer.py
   test_job_scoring_batch.py    整批評分與結果檔
   test_job_scoring_llm.py      GeminiClient 的請求與錯誤處理（以假的 SDK client 測試）
-  test_score_job_cli.py
-  test_job_scoring_network.py  需要網路的測試（network 標記）
+  test_score_job_cli.py        CLI 流程、錯誤處理與供應商隔離
+  e2e/
+    test_job_scoring.py        真實評分（network 標記）
 ```
 
 用 `uv run src/score_job.py` 執行時，`src/` 會在 import 路徑上，可以直接 `import job_scoring`。pytest 已在 `pyproject.toml` 設定 `pythonpath = ["src"]`，測試中也可以直接 import。
@@ -575,7 +576,7 @@ uv run pytest tests/test_job_scoring_*.py tests/test_score_job_cli.py
   - 每個維度都有非空的理由，分數是 1–5 或 `None`
   - 總分在 0–100 之間
   - 測試會印出完整結果（用 `-s` 顯示）
-- **驗證方式**：`uv run pytest -m network -s tests/test_job_scoring_network.py -k real_scoring`
+- **驗證方式**：`uv run pytest -m network -s tests/e2e/test_job_scoring.py -k real_scoring`
 - **通過條件**：passed；使用者閱讀印出的理由，確認內容確實引用了職缺內容，而且與自己的判斷大致相符。
 
 ### AC-9：整批評分（涵蓋 FR-2、FR-8）
@@ -632,7 +633,7 @@ uv run pytest tests/test_job_scoring_*.py tests/test_score_job_cli.py
 - **Given**：與 AC-8 相同；缺少任何一項時，測試顯示 skipped 並說明原因
 - **When**：取 `output/104/` 最新一份結果的前 5 筆，存成暫存檔後，不指定 `--job-no` 呼叫 `main`，輸出目錄指到 `tmp_path`
 - **Then**：回傳 0；結果檔有 5 筆；測試印出摘要與前幾名的評語（用 `-s` 顯示）
-- **驗證方式**：`uv run pytest -m network -s tests/test_job_scoring_network.py -k real_batch`
+- **驗證方式**：`uv run pytest -m network -s tests/e2e/test_job_scoring.py -k real_batch`
 - **通過條件**：passed；使用者抽查前幾名的評分理由是否合理。
 
 ## 7. 待決問題
