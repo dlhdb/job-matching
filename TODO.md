@@ -33,5 +33,4 @@
 
 ## 文件
 
-- [ ] [docs/feature_template.md](docs/feature_template.md) 裡的相對連結是以 `docs/features/` 為基準寫的（`../README.md`、`../conventions.md`、`../../TODO.md`），但範本本身放在 `docs/`，在範本中點這些連結會失效。要嘛把範本移到 `docs/features/`，要嘛改成從 `docs/` 出發並註明複製後要調整
-- [ ] F1-01、F2-01 的「設計」補上「輸入與輸出」：寫明讀哪些資料、來自哪個功能，產出什麼、給哪個功能用（目前分散在各小節）
+- [ ] [README.md](README.md) 的「文件導覽」缺 F5-01，加一列指到 [docs/features/F5-01-mcp-server.md](docs/features/F5-01-mcp-server.md)
