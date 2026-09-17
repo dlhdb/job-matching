@@ -18,6 +18,7 @@
 使用說明：
 - 互動模式：直接執行 `uv run src/fetch_104_jobs.py`
 - 命令列模式：`uv run src/fetch_104_jobs.py --keyword "Python,React,AI" --pages 3 --area "台北市"`
+- 結果預設也寫入職缺資料庫：`--db` 指定資料庫路徑，`--no-db` 只輸出 CSV／JSON（互動模式一律寫入預設的資料庫）
 """
 
 import sys
@@ -27,9 +28,12 @@ import random
 import json
 import csv
 import argparse
+import sqlite3
 from datetime import datetime
 from pathlib import Path
 import requests
+
+from job_db import DEFAULT_DB_PATH, open_db, save_run
 
 # 輸出目錄以專案根目錄為基準，不受執行時的工作目錄影響（已列入 .gitignore）
 OUTPUT_DIR = Path(__file__).resolve().parents[1] / "output" / "104"
@@ -331,6 +335,29 @@ def save_to_json(jobs_data, filename):
     except IOError as e:
         print(f"[-] 儲存 JSON 檔案時出錯: {e}")
 
+def save_to_db(jobs_data, db_path, run_time, keywords, area_label, ro, pages):
+    """
+    將解析後的職缺與本次抓取條件寫入職缺資料庫；失敗時只印出錯誤，不中斷程式（CSV/JSON 已寫出）
+
+    :param jobs_data: list, 包含結構化職缺字典的列表
+    :param db_path: Path, 資料庫路徑
+    :param run_time: datetime, 本次執行時間，與輸出檔名的時間戳相同
+    :param keywords: list, 去重後的關鍵字列表
+    :param area_label: str, 地區名稱 (例如 "台北市" 或 "全台灣")
+    :param ro: int, 職缺性質 (0/1/2)
+    :param pages: int, 每個關鍵字抓取的頁數
+    :return: None
+    """
+    try:
+        conn = open_db(db_path)
+        try:
+            save_run(conn, jobs_data, run_time, "爬蟲",
+                     keywords=", ".join(keywords), area=area_label, job_type=ro, pages=pages)
+        finally:
+            conn.close()
+    except (sqlite3.Error, OSError) as e:
+        print(f"[-] 寫入資料庫時出錯: {e}", file=sys.stderr)
+
 # ---------------------------------------------------------------------------
 # 終端機顯示
 # ---------------------------------------------------------------------------
@@ -427,9 +454,9 @@ def run_interactive():
         ro = 0
 
     # 執行撈取任務
-    execute_scraping(keywords, pages, area_code, area_label, ro)
+    execute_scraping(keywords, pages, area_code, area_label, ro, DEFAULT_DB_PATH)
 
-def execute_scraping(keywords, pages, area_code, area_label, ro):
+def execute_scraping(keywords, pages, area_code, area_label, ro, db_path=None):
     """
     執行主要的 API 撈取核心邏輯，包含多關鍵字輪詢、分頁迭代、安全延遲防護、資料去重與持久化寫入
     
@@ -438,6 +465,7 @@ def execute_scraping(keywords, pages, area_code, area_label, ro):
     :param area_code: str, 104 地區專屬編碼 (若為 None 則代表搜尋全台灣)
     :param area_label: str, 用於日誌顯示的地區人類可讀標記 (例如 "台北市" 或 "全台灣")
     :param ro: int, 職缺性質過濾器，0 代表全部，1 代表全職，2 代表兼職/工讀
+    :param db_path: Path or None, 可選參數，寫入的職缺資料庫路徑，None 代表不寫入資料庫
     :return: None
     """
     if isinstance(keywords, str):
@@ -514,7 +542,9 @@ def execute_scraping(keywords, pages, area_code, area_label, ro):
     parsed_jobs = parse_jobs(all_raw_jobs)
 
     # 動態產生包含時間戳記的持久化儲存檔名
-    timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+    # 同一個時間同時用於檔名與資料庫的執行時間，兩者才能對應
+    run_time = datetime.now().replace(microsecond=0)
+    timestamp = run_time.strftime("%Y%m%d_%H%M%S")
     combined_kw = "_".join(keywords)
     if len(combined_kw) > 30:
         combined_kw = combined_kw[:30] + "_etc"
@@ -529,6 +559,8 @@ def execute_scraping(keywords, pages, area_code, area_label, ro):
     # 持久化寫入硬碟
     save_to_csv(parsed_jobs, csv_filename)
     save_to_json(parsed_jobs, json_filename)
+    if db_path is not None:
+        save_to_db(parsed_jobs, db_path, run_time, keywords, area_label, ro, pages)
 
     # 印出預覽表格
     display_summary_table(parsed_jobs, limit=10)
@@ -542,10 +574,11 @@ def execute_scraping(keywords, pages, area_code, area_label, ro):
 # 程式入口
 # ---------------------------------------------------------------------------
 
-def main():
+def main(argv=None):
     """
     程式入口函式，負責初始化命令列參數解析器，判斷執行模式 (CLI / 互動引導模式) 
     
+    :param argv: list[str] or None, 可選參數，命令列參數；None 時使用 sys.argv
     :return: None
     """
     parser = argparse.ArgumentParser(description="104 人力銀行職缺撈取工具")
@@ -553,14 +586,17 @@ def main():
     parser.add_argument("-p", "--pages", type=int, default=3, help="每個關鍵字要撈取的頁數 (預設: 3)")
     parser.add_argument("-a", "--area", type=str, help="縣市名稱 (例如: 台北市、新竹市)")
     parser.add_argument("-t", "--type", type=int, choices=[0, 1, 2], default=0, help="職缺性質 (0: 全部, 1: 全職, 2: 兼職/工讀)")
+    parser.add_argument("--db", type=Path, default=DEFAULT_DB_PATH, help="職缺資料庫路徑 (預設: 專案根目錄下的 data/jobs.db)")
+    parser.add_argument("--no-db", action="store_true", help="只輸出 CSV/JSON，不寫入職缺資料庫")
     
-    args = parser.parse_args()
+    args = parser.parse_args(argv)
     
     # 若有帶關鍵字參數，則直接以 CLI 模式執行，否則進入互動引導模式
     if args.keyword is not None:
         keywords = parse_keywords(args.keyword)
         area_code, area_label = resolve_area(args.area)
-        execute_scraping(keywords, args.pages, area_code, area_label, args.type)
+        db_path = None if args.no_db else args.db
+        execute_scraping(keywords, args.pages, area_code, area_label, args.type, db_path)
     else:
         run_interactive()
 

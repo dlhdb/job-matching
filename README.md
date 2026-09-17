@@ -61,6 +61,16 @@ uv run src/fetch_104_jobs.py -k "後端工程師,Backend,Python" -a 新竹
 
 想做統計或篩選時，打開 [notebooks/analyze_104_jobs.ipynb](notebooks/analyze_104_jobs.ipynb)，kernel 選專案的虛擬環境（devcontainer 內是 `~/.venv/bin/python`）。
 
+### 我想累積每次抓到的職缺，看出哪些是新的
+
+每次抓取完，職缺也會寫進 `data/jobs.db`（SQLite），同一筆職缺只保留一列，並記錄第一次與最後一次被抓到的時間。加上 `--no-db` 可以只輸出檔案。以前抓的 JSON 可以補匯入，重複匯入同一個檔案不會改變資料庫：
+
+```bash
+uv run src/import_jobs.py output/104/*.json
+```
+
+用 `pandas.read_sql` 或任何 SQLite 工具讀取即可，資料表說明見 [F2-02 §5.2](docs/features/F2-02-job-database.md#52-資料表)。
+
 ### 我想讓 AI 幫我評估職缺適不適合
 
 1. 複製範本，填入自己的偏好與經歷，並在 `.env` 填入 [Gemini API key](https://aistudio.google.com/apikey)：
@@ -111,12 +121,13 @@ uv run src/fetch_104_jobs.py -k "後端工程師,Backend,Python" -a 新竹
 ## 專案結構
 
 ```
-src/            程式碼：爬蟲、評分 CLI 與評分邏輯
+src/            程式碼：爬蟲、職缺資料庫、評分 CLI 與評分邏輯
 tests/          測試
 notebooks/      分析資料的 Jupyter notebook
 scripts/        工具腳本
 profile/        用戶求職偏好與工作經歷（真實資料不進版控）
 output/         應用程式輸出結果（不進版控）
+data/           職缺資料庫 jobs.db（不進版控）
 docs/           專案總覽、功能文件與開發慣例
 .devcontainer/  開發環境隔離容器設定
 ```
@@ -128,6 +139,7 @@ docs/           專案總覽、功能文件與開發慣例
 | [docs/README.md](docs/README.md) | 專案總覽：目標、用例、核心技術、功能清單與現況 |
 | [docs/features/F1-01-job-scoring.md](docs/features/F1-01-job-scoring.md) | 職缺評分：需求、評分規則、提示詞、LLM 抽象層、整批評分與結果檔、驗收標準 |
 | [docs/features/F2-01-104-job-scraper.md](docs/features/F2-01-104-job-scraper.md) | 104 爬蟲：需求、API 限制、欄位字典、驗收標準 |
+| [docs/features/F2-02-job-database.md](docs/features/F2-02-job-database.md) | 職缺資料庫：需求、資料表、寫入規則、匯入指令、驗收標準 |
 | [docs/conventions.md](docs/conventions.md) | 開發慣例 |
 | [docs/ai-coding-setup/devcontainer.md](docs/ai-coding-setup/devcontainer.md) | 隔離容器與防火牆白名單（所有 AI coding 工具共用） |
 | [docs/ai-coding-setup/claude-code.md](docs/ai-coding-setup/claude-code.md) | Claude Code 專屬的權限規則（deny/ask） |
@@ -137,5 +149,5 @@ docs/           專案總覽、功能文件與開發慣例
 本專案僅供個人學習與研究使用：
 
 - 爬蟲程式已限制請求頻率，避免對目標網站造成負擔。
-- 抓取到的職缺資料只存在本機（`output/` 已排除於版本控制），不會公開或轉散布。
+- 抓取到的職缺資料只存在本機（`output/`、`data/` 已排除於版本控制），不會公開或轉散布。
 - 職缺與公司資訊的著作權屬於原網站及刊登者。使用前請自行確認並遵守各平台的服務條款。

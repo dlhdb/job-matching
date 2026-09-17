@@ -4,6 +4,7 @@ import csv
 import json
 import os
 import signal
+import sqlite3
 import subprocess
 import sys
 from pathlib import Path
@@ -494,6 +495,53 @@ def test_execute_scraping_filename(fake_search, tmp_path, keywords, prefix):
     assert json_file.name.startswith(prefix)
 
 
+def test_main_db_writes_scraped_jobs(fake_search, tmp_path, capsys):
+    fake_search({("A", 1): (["1", "2"], 2), ("A", 2): (["3"], 2), ("B", 1): (["2"], 1)})
+    db = tmp_path / "db" / "jobs.db"
+
+    m.main(["-k", "A,B", "-p", "2", "-a", "台北", "-t", "1", "--db", str(db)])
+
+    assert len(output_files(tmp_path, ".csv")) == 1
+    (json_file,) = output_files(tmp_path, ".json")
+    conn = sqlite3.connect(db)
+    try:
+        rows = conn.execute('SELECT "職缺代碼", "工作內容", "首次出現時間", "最後出現時間" FROM jobs ORDER BY 1').fetchall()
+        runs = conn.execute("SELECT * FROM scrape_runs").fetchall()
+        run_jobs = conn.execute("SELECT * FROM run_jobs ORDER BY 2").fetchall()
+    finally:
+        conn.close()
+
+    # 資料庫的執行時間與檔名中的時間戳相同
+    stamp = m.datetime.strptime(json_file.stem[-15:], "%Y%m%d_%H%M%S").isoformat()
+    assert rows == [(no, DETAIL["jobDescription"], stamp, stamp) for no in ("1", "2", "3")]
+    assert runs == [(1, stamp, "爬蟲", "A, B", "台北市", 1, 2, None, 3)]
+    assert run_jobs == [(1, "1"), (1, "2"), (1, "3")]
+    assert "[+] 已寫入資料庫：新增 3 筆、更新 0 筆" in capsys.readouterr().err
+
+
+def test_main_db_skipped_with_no_db(fake_search, tmp_path):
+    fake_search({("A", 1): (["1"], 1)})
+    db = tmp_path / "db" / "jobs.db"
+
+    m.main(["-k", "A", "-p", "1", "--db", str(db), "--no-db"])
+
+    assert not db.exists()
+    assert len(output_files(tmp_path, ".csv")) == 1
+    assert len(output_files(tmp_path, ".json")) == 1
+
+
+def test_execute_scraping_db_error_does_not_stop(fake_search, tmp_path, capsys):
+    fake_search({("A", 1): (["1"], 1)})
+    # 資料庫路徑是既有的目錄，無法開啟
+    db = tmp_path / "db"
+    db.mkdir()
+
+    m.execute_scraping(["A"], 1, None, "全台灣", 0, db)
+
+    assert "[-] 寫入資料庫時出錯" in capsys.readouterr().err
+    assert len(output_files(tmp_path, ".json")) == 1
+
+
 # ---------------------------------------------------------------------------
 # 程式入口與互動模式
 # ---------------------------------------------------------------------------
@@ -510,7 +558,7 @@ def test_main_cli_mode(monkeypatch, record_execute):
 
     m.main()
 
-    assert record_execute == [(["Python", "AI"], 2, "6001001000", "台北市", 1)]
+    assert record_execute == [(["Python", "AI"], 2, "6001001000", "台北市", 1, m.DEFAULT_DB_PATH)]
 
 
 def test_main_cli_defaults(monkeypatch, record_execute):
@@ -518,7 +566,18 @@ def test_main_cli_defaults(monkeypatch, record_execute):
 
     m.main()
 
-    assert record_execute == [(["Python"], 3, None, "全台灣", 0)]
+    assert record_execute == [(["Python"], 3, None, "全台灣", 0, m.DEFAULT_DB_PATH)]
+
+
+@pytest.mark.parametrize("extra, expected_db", [
+    (["--db", "custom.db"], Path("custom.db")),
+    (["--no-db"], None),
+    (["--db", "custom.db", "--no-db"], None),
+])
+def test_main_db_options(record_execute, extra, expected_db):
+    m.main(["-k", "Python", *extra])
+
+    assert record_execute[0][-1] == expected_db
 
 
 def test_main_without_keyword_enters_interactive(monkeypatch, record_execute):
@@ -533,10 +592,10 @@ def test_main_without_keyword_enters_interactive(monkeypatch, record_execute):
 
 
 @pytest.mark.parametrize("answers, expected, warning", [
-    (["", "Python, AI", "", "", ""], (["Python", "AI"], 3, None, "全台灣", 0), None),
-    (["Python", "新竹", "5", "2"], (["Python"], 5, "6001006000", "新竹市", 2), None),
-    (["Python", "火星", "abc", "9"], (["Python"], 3, None, "全台灣", 0), "無法識別「火星」"),
-    (["Python", "", "0", "1"], (["Python"], 3, None, "全台灣", 1), None),
+    (["", "Python, AI", "", "", ""], (["Python", "AI"], 3, None, "全台灣", 0, m.DEFAULT_DB_PATH), None),
+    (["Python", "新竹", "5", "2"], (["Python"], 5, "6001006000", "新竹市", 2, m.DEFAULT_DB_PATH), None),
+    (["Python", "火星", "abc", "9"], (["Python"], 3, None, "全台灣", 0, m.DEFAULT_DB_PATH), "無法識別「火星」"),
+    (["Python", "", "0", "1"], (["Python"], 3, None, "全台灣", 1, m.DEFAULT_DB_PATH), None),
 ])
 def test_run_interactive(monkeypatch, record_execute, capsys, answers, expected, warning):
     it = iter(answers)
