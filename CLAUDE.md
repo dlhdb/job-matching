@@ -9,7 +9,8 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 專案由 **uv** 管理，Python 3.14。
 
 ```bash
-uv sync                      # 安裝依賴（含 dev group）
+scripts/setup-dev-env.sh     # 建立開發環境：uv sync + 設定 nbstripout git filter（可重複執行）
+uv sync                      # 只安裝依賴（含 dev group）
 uv run src/main.py           # 目前仍是 uv 樣板，尚未成為真正進入點
 uv run src/score_job.py --jobs output/104/<檔名>.json [--job-no <代碼>] [--dry-run]  # 單筆職缺評分
 uv run pytest                # 離線測試（預設跳過需要網路的測試）

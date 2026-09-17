@@ -35,7 +35,7 @@
     }
   },
   // postCreate 在 postStart 之前執行，此時防火牆尚未啟用
-  "postCreateCommand": "uv sync",
+  "postCreateCommand": "scripts/setup-dev-env.sh",
   "postStartCommand": "sudo /usr/local/bin/init-firewall.sh",
   "waitFor": "postStartCommand"
 }

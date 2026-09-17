@@ -9,11 +9,18 @@
 
 ## 快速開始
 
-需要 [uv](https://docs.astral.sh/uv/) 與 Python 3.14，第一次使用先安裝依賴：
+需要 [uv](https://docs.astral.sh/uv/) 與 Python 3.14，第一次使用先執行設定腳本：
 
 ```bash
-uv sync
+scripts/setup-dev-env.sh
 ```
+
+腳本會做兩件事，可以重複執行：
+
+- 安裝依賴（`uv sync`）。
+- 設定 git filter，`git add` 時自動移除 notebook 的輸出，避免職缺資料進版控。
+
+使用 devcontainer 時，建立容器會自動執行這支腳本。filter 設定存在 `.git/config`，不會跟著 clone 下來；沒設定時 `git add` 不會有任何警告，notebook 的輸出會直接進版控。所以每次重新 clone 都要再執行一次。
 
 ### 我想先隨便看看有哪些職缺
 
@@ -52,6 +59,8 @@ uv run src/fetch_104_jobs.py -k "後端工程師,Backend,Python" -a 新竹
 
 各欄位的意義見 [F2-01 §5.5 欄位字典](docs/features/F2-01-104-job-scraper.md#55-欄位字典)，完整參數說明見 [§5.6](docs/features/F2-01-104-job-scraper.md#56-cli)。
 
+想做統計或篩選時，打開 [notebooks/analyze_104_jobs.ipynb](notebooks/analyze_104_jobs.ipynb)，kernel 選專案的虛擬環境（devcontainer 內是 `~/.venv/bin/python`）。
+
 ### 我想讓 AI 幫我評估某個職缺適不適合
 
 1. 複製範本，填入自己的偏好與經歷，並在 `.env` 填入 [Gemini API key](https://aistudio.google.com/apikey)：
@@ -75,7 +84,7 @@ uv run src/fetch_104_jobs.py -k "後端工程師,Backend,Python" -a 新竹
 [.devcontainer/](.devcontainer/) 提供一個 Docker 容器，讓 AI coding agent（目前設定的是 Claude Code）可以不經逐步確認直接執行：容器內的指令不會碰到主機，對外連線也只允許必要的網域。設計細節見 [docs/ai-coding-setup/devcontainer.md](docs/ai-coding-setup/devcontainer.md)。
 
 1. 安裝 Docker Desktop 與 VS Code 的 [Dev Containers 擴充套件](https://marketplace.visualstudio.com/items?itemName=ms-vscode-remote.remote-containers)，並啟動 Docker Desktop。
-2. 在 VS Code 執行 **Dev Containers: Reopen in Container**。第一次建置會安裝 Python 3.14、依賴與 Claude Code。
+2. 在 VS Code 執行 **Dev Containers: Reopen in Container**。第一次建置會安裝 Python 3.14 與 Claude Code，並執行 `scripts/setup-dev-env.sh`。
 3. 在容器的終端機執行：
 
    ```bash
@@ -100,6 +109,9 @@ src/
   score_job.py         單筆職缺評分 CLI
   job_scoring/         工作評分邏輯（規則、提示詞、LLM 抽象層）
 tests/                 pytest 測試（uv run pytest）
+notebooks/             分析爬蟲資料的 Jupyter notebook（輸出含職缺資料，由 git filter 在提交時移除）
+scripts/
+  setup-dev-env.sh     建立開發環境：安裝依賴、設定 git filter（主機與容器共用）
 output/104/            爬蟲輸出（不進版控）
 profile/               求職偏好與工作經歷（評分用；真實資料不進版控）
 .env.example           API key 範本，複製成 .env 後填入

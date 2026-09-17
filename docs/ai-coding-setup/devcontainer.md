@@ -6,6 +6,14 @@
 
 容器以 `node` 使用者執行（見 `.devcontainer/Dockerfile`），`node` 對 root 只有一條免密碼 sudo 規則，就是下面的 `init-firewall.sh`，沒有其他 root 權限。這樣即使 agent 在容器內執行了不該執行的指令，影響範圍也侷限在非 root 使用者能碰到的範圍。
 
+## 虛擬環境與 git 設定
+
+專案資料夾以 bind mount 掛進容器，主機與容器看到的是同一份 `/workspace`，包含 `.venv/` 與 `.git/config`：
+
+- **虛擬環境分開放**：`UV_PROJECT_ENVIRONMENT` 把容器的虛擬環境指到 `/home/node/.venv`。`/workspace/.venv` 是主機（macOS）建立的，Python 連結指向主機路徑，在容器內無法執行。VS Code 會把它標成推薦的 interpreter，但容器內要選 `/home/node/.venv/bin/python`，notebook 的 kernel 也一樣。
+- **git filter 不寫絕對路徑**：`postCreateCommand` 執行 `scripts/setup-dev-env.sh`，安裝依賴並設定 nbstripout filter，在 `git add` 時移除 notebook 的輸出。`nbstripout --install` 會把 Python 的絕對路徑寫進 `.git/config`，但主機與容器共用這份設定，兩邊的虛擬環境路徑不同，所以改由腳本寫入 `uv run --no-sync python -m nbstripout`，讓兩邊各自的 uv 找到自己的虛擬環境。
+- **filter 失敗時擋下**：filter 設定了 `required`，環境裡沒有 nbstripout 時 `git add` 會報錯，不會把輸出存進去。
+
 ## 對外連線防火牆
 
 `.devcontainer/init-firewall.sh` 在 postStartCommand 階段執行，用 `iptables` + `ipset` 把對外連線限制在白名單網域，其餘一律 `REJECT`，改寫自 [Anthropic 官方範例](https://github.com/anthropics/claude-code/tree/main/.devcontainer)。
