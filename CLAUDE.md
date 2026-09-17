@@ -33,15 +33,25 @@ uv add <pkg>                 # 新增依賴
 | 模組間的資料流與輸入契約 | [docs/architecture.md](docs/architecture.md) |
 | 104 爬蟲的請求標頭與頻率限制、職缺欄位字典、執行方式與輸出位置 | [docs/features/F2-01-104-job-scraper.md](docs/features/F2-01-104-job-scraper.md) |
 | 工作評分的維度、淘汰與薪資規則、偏好檔格式、提示詞設計、輸出欄位、LLM 抽象層 | [docs/features/F1-01-job-scoring.md](docs/features/F1-01-job-scoring.md) |
-| 程式碼風格、docstring 格式、文件繪圖（mermaid）、終端輸出慣例、依賴管理、測試慣例 | [docs/conventions.md](docs/conventions.md) |
+| 程式碼風格、docstring 格式、文件撰寫規範（內容、格式、繪圖）、終端輸出慣例、依賴管理、測試慣例 | [docs/conventions.md](docs/conventions.md) |
 | 隔離容器與防火牆白名單設計（所有 AI coding 工具共用） | [docs/ai-coding-setup/devcontainer.md](docs/ai-coding-setup/devcontainer.md) |
 | Claude Code 專屬的權限規則（deny/ask）與設計理由 | [docs/ai-coding-setup/claude-code.md](docs/ai-coding-setup/claude-code.md) |
 
-所有文件都描述系統的現況：需求、設計或實作改變時，直接更新對應的文件。一個功能的需求、設計與驗收標準都寫在同一份功能文件裡。
+所有文件都描述系統的現況：需求、設計或實作改變時，直接更新對應的文件。一個功能的需求、設計與驗收標準都寫在同一份功能文件裡。撰寫或修改任何文件前，先讀 [docs/conventions.md](docs/conventions.md#文件撰寫) 的「文件撰寫」。
 
 ## 待辦事項
 
 討論中出現、但確認不是現在要做的事（文件修正、延後的功能、後續改善），一律記到 [TODO.md](TODO.md)，不要順手處理。開始做某項時，再把它從 TODO.md 移除。
+
+## 向使用者確認問題
+
+需要使用者做決定時，不在對話中逐一詢問，改寫成問卷放在 `to-be-confirm/<主題>.md`，使用者填完後會通知你：
+
+- 每題一個標題，寫出位置、問題與建議改法。位置與參考來源一律用相對於問卷的 markdown 超連結，指到行號（`[F1-01 第 63 行](../docs/features/F1-01-job-scoring.md#L63)`）或章節錨點，方便使用者跳轉查看。
+- 選項用 `- [ ]` 列出，建議的選項標上「（建議）」，每題最後留一行「備註：」。
+- 使用者通知填完後：
+  - 讀取整份問卷再依答案處理，答案或備註不清楚時先問清楚再動手
+  - 處理完就刪除該問卷，問卷不進版控
 
 ## 功能開發流程
 
