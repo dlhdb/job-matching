@@ -19,5 +19,9 @@
       "Bash(git checkout -- *)",
       "Bash(git restore *)"
     ]
+  },
+  "enabledPlugins": {
+    "git-helpers@dennistai": true,
+    "tech-docs@dennistai": true
   }
 }
