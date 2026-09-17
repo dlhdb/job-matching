@@ -45,11 +45,19 @@
 
 ## 4. 功能需求
 
-- **FR-1**：`uv run src/mcp_server.py` 以 stdio 啟動 MCP server。`--db` 可指定資料庫路徑，預設為 `data/jobs.db`（同 [F2-02 FR-1](F2-02-job-database.md#4-功能需求)）。
+- **FR-1**：`uv run src/mcp_server.py` 以 stdio 啟動 MCP server。
+  - `--db` 可指定資料庫路徑，預設為 `data/jobs.db`（同 [F2-02 FR-1](F2-02-job-database.md#4-功能需求)）。
 - **FR-2**：tool 執行期間，stdout 只輸出 MCP 協定內容，進度與訊息一律寫到 stderr（見 [§5.3](#53-stdout-只留給協定)）。
-- **FR-3**：`search_104_jobs` 依 [§5.4](#54-tool-清單) 抓取 104 職缺，寫入 CSV、JSON 與資料庫，回傳這次執行的摘要。
-- **FR-4**：`score_jobs` 依 F1-01 的流程評分指定的職缺，把結果寫入資料庫，回傳每筆的精簡結果與摘要；單筆失敗不中斷。
-- **FR-5**：`query_jobs` 依分數、首次出現時間、關鍵字篩選職缺，依 [§5.4](#54-tool-清單) 的規則排序，回傳精簡欄位。
+- **FR-3**：`search_104_jobs` 依 [§5.4](#54-tool-清單) 抓取 104 職缺。
+  - 結果寫入 CSV、JSON 與資料庫。
+  - 回傳這次執行的摘要。
+- **FR-4**：`score_jobs` 依 F1-01 的流程評分指定的職缺。
+  - 結果寫入資料庫。
+  - 回傳每筆的精簡結果與摘要。
+  - 單筆失敗不中斷。
+- **FR-5**：`query_jobs` 依分數、首次出現時間、關鍵字篩選職缺。
+  - 依 [§5.4](#54-tool-清單) 的規則排序。
+  - 回傳精簡欄位。
 - **FR-6**：`get_job_detail` 回傳單筆職缺的全部欄位，以及資料庫中評分結果的各維度分數與理由。
 - **FR-7**：參數錯誤、找不到職缺、個人資料檔有誤、缺少 API key 等情況，以 tool error 回傳訊息，server 繼續執行。
 - **FR-8**：會回傳多筆資料的 tool 都有 `limit` 參數與上限，避免塞滿 agent 的 context。
