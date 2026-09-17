@@ -6,15 +6,6 @@
 
 - [ ] `profile/preferences.yaml` 與 `profile/experience.md` 目前是測試用的虛構資料，執行 F1-01 AC-8（真實評分）前要換成自己的偏好與經歷，才能判斷 AI 的理由是否與自己的判斷相符
 
-## 文件修正
-
-- [ ] [F2-01 §5.4](docs/features/F2-01-104-job-scraper.md#54-輸出) 的檔名規則描述錯誤
-  - 文件寫會移除「非英數字元」，但程式用 `str.isalnum()`，中文也會保留（例如 `jobs_104_後端工程師_…`）
-  - 要改成「只保留 `isalnum()` 為真的字元（含中文）與 `-`、`_`」
-- [ ] [F1-01 §5.1](docs/features/F1-01-job-scoring.md#51-評分流程) 的流程圖箭頭接錯
-  - 圖上 `experience.md` 接到「硬性淘汰」，實際上經歷只用在提示詞
-  - 箭頭要改接到 AI 評分
-
 ## 評分邏輯
 
 - [ ] 決定 `round()` 的進位規則
