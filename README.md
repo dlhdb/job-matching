@@ -50,7 +50,7 @@ uv run src/fetch_104_jobs.py -k "後端工程師,Backend,Python" -a 新竹
 | `jobs_104_<關鍵字>_<時間>.csv` | 用 Excel 直接開啟篩選，中文不會亂碼 |
 | `jobs_104_<關鍵字>_<時間>.json` | 交給程式或 AI 做後續分析 |
 
-各欄位的意義見 [104 爬蟲規格 §3](docs/spec/104-scraper.md#3-資料欄位對應字典-data-dictionary)，完整參數說明見 [§4](docs/spec/104-scraper.md#4-使用指南與執行範例)。
+各欄位的意義見 [F2-01 §5.5 欄位字典](docs/features/F2-01-104-job-scraper.md#55-欄位字典)，完整參數說明見 [§5.6](docs/features/F2-01-104-job-scraper.md#56-cli)。
 
 ### 我想讓 AI 幫我評估某個職缺適不適合
 
@@ -68,7 +68,7 @@ uv run src/fetch_104_jobs.py -k "後端工程師,Backend,Python" -a 新竹
    uv run src/score_job.py --jobs output/104/<檔名>.json --job-no <職缺代碼>
    ```
 
-結果是包含各維度分數、理由與 0–100 總分的 JSON。薪資太低、公司或職稱在排除清單中的職缺會直接淘汰，不呼叫 AI。想調整提示詞時，加上 `--dry-run` 就只會印出提示詞，不呼叫 AI。評分方式見 [工作評分規格](docs/spec/job-scoring.md)。
+結果是包含各維度分數、理由與 0–100 總分的 JSON。薪資太低、公司或職稱在排除清單中的職缺會直接淘汰，不呼叫 AI。想調整提示詞時，加上 `--dry-run` 就只會印出提示詞，不呼叫 AI。評分方式見 [F1-01 工作評分](docs/features/F1-01-job-scoring.md#5-設計)。
 
 ## 在隔離環境中讓 Coding Agent 自主執行
 
@@ -106,8 +106,10 @@ profile/               求職偏好與工作經歷（評分用；真實資料不
 TODO.md                已確認、但尚未要做的事項
 .devcontainer/         讓 AI coding 工具自主執行的隔離容器（含對外連線防火牆）
 docs/
-  prd/                 產品需求：要做什麼、做到哪算完成
-  spec/                技術規格：怎麼做
+  README.md            專案總覽：目標、核心技術、功能清單與現況
+  features/            各功能的需求、設計與驗收標準（一個功能一份）
+  architecture.md      跨功能的資料流
+  conventions.md       開發慣例
   ai-coding-setup/     Claude Code 等 AI 輔助開發工具的執行環境設定
 ```
 
@@ -115,12 +117,12 @@ docs/
 
 | 文件 | 內容 |
 | :--- | :--- |
-| [docs/prd/README.md](docs/prd/README.md) | 產品需求：目標、用例、核心技術、功能清單與狀態 |
-| [docs/prd/features/](docs/prd/features/) | 各功能的需求與驗收標準 |
-| [docs/spec/architecture.md](docs/spec/architecture.md) | 系統架構：模組間的資料流與輸入契約 |
-| [docs/spec/104-scraper.md](docs/spec/104-scraper.md) | 104 爬蟲技術規格與欄位字典 |
-| [docs/spec/job-scoring.md](docs/spec/job-scoring.md) | 工作評分邏輯技術規格 |
-| [docs/spec/conventions.md](docs/spec/conventions.md) | 開發慣例 |
+| [docs/README.md](docs/README.md) | 專案總覽：目標、用例、核心技術、功能清單與現況 |
+| [docs/features/F1-01-job-scoring.md](docs/features/F1-01-job-scoring.md) | 單筆職缺評分：需求、評分規則、提示詞、LLM 抽象層、驗收標準 |
+| [docs/features/F2-01-104-job-scraper.md](docs/features/F2-01-104-job-scraper.md) | 104 爬蟲：需求、API 限制、欄位字典、驗收標準 |
+| [docs/features/F4-01-batch-job-scoring.md](docs/features/F4-01-batch-job-scoring.md) | 職缺批次評分與排序（待實作） |
+| [docs/architecture.md](docs/architecture.md) | 系統架構：模組間的資料流與輸入契約 |
+| [docs/conventions.md](docs/conventions.md) | 開發慣例 |
 | [docs/ai-coding-setup/devcontainer.md](docs/ai-coding-setup/devcontainer.md) | 隔離容器與防火牆白名單（所有 AI coding 工具共用） |
 | [docs/ai-coding-setup/claude-code.md](docs/ai-coding-setup/claude-code.md) | Claude Code 專屬的權限規則（deny/ask） |
 

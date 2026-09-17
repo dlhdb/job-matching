@@ -26,18 +26,18 @@ uv add <pkg>                 # 新增依賴
 
 | 想知道什麼 | 讀哪份 |
 | :--- | :--- |
-| 產品目標、用例、五項核心技術定義、功能清單與狀態 | [docs/prd/README.md](docs/prd/README.md) |
-| 單一功能的需求、範圍、驗收標準 | `docs/prd/features/F<編號>-*.md` |
-| 撰寫新 PRD 的格式 | [docs/prd/_template.md](docs/prd/_template.md) |
+| 產品目標、用例、五項核心技術定義、功能清單與現況 | [docs/README.md](docs/README.md) |
+| 單一功能的需求、範圍、設計、驗收標準 | `docs/features/F<編號>-*.md` |
+| 撰寫新功能文件的格式 | [docs/feature_template.md](docs/feature_template.md) |
 | 專案檔案結構 | [README.md](README.md) 的「專案結構」 |
-| 模組間的資料流與輸入契約 | [docs/spec/architecture.md](docs/spec/architecture.md) |
-| 104 爬蟲的架構、請求標頭與頻率限制、職缺欄位字典、執行方式與輸出位置 | [docs/spec/104-scraper.md](docs/spec/104-scraper.md) |
-| 工作評分的維度、淘汰與薪資規則、偏好檔格式、提示詞設計、輸出欄位、LLM 抽象層 | [docs/spec/job-scoring.md](docs/spec/job-scoring.md) |
-| 程式碼風格、docstring 格式、文件繪圖（mermaid）、終端輸出慣例、依賴管理、測試慣例 | [docs/spec/conventions.md](docs/spec/conventions.md) |
+| 模組間的資料流與輸入契約 | [docs/architecture.md](docs/architecture.md) |
+| 104 爬蟲的請求標頭與頻率限制、職缺欄位字典、執行方式與輸出位置 | [docs/features/F2-01-104-job-scraper.md](docs/features/F2-01-104-job-scraper.md) |
+| 工作評分的維度、淘汰與薪資規則、偏好檔格式、提示詞設計、輸出欄位、LLM 抽象層 | [docs/features/F1-01-job-scoring.md](docs/features/F1-01-job-scoring.md) |
+| 程式碼風格、docstring 格式、文件繪圖（mermaid）、終端輸出慣例、依賴管理、測試慣例 | [docs/conventions.md](docs/conventions.md) |
 | 隔離容器與防火牆白名單設計（所有 AI coding 工具共用） | [docs/ai-coding-setup/devcontainer.md](docs/ai-coding-setup/devcontainer.md) |
 | Claude Code 專屬的權限規則（deny/ask）與設計理由 | [docs/ai-coding-setup/claude-code.md](docs/ai-coding-setup/claude-code.md) |
 
-`docs/spec/` 寫「怎麼做」，`docs/prd/` 寫「要做什麼、做到哪算完成」。
+所有文件都描述系統的現況：需求、設計或實作改變時，直接更新對應的文件。一個功能的需求、設計與驗收標準都寫在同一份功能文件裡。
 
 ## 待辦事項
 
@@ -45,6 +45,6 @@ uv add <pkg>                 # 新增依賴
 
 ## 功能開發流程
 
-1. 先讀 docs/prd/README.md 確認功能對應哪一項核心技術，再讀該功能的 PRD。沒有 PRD 或 PRD 仍有待決問題時，先與使用者釐清，不要直接實作。
-2. 實作時只做「功能需求」列出的事，不碰「範圍外」。
-3. 完成後逐條執行 PRD 的驗收標準，回報每條 ✅ / ❌ 與實際輸出；全部通過才把 PRD 與 PRD 索引的狀態改為已完成。
+1. 先讀 docs/README.md 確認功能對應哪一項核心技術，再讀該功能的文件。沒有功能文件，或功能文件仍有待決問題時，先與使用者釐清，不要直接實作。修改既有功能時，先在功能文件把新的 FR／AC 標上〔規劃中〕，與使用者確認後再實作。
+2. 實作時只做「功能需求」列出的事，不碰「範圍外」。設計有調整時，同步更新功能文件的「設計」章節。
+3. 完成後逐條執行功能文件的驗收標準，回報每條 ✅ / ❌ 與實際輸出；全部通過才移除〔規劃中〕標記，把功能文件與 docs/README.md 的狀態改為 ✅ 已完成，並更新 docs/README.md 中所屬核心技術的「現況」。

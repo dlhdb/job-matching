@@ -10,7 +10,7 @@
 - 指定職缺：`uv run src/score_job.py --jobs output/104/<檔名>.json --job-no 8s12x`
 - 只看提示詞（不呼叫 AI）：加上 `--dry-run`
 
-規格見 docs/spec/job-scoring.md §8.5。
+規格見 docs/features/F1-01-job-scoring.md §5.8.5。
 """
 
 import argparse
