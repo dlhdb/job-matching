@@ -6,6 +6,10 @@
 
 - [ ] `profile/preferences.yaml` 與 `profile/experience.md` 目前是測試用的虛構資料，執行 F1-01 AC-8（真實評分）前要換成自己的偏好與經歷，才能判斷 AI 的理由是否與自己的判斷相符
 
+## 文件修正
+
+- [ ] [F2-01 §5.4](docs/features/F2-01-104-job-scraper.md#54-輸出) 寫檔名會移除「非英數字元」，但程式用 `str.isalnum()`，中文也會保留（例如 `jobs_104_後端工程師_…`）；要改成「只保留 `isalnum()` 為真的字元（含中文）與 `-`、`_`」
+
 ## 評分邏輯
 
 - [ ] [F1-01 §5.6](docs/features/F1-01-job-scoring.md#56-總分) 的 `round()` 在 Python 是「四捨六入五成雙」，例如 62.5 會變成 62、67.5 會變成 68；要決定是否改成一律進位，並在規格寫明
