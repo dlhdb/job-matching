@@ -61,7 +61,7 @@
 
 | ID | 功能 | 狀態 | 文件 |
 | :-- | :--- | :--- | :--- |
-| F1-01 | 職缺評分 | ✅ 已完成 | [F1-01-job-scoring.md](features/F1-01-job-scoring.md) |
+| F1-01 | 職缺評分 | 待規劃 | [F1-01-job-scoring.md](features/F1-01-job-scoring.md) |
 
 ### 2. 從求職平台獲取職缺資訊
 

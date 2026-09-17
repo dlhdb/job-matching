@@ -4,8 +4,8 @@
 | :--- | :--- |
 | ID | F1-01 |
 | 核心技術 | 1 — 職缺自動評分（見 [專案總覽](../README.md#核心技術)） |
-| 狀態 | ✅ 已完成 |
-| 依賴 | F2-01（使用其輸出的職缺 JSON 作為輸入） |
+| 狀態 | 待規劃 |
+| 依賴 | F2-01（使用其輸出的職缺 JSON 作為輸入）、F2-02（評分結果寫入其資料庫）〔規劃中〕 |
 | 程式碼 | [src/score_job.py](../../src/score_job.py)（CLI）、[src/job_scoring/](../../src/job_scoring/) |
 
 ## 1. 背景與目標
@@ -15,6 +15,8 @@
 
 目前的入口是 CLI，只是為了快速開發；之後會整合進 app。
 
+〔規劃中〕評分結果目前只寫成檔案，每次執行都會把整批職缺重新交給 AI 評分，重跑同一批就要重付一次費用；其他介面（[F5-01](F5-01-mcp-server.md)）也無法查詢分數。因此評分結果改為同時寫入職缺資料庫，輸入沒有改變的職缺直接沿用上次的結果。
+
 ## 2. 使用情境
 
 - 身為求職者，我想要把一整批爬到的職缺一次送進評分，並拿到結果檔，以便用表格工具排序、篩選後，挑出值得細看的職缺。
@@ -22,7 +24,10 @@
 - 身為求職者，我想要看到每個維度的分數與理由，以便知道總分是怎麼來的，並判斷要不要相信它。
 - 身為求職者，我想要明顯不合的職缺（薪資太低、不想去的公司）直接被淘汰，以便不浪費時間與 AI 費用。
 - 身為求職者，我想要個別職缺評分失敗時其餘職缺仍能跑完，以便不浪費整批已經花掉的時間與 AI 費用。
-- 身為調整提示詞的開發者，我想要只評單筆職缺，或在不呼叫 AI 的情況下看到完整的提示詞，以便反覆修改。
+- 身為調整提示詞的開發者，我想要只評單筆職缺，以便反覆修改。
+- 〔規劃中〕身為求職者，我想要換一份偏好、經歷或模型試跑評分，而且不影響已存的正式分數，以便比較不同設定的結果。
+- 〔規劃中〕身為求職者，我想要重跑同一批職缺時，沒有變動的職缺不再呼叫 AI，以便不重複付費。
+- 〔規劃中〕身為求職者，我想要評分結果和職缺放在同一個資料庫，以便依分數查詢職缺。
 
 ## 3. 範圍
 
@@ -34,8 +39,10 @@
 - 加權總分（未知維度以 3 分代入）
 - 提示詞模板
 - LLM 供應商抽象層與 Gemini 實作
-- CLI：單筆評分，包含 `--dry-run`
+- CLI：單筆評分
+- 〔規劃中〕CLI：`--dry-run` 試跑，完整評分但不讀寫資料庫
 - CLI：整批評分，單筆失敗不中斷，結果寫成 JSON 與 CSV，並印出摘要
+- 〔規劃中〕評分結果寫入職缺資料庫，輸入沒有改變時沿用上次的結果
 
 **範圍外**（實作時不要做）
 
@@ -45,7 +52,8 @@
 - 通勤便利度、資歷門檻、工作型態與福利、競爭程度／新鮮度等維度（候選做法見 [TODO.md](../../TODO.md)）
 - 公司評價資訊（屬 F3；本功能的產業公司吸引力只看產業類別與公司名稱）
 - 修改爬蟲或擴充爬蟲欄位（見 [TODO.md](../../TODO.md#爬蟲)）
-- 評分結果快取、失敗重試（見 [TODO.md](../../TODO.md#職缺評分範圍外)）
+- 失敗重試（見 [TODO.md](../../TODO.md#職缺評分範圍外)）
+- 〔規劃中〕保留評分歷史、從資料庫讀取職缺、強制重新評分的參數（見 [TODO.md](../../TODO.md#職缺評分範圍外)）
 - 平行呼叫 AI（整批維持循序執行）
 
 ## 4. 功能需求
@@ -55,12 +63,15 @@
 - **FR-3**：依 [§5.5](#55-薪資換算與計分) 換算月薪並計算薪資分數；面議、時薪、日薪、論件計酬與缺值都視為未知（`null`），不會因此被淘汰。
 - **FR-4**：由 AI 依 [§5.3.1](#531-ai-維度的錨點描述) 的錨點，為三個 AI 維度各給 1–5 分或 `null`，每個維度都附上理由，另外提供總評；AI 回應必須通過 schema 驗證，否則視為失敗。
 - **FR-5**：依 [§5.6](#56-總分) 計算 0–100 的加權總分；分數為 `null` 的維度以 3 分代入，讓所有沒被淘汰的職缺都有可以互相比較的總分。
-- **FR-6**：提供 `src/score_job.py` CLI，參數與結束碼依 [§5.8.5](#585-cli)。指定 `--job-no` 時評單筆並印出結果；省略時評整批。`--dry-run` 只印出提示詞、不建立 LLM client，而且必須搭配 `--job-no`。
+- **FR-6**：提供 `src/score_job.py` CLI，參數與結束碼依 [§5.8.5](#585-cli)。指定 `--job-no` 時評單筆並印出結果；省略時評整批。〔規劃中〕`--dry-run` 依 FR-14 試跑，單筆與整批都可使用；不再提供只印出提示詞的功能。
 - **FR-7**：LLM 呼叫透過 `LLMClient` 介面與 `get_client(provider, model)` 工廠函式；預設使用 Gemini。API key 讀取環境變數 `GEMINI_API_KEY`，CLI 啟動時會從專案根目錄的 `.env` 載入，但不覆寫已存在的環境變數；`.env` 不進版控，版控中提供 `.env.example`。只有 `llm.py` 可以依賴特定供應商的 SDK。
 - **FR-8**：整批評分時，依輸入順序逐筆套用 [§5.1](#51-評分流程) 的流程。
 - **FR-9**：單筆評分失敗（LLM 呼叫失敗或回應驗證失敗）時，記下失敗原因並繼續下一筆，不中斷整批。
 - **FR-10**：整批結果寫成 JSON 與 CSV 兩個檔案，位置與格式依 [§5.9.2](#592-結果檔)；CSV 使用 `utf-8-sig`，讓 Excel 能正常顯示中文。
-- **FR-11**：整批評分結束時印出摘要：總筆數、成功、淘汰、失敗筆數，以及兩個結果檔的路徑。
+- **FR-11**：整批評分結束時印出摘要：總筆數、成功、淘汰、失敗筆數，以及兩個結果檔的路徑。〔規劃中〕成功筆數中沿用上次結果的筆數另外列出。
+- **FR-12**〔規劃中〕：單筆與整批評分的結果都寫入 `job_scores` 表，格式依 [§5.10](#510-評分結果入庫)。每筆職缺只保留最新一次的結果；評分失敗的職缺不寫入，保留原本的列。
+- **FR-13**〔規劃中〕：沒被淘汰的職缺，評分前依 [§5.10.2](#5102-快取) 計算快取鍵；`job_scores` 中同一筆職缺的快取鍵相同時，沿用該列的結果，不呼叫 AI。
+- **FR-14**〔規劃中〕：CLI 以 `--db` 指定資料庫路徑，預設為 `data/jobs.db`（同 [F2-02 FR-1](F2-02-job-database.md#4-功能需求)）。評分結果都會寫入資料庫；指定 `--dry-run` 時照常完整評分（會呼叫 AI），但不讀寫資料庫，也不沿用上次的結果。
 
 ## 5. 設計
 
@@ -294,6 +305,8 @@ src/
     scorer.py                單筆評分流程與總分計算
     jobs.py                  讀取並驗證爬蟲輸出的職缺 JSON
     batch.py                 整批評分、寫出結果檔
+  job_db/
+    scores.py                〔規劃中〕讀寫 job_scores（表定義在 F2-02 的 schema.py）
 tests/
   conftest.py                  共用 fixture（測試資料、假的 LLM client）
   test_job_scoring_profile.py  透過 main 驗證偏好檔、個人資料的版控設定
@@ -349,7 +362,7 @@ class LLMClient(Protocol):
   - `response_format` 裡 schema 的鍵名要寫 `schema_`（SDK 的 TypedDict 鍵名），送出時才會序列化成 API 的 `schema`。
   - `store=False`：提示詞含個人經歷，不在伺服器端保存互動紀錄。
   - SDK 的錯誤類別（HTTP、連線、逾時）沒有公開匯出，因此 `interactions.create` 拋出的任何例外都轉成 `LLMError`；`output_text` 為空時也是 `LLMError`。
-- API key 從環境變數 `GEMINI_API_KEY` 讀取，由 `GeminiClient` 建構時檢查，**沒有設定或是空字串**就拋出例外。CLI 只在「沒被淘汰、也不是 `--dry-run`」時才建立 client，所以只有真的要呼叫 AI 時才需要 key。
+- API key 從環境變數 `GEMINI_API_KEY` 讀取，由 `GeminiClient` 建構時檢查，**沒有設定或是空字串**就拋出例外。CLI 只在「沒被淘汰」時才建立 client，所以只有真的要呼叫 AI 時才需要 key。〔規劃中〕沿用上次結果的職缺也不建立 client（見 [§5.10.3](#5103-流程)）。
 - API key 放在專案根目錄的 `.env`（不進版控，範本是 `.env.example`）。`score_job.py` 啟動時用 `python-dotenv` 的 `load_dotenv(專案根目錄 / ".env")` 載入。`load_dotenv` 預設**不覆寫已經存在的環境變數**（[python-dotenv](https://github.com/theskumar/python-dotenv)），所以 shell 設定的值優先；測試時用 `GEMINI_API_KEY=` 設成空字串，就能模擬沒有 key 的情況，不受 `.env` 影響。
 - 預設模型：`gemini-3.8-flash`，可用 `--model` 覆寫。
 - `get_client(provider, model)`：用供應商名稱查表建立 client，不認得的名稱就拋出 `ValueError`。之後加入 OpenAI 時，只要新增 `OpenAIClient` 並註冊到表中，其他模組都不用改。
@@ -357,8 +370,8 @@ class LLMClient(Protocol):
 #### 5.8.5 CLI
 
 ```bash
-uv run src/score_job.py --jobs output/104/<檔名>.json [--job-no <職缺代碼> [--dry-run]] \
-    [--profile-dir profile] [--provider gemini] [--model gemini-3.8-flash]
+uv run src/score_job.py --jobs output/104/<檔名>.json [--job-no <職缺代碼>] [--dry-run] \
+    [--profile-dir profile] [--provider gemini] [--model gemini-3.8-flash] [--db data/jobs.db]
 ```
 
 | 參數 | 說明 |
@@ -368,7 +381,8 @@ uv run src/score_job.py --jobs output/104/<檔名>.json [--job-no <職缺代碼>
 | `--profile-dir` | 放 `preferences.yaml` 與 `experience.md` 的目錄，預設為專案根目錄下的 `profile/`（以腳本位置為基準，不受工作目錄影響） |
 | `--provider` | LLM 供應商，預設 `gemini` |
 | `--model` | 模型名稱，預設 `gemini-3.8-flash` |
-| `--dry-run` | 先執行硬性淘汰與薪資計分，再印出完整的 system 與 user 提示詞，**不建立 LLM client、不發出網路請求**。必須搭配 `--job-no`，否則印出 `[-]` 並結束 |
+| `--dry-run` | 〔規劃中〕試跑：完整評分（會呼叫 AI），但不讀寫資料庫、不沿用上次的結果，不影響已存的正式分數。單筆照常印到 stdout，整批照常寫出結果檔。用於換一份偏好檔、經歷或模型，實際看 AI 會給幾分、理由是什麼 |
+| `--db` | 〔規劃中〕評分結果寫入的資料庫，預設為專案根目錄的 `data/jobs.db`（見 [§5.10](#510-評分結果入庫)） |
 
 單筆評分的結果以 JSON 印到 stdout（`ensure_ascii=False`，縮排 2）；整批評分的結果寫成檔案，stdout 不輸出。進度、摘要與錯誤訊息都印到 stderr，方便把 stdout 導向檔案。
 
@@ -380,10 +394,10 @@ uv run src/score_job.py --jobs output/104/<檔名>.json [--job-no <職缺代碼>
 - `1`：以下情況會印出 `[-]` 並結束
   - 個人資料檔缺少或格式錯誤
   - 找不到職缺
-  - 使用 `--dry-run` 但沒有指定 `--job-no`
   - 不支援的供應商
   - 缺少 API key
   - 單筆評分時 Gemini API 呼叫失敗、沒有回傳文字，或 AI 回應格式錯誤
+  - 〔規劃中〕無法開啟資料庫，或寫入資料庫時發生 SQLite 錯誤
 
 ### 5.9 整批評分
 
@@ -439,6 +453,80 @@ flowchart TD
 
 有失敗時，另外逐筆印出 `[!] <職缺代碼> <職缺名稱>：<失敗原因>`。
 
+〔規劃中〕有職缺沿用上次結果時，第一行之後多印 `[i] 沿用上次結果：<筆數> 筆`（見 [§5.10.3](#5103-流程)）。
+
+### 5.10 評分結果入庫
+
+〔規劃中〕本節全部尚未實作。
+
+評分結果寫進 F2-02 的資料庫（預設 `data/jobs.db`），和 `jobs` 表分開存放，查詢時以 `職缺代碼` JOIN。分開存放的理由：
+
+- 爬蟲更新 `jobs` 時會覆寫整列（見 [F2-02 §5.3](F2-02-job-database.md#53-寫入規則)），分數放在同一張表就得另外避開。
+- 職缺內容更新不代表要重新評分，是否重評由 [§5.10.2](#5102-快取) 的快取鍵決定。
+- 要整批重評時，清空 `job_scores` 即可，不影響職缺資料。
+
+#### 5.10.1 資料表
+
+**`job_scores`**：每筆職缺最多一列，只保留最新一次的評分結果。
+
+| 欄位 | 型態 | 說明 |
+| :--- | :--- | :--- |
+| `職缺代碼` | TEXT | 主鍵 |
+| `評分時間` | TEXT | 本地時間，ISO 8601，精確到秒 |
+| `淘汰` | INTEGER | `0`／`1` |
+| `總分` | INTEGER \| null | 同 [§5.7](#57-輸出jobscore)，被淘汰時為 `null` |
+| `評語` | TEXT \| null | 同 §5.7 |
+| `評分結果` | TEXT | 整份 `JobScore` 的 JSON（`ensure_ascii=False`），格式同 §5.7；要看各維度的分數與理由時讀這欄 |
+| `快取鍵` | TEXT \| null | 見 §5.10.2；被淘汰時為 `null` |
+| `供應商`、`模型` | TEXT \| null | 評分時使用的 LLM；被淘汰時為 `null` |
+
+- `淘汰`、`總分`、`評語` 與 `評分結果` 中的值重複，另外成欄是為了讓 SQL 可以直接篩選與排序。
+- 重新評分時整列覆寫，不保留歷史（見 [TODO.md](../../TODO.md#職缺評分範圍外)）。
+- 評分失敗時不寫入，原本的列維持不變，所以表中永遠是最近一次成功的結果。
+- 不設外鍵指向 `jobs`：`--jobs` 讀的 JSON 不一定匯入過資料庫，不因此擋下寫入。
+- 建表語法放在 `job_db` 的 schema 中，與 F2-02 的表一起建立。`CREATE TABLE IF NOT EXISTS` 會在既有的資料庫補上這張表，不影響原有資料。
+- 資料庫只放正式評分。表中只有最新結果，試跑（換偏好檔、經歷或模型來比較）時要加 `--dry-run`，否則會覆寫正式的分數。
+- 不記錄評分時使用的偏好檔與經歷內容，只記錄供應商與模型（見 [TODO.md](../../TODO.md#職缺評分範圍外)）。
+
+#### 5.10.2 快取
+
+快取鍵是以下五個字串組成 JSON 陣列後的 SHA-256（十六進位）：
+
+1. 供應商名稱
+2. 模型名稱
+3. `preferences.yaml` 的原始文字
+4. system 提示詞
+5. user 提示詞
+
+- user 提示詞已包含 `experience.md` 全文與職缺的六個欄位，system 提示詞包含模板全文。所以偏好、經歷、提示詞模板、職缺內容、模型任一項改變，快取鍵就會不同，不必另外維護提示詞版本號。
+- `preferences.yaml` 整份納入，所以只改權重或薪資門檻也會重新評分。
+- 快取鍵不包含程式碼。修改淘汰、薪資或總分的計算規則後，要清空 `job_scores` 才會重算。
+- 被淘汰的職缺不呼叫 AI，不需要快取，每次都重新判斷並覆寫。
+- 快取不設期限。
+
+#### 5.10.3 流程
+
+每筆職缺套用以下流程，取代 [§5.1](#51-評分流程) 的直接評分：
+
+```mermaid
+flowchart TD
+    J[職缺] --> F{硬性淘汰}
+    F -->|淘汰| W1["寫入 job_scores（快取鍵 null）"]
+    F -->|通過| K[組提示詞、計算快取鍵]
+    K --> C{"job_scores 有相同職缺代碼與快取鍵？"}
+    C -->|有| R["沿用該列的評分結果（不呼叫 AI、不寫入）"]
+    C -->|沒有| A["§5.1 ②–④ 評分"]
+    A -->|成功| W2["寫入 job_scores（覆寫）"]
+    A -->|失敗| E["記錄失敗原因（不寫入）"]
+```
+
+- 每筆職缺的寫入各自是一個 transaction。整批中途中止時，已經評完的職缺留在資料庫，下次執行會沿用，不必重付費用。
+- LLM client 仍在第一次需要呼叫 AI 時才建立，所以整批都被淘汰或都沿用快取時，不需要 API key。
+- 沿用的職缺照常出現在單筆輸出與整批結果檔中，內容取自 `評分結果` 欄。
+- 單筆評分沿用時，在 stderr 印出 `[i] 沿用 <評分時間> 的評分結果`。
+- 整批摘要在 [§5.9.3](#593-摘要) 的第一行之後多印一行 `[i] 沿用上次結果：<筆數> 筆`，這些筆數算在「成功」裡。
+- `--dry-run` 不開啟資料庫，也不計算快取鍵，直接走 §5.1 的流程。
+
 ## 6. 驗收標準
 
 測試與實作一起撰寫，依 [conventions.md 的測試章節](../conventions.md#測試)。除了 AC-8 與 AC-13，其餘都離線執行，也不需要 API key。
@@ -460,6 +548,7 @@ flowchart TD
 - **假的 LLM client**：不連網，回傳固定的 `AIAssessment`，並記錄被呼叫的次數
 - **整批用的假 LLM client**：依職缺名稱回傳不同分數，或對指定職缺拋出 `LLMError`／回傳超出範圍的分數；整批測試的職缺清單在各測試內建立
 - **禁止建立 client**：用 monkeypatch 把 `score_job.get_client` 換成一呼叫就讓測試失敗的函式，並把 `GEMINI_API_KEY` 設為空字串
+- **資料庫**〔規劃中〕：所有測試（含 AC-8、AC-13）都以 `--db` 或連線參數指到 `tmp_path` 的資料庫，不寫入 `data/jobs.db`
 
 一次跑完所有離線驗收：
 
@@ -478,7 +567,7 @@ uv run pytest tests/test_job_scoring_*.py tests/test_score_job_cli.py
 ### AC-1：個人資料檔驗證與版控（涵蓋 FR-1、FR-6）
 
 - **Given**：(a) `preferences.yaml` 缺少 `權重`；(b) `權重` 多了一個不存在的維度；(c) `底線月薪` 大於 `期望月薪`；(d) `淘汰條件.職稱關鍵字` 含空字串
-- **When**：以 `--dry-run` 呼叫 CLI 的 `main`（同時指定 `ok` 的 `--job-no`）
+- **When**：已禁止建立 client，對 `ok` 職缺呼叫 CLI 的 `main`〔規劃中〕
 - **Then**：四種情況都回傳 1，stderr 含 `[-]`；以 `git check-ignore` 檢查時，`profile/preferences.yaml`、`profile/experience.md`、`.env` 被忽略，對應的範本檔沒有被忽略；兩個範本檔都能成功載入
 - **驗證方式**：`uv run pytest tests/test_job_scoring_profile.py`
 - **通過條件**：全部 passed。
@@ -539,13 +628,19 @@ uv run pytest tests/test_job_scoring_*.py tests/test_score_job_cli.py
 - **驗證方式**：`uv run pytest tests/test_job_scoring_scorer.py -k score_job`
 - **通過條件**：全部 passed。
 
-### AC-5：dry-run 印出提示詞且不建立 client（涵蓋 FR-6、FR-7）
+### AC-5：dry-run 試跑 〔規劃中〕（涵蓋 FR-6、FR-14）
 
-- **Given**：已禁止建立 client
-- **When**：以 `--dry-run` 對 `ok` 職缺呼叫 `main`
-- **Then**：回傳 0；stdout 包含 `目標標記-AAA`、`經歷標記-BBB`、`工作標記-CCC` 與 `（無資料）`；禁止建立 client 的函式沒有被呼叫
+- **Given**：以會記錄呼叫次數與收到的提示詞的假 client 取代 `get_client`；`--db` 指到 `tmp_path`，其中 `ok` 已有一列評分結果
+- **When**：
+  - (a) 以 `--dry-run` 對 `ok` 職缺呼叫 `main` 兩次
+  - (b) 以 `--dry-run` 評整批，輸出目錄指到 `tmp_path`
+  - (c) 以 `--dry-run` 並以 `--db` 指定 `tmp_path` 中不存在的路徑，對 `ok` 呼叫
+- **Then**：
+  - (a) 兩次都回傳 0，stdout 是評分結果的 JSON；假 client 被呼叫 2 次（不沿用上次結果）；收到的 user 提示詞包含 `目標標記-AAA`、`經歷標記-BBB`、`工作標記-CCC` 與 `（無資料）`；資料庫中 `ok` 的列沒有改變
+  - (b) 回傳 0，結果檔照常產生，資料庫沒有改變
+  - (c) 回傳 0，資料庫檔沒有被建立
 - **驗證方式**：`uv run pytest tests/test_score_job_cli.py -k dry_run`
-- **通過條件**：passed。
+- **通過條件**：全部 passed。
 
 ### AC-6：被淘汰的職缺不需要 API key（涵蓋 FR-2、FR-6）
 
@@ -621,12 +716,12 @@ uv run pytest tests/test_job_scoring_*.py tests/test_score_job_cli.py
 - **Given**：共用的測試資料，輸出目錄指到 `tmp_path`
 - **When**：
   - (a) 以假 client 取代 `get_client`，不指定 `--job-no` 呼叫 `main`
-  - (b) 使用 `--dry-run` 但不指定 `--job-no`
+  - (b) 〔規劃中〕刪除：整批可以使用 `--dry-run`，改由 AC-5 驗證
   - (c) 已禁止建立 client，職缺檔只有 `out`，不指定 `--job-no`
   - (d) `GEMINI_API_KEY` 設為空字串，不指定 `--job-no`
 - **Then**：
   - (a) 回傳 0；stdout 為空；stderr 含 `共 2 筆，成功 1、淘汰 1、失敗 0` 與兩個結果檔的路徑
-  - (b) 回傳 1，stderr 含 `[-]`
+  - (b) 〔規劃中〕刪除
   - (c) 回傳 0，結果檔中該筆 `淘汰` 為 true
   - (d) 回傳 1，stderr 含 `[-]` 與 `GEMINI_API_KEY`，沒有產生結果檔
 - **驗證方式**：`uv run pytest tests/test_score_job_cli.py -k batch`
@@ -639,6 +734,42 @@ uv run pytest tests/test_job_scoring_*.py tests/test_score_job_cli.py
 - **Then**：回傳 0；結果檔有 5 筆；測試印出摘要與前幾名的評語（用 `-s` 顯示）
 - **驗證方式**：`uv run pytest -m network -s tests/e2e/test_job_scoring.py -k real_batch`
 - **通過條件**：passed；使用者抽查前幾名的評分理由是否合理。
+
+### AC-14：評分結果入庫 〔規劃中〕（涵蓋 FR-12）
+
+- **Given**：`tmp_path` 的資料庫中，已有「會評分失敗」那筆職缺的舊列；三筆職缺，依序為會評分成功、會被淘汰、會評分失敗；整批用的假 LLM client
+- **When**：呼叫整批評分函式
+- **Then**：
+  - 成功與淘汰的兩筆寫入 `job_scores`，`評分結果` 解析後符合 [§5.7](#57-輸出jobscore)，`淘汰`、`總分`、`評語` 與其中的值一致
+  - 淘汰那列的 `總分`、`快取鍵` 為 `null`
+  - 評分失敗那筆的舊列內容不變
+- **驗證方式**：`uv run pytest tests/test_job_scoring_batch.py -k store`
+- **通過條件**：全部 passed。
+
+### AC-15：沿用上次的評分結果 〔規劃中〕（涵蓋 FR-11、FR-13）
+
+- **Given**：`tmp_path` 的資料庫；共用的測試資料；以會記錄呼叫次數的假 client 取代 `get_client`
+- **When**：
+  - (a) 不指定 `--job-no` 呼叫 `main` 兩次
+  - (b)～(d) 各自從 (a) 結束時的資料庫開始：
+    - (b) 分別修改 `experience.md`、`preferences.yaml` 的 `權重`、`--model` 後再呼叫
+    - (c) 改為禁止建立 client，再呼叫一次
+    - (d) 以 `--job-no` 指定 `ok` 呼叫
+- **Then**：
+  - (a) 第一次假 client 被呼叫 1 次，第二次 0 次；第二次的 stderr 含 `沿用上次結果：1 筆` 與 `成功 1`；`job_scores` 中 `ok` 的 `評分時間` 沒有改變；兩次的結果檔內容相同
+  - (b) 每一種修改都讓假 client 再被呼叫 1 次
+  - (c) 回傳 0，沒有建立 client
+  - (d) 回傳 0，假 client 沒有被呼叫，stdout 與 (a) 結果檔中 `ok` 的評分欄位相同，stderr 含 `沿用`
+- **驗證方式**：`uv run pytest tests/test_score_job_cli.py -k cache`
+- **通過條件**：全部 passed。
+
+### AC-16：資料庫路徑 〔規劃中〕（涵蓋 FR-14）
+
+- **Given**：`tmp_path` 中有一個只含 F2-02 三張表與一筆職缺的資料庫；已禁止建立 client
+- **When**：以 `--db` 指定該資料庫，對 `out` 職缺呼叫 `main`
+- **Then**：回傳 0；該資料庫多了 `job_scores` 表，其中有 `out` 的列；原本的職缺資料不變
+- **驗證方式**：`uv run pytest tests/test_score_job_cli.py -k db_path`
+- **通過條件**：passed。
 
 ## 7. 待決問題
 
