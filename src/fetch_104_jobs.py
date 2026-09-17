@@ -68,7 +68,7 @@ DEFAULT_HEADERS = {
     'Accept-Language': 'zh-TW,zh;q=0.9,en-US;q=0.8,en;q=0.7',
 }
 
-# CSV 欄位名稱常數，確保表頭完整且一致。新增欄位時需同步 parse_jobs() 與 docs/features/F2-01-104-job-scraper.md 的欄位字典
+# CSV 欄位名稱常數，確保表頭完整且一致。新增欄位時需同步 parse_jobs()
 CSV_FIELDNAMES = [
     '職缺代碼', '職缺名稱', '公司名稱', '產業類別', '地區',
     '薪資待遇', '薪資下限', '薪資上限', '更新日期', '應徵人數',

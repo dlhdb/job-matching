@@ -8,7 +8,7 @@ from typing import Self
 
 from pydantic import BaseModel, ConfigDict, Field, model_validator
 
-# 評分維度，順序即輸出、未知維度清單的排列順序（job-scoring.md §3）
+# 評分維度，順序即輸出、未知維度清單的排列順序
 CAREER_FIT = "職涯方向契合度"
 SKILL_MATCH = "技能匹配度"
 INDUSTRY_FIT = "產業公司吸引力"
@@ -17,7 +17,7 @@ DIMENSIONS = (CAREER_FIT, SKILL_MATCH, INDUSTRY_FIT, SALARY)
 
 
 # ---------------------------------------------------------------------------
-# 偏好檔（preferences.yaml，job-scoring.md §2.1）
+# 偏好檔（preferences.yaml）
 # ---------------------------------------------------------------------------
 
 class _ProfileModel(BaseModel):
@@ -92,7 +92,7 @@ class Preferences(_ProfileModel):
 
 
 # ---------------------------------------------------------------------------
-# AI 輸出（job-scoring.md §8.3）：英文欄位名，讓各家模型的 schema 較穩定
+# AI 輸出：英文欄位名，讓各家模型的 schema 較穩定
 # ---------------------------------------------------------------------------
 
 class AIDimension(BaseModel):
@@ -108,7 +108,7 @@ class AIAssessment(BaseModel):
 
 
 # ---------------------------------------------------------------------------
-# 評分結果（job-scoring.md §7）
+# 評分結果
 # ---------------------------------------------------------------------------
 
 # 只在輸出時使用中文鍵名（serialization_alias），建構時使用英文屬性名稱

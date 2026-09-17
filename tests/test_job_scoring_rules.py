@@ -1,11 +1,11 @@
-"""工作評分（F1-01）程式規則的測試：薪資計分與硬性淘汰（AC-2）。"""
+"""工作評分程式規則的測試：薪資計分與硬性淘汰。"""
 
 import pytest
 
 from job_scoring.profile import load_preferences
 from job_scoring.rules import check_hard_filters, score_salary
 
-# PRD AC-2 表格：(薪資待遇, 下限, 上限, 預期薪資分數)，這些職缺都不會被淘汰
+# (薪資待遇, 下限, 上限, 預期薪資分數)，這些職缺都不會被淘汰
 SALARY_CASES = [
     ("月薪70,000~90,000元", 70000, 90000, 5),
     ("月薪60,000~80,000元", 60000, 80000, 4),

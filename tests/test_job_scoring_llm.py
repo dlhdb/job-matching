@@ -1,4 +1,4 @@
-"""工作評分（F1-01）LLM 抽象層的測試：以假的 SDK client 驗證 GeminiClient 的請求與錯誤處理，不連網。"""
+"""工作評分 LLM 抽象層的測試：以假的 SDK client 驗證 GeminiClient 的請求與錯誤處理，不連網。"""
 
 from types import SimpleNamespace
 

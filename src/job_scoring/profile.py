@@ -1,4 +1,4 @@
-"""讀取並驗證個人資料檔（job-scoring.md §2）。"""
+"""讀取並驗證個人資料檔。"""
 
 from pathlib import Path
 

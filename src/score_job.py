@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-單筆職缺評分工具（F1-01）
+單筆職缺評分工具
 -------------------------
 讀取爬蟲輸出的職缺 JSON 與 profile/ 的個人資料，對一筆職缺評分，並把 JobScore JSON 印到 stdout。
 進度與錯誤訊息印到 stderr，可以把 stdout 直接導向檔案。
@@ -9,8 +9,6 @@
 - 評分第一筆職缺：`uv run src/score_job.py --jobs output/104/<檔名>.json`
 - 指定職缺：`uv run src/score_job.py --jobs output/104/<檔名>.json --job-no 8s12x`
 - 只看提示詞（不呼叫 AI）：加上 `--dry-run`
-
-規格見 docs/features/F1-01-job-scoring.md §5.8.5。
 """
 
 import argparse
@@ -78,7 +76,7 @@ def parse_args(argv: list[str] | None) -> argparse.Namespace:
     :param argv: list[str] or None, 命令列參數；None 時使用 sys.argv
     :return: argparse.Namespace, 解析結果
     """
-    parser = argparse.ArgumentParser(description="對單筆職缺評分（F1-01 工作評分邏輯）")
+    parser = argparse.ArgumentParser(description="對單筆職缺評分")
     parser.add_argument("--jobs", required=True, type=Path, help="爬蟲輸出的 JSON 檔")
     parser.add_argument("--job-no", help="要評分的職缺代碼；省略時使用第一筆")
     parser.add_argument("--profile-dir", type=Path, default=DEFAULT_PROFILE_DIR,

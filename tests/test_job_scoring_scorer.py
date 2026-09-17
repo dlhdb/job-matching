@@ -1,4 +1,4 @@
-"""工作評分（F1-01）評分流程的測試：總分計算（AC-3）與評分流程、AI 回應處理（AC-4）。"""
+"""工作評分流程的測試：總分計算、評分流程與 AI 回應處理。"""
 
 import pytest
 from pydantic import ValidationError
@@ -10,7 +10,7 @@ WEIGHTS = {"職涯方向契合度": 0.4, "技能匹配度": 0.25, "產業公司�
 DIMENSION_NAMES = ["職涯方向契合度", "技能匹配度", "產業公司吸引力", "薪資水準"]
 
 
-# PRD AC-3 表格：(職涯方向, 技能, 產業公司, 薪資, 預期總分)
+# (職涯方向, 技能, 產業公司, 薪資, 預期總分)
 @pytest.mark.parametrize("career, skill, industry, salary, expected", [
     (5, 5, 5, 5, 100),
     (1, 1, 1, 1, 0),

@@ -1,4 +1,4 @@
-"""工作評分（F1-01）個人資料檔的測試：偏好檔驗證（AC-1）與版控設定。"""
+"""工作評分個人資料檔的測試：偏好檔驗證與版控設定。"""
 
 import subprocess
 from pathlib import Path

@@ -1,4 +1,4 @@
-"""104 職缺爬蟲（F2-01）的測試。除了標記 network 的測試外，外部呼叫一律以 monkeypatch 取代。"""
+"""104 職缺爬蟲的測試。除了標記 network 的測試外，外部呼叫一律以 monkeypatch 取代。"""
 
 import csv
 import json
@@ -140,7 +140,6 @@ def test_truncate_display(text, width, expected):
     assert m.truncate_display(text, width) == expected
 
 
-# F2-01 AC-1
 @pytest.mark.parametrize("raw, expected", [
     ("Python, React，AI", ["Python", "React", "AI"]),
     ("Python,React, Python", ["Python", "React"]),
@@ -152,7 +151,6 @@ def test_parse_keywords(raw, expected):
     assert m.parse_keywords(raw) == expected
 
 
-# F2-01 AC-2
 @pytest.mark.parametrize("raw, expected", [
     ("台北市", ("6001001000", "台北市")),
     ("台北", ("6001001000", "台北市")),
@@ -167,7 +165,7 @@ def test_resolve_area(raw, expected):
 
 
 # ---------------------------------------------------------------------------
-# API 請求函式（F2-01 AC-4）
+# API 請求函式
 # ---------------------------------------------------------------------------
 
 def test_fetch_jobs_success_sends_headers_params_and_timeout(fake_get):
@@ -266,7 +264,6 @@ def test_parse_jobs_with_detail(make_raw_job, detail_ok, no_sleep):
     assert 0.1 <= delay <= 0.3
 
 
-# F2-01 AC-3
 def test_parse_jobs_detail_failure_does_not_backfill(make_raw_job, monkeypatch, no_sleep):
     monkeypatch.setattr(m, "fetch_job_detail", lambda job_id: None)
 
@@ -432,7 +429,7 @@ def test_execute_scraping_dedups_across_keywords(fake_search, tmp_path, no_sleep
     ids = [job["職缺代碼"] for job in json.loads(json_file.read_text(encoding="utf-8"))]
     assert ids == ["1", "2", "3", "4"]
 
-    # FR-7：分頁間 1.0–2.0 秒、關鍵字間 2.0–3.5 秒，其餘為詳情請求前的 0.1–0.3 秒
+    # 分頁間 1.0–2.0 秒、關鍵字間 2.0–3.5 秒，其餘為詳情請求前的 0.1–0.3 秒
     page_delay, keyword_delay, *detail_delays = no_sleep
     assert 1.0 <= page_delay <= 2.0
     assert 2.0 <= keyword_delay <= 3.5
@@ -490,7 +487,7 @@ def test_execute_scraping_filename(fake_search, tmp_path, keywords, prefix):
 
 
 # ---------------------------------------------------------------------------
-# 程式入口與互動模式（F2-01 FR-1）
+# 程式入口與互動模式
 # ---------------------------------------------------------------------------
 
 @pytest.fixture
@@ -545,7 +542,6 @@ def test_run_interactive(monkeypatch, record_execute, capsys, answers, expected,
         assert warning in capsys.readouterr().out
 
 
-# F2-01 AC-6
 def test_ctrl_c_exits_gracefully():
     proc = subprocess.Popen(
         [sys.executable, str(SCRIPT)],
@@ -569,7 +565,7 @@ def test_ctrl_c_exits_gracefully():
 
 
 # ---------------------------------------------------------------------------
-# 真實抓取（F2-01 AC-5）
+# 真實抓取
 # ---------------------------------------------------------------------------
 
 @pytest.mark.network

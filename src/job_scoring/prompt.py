@@ -1,4 +1,4 @@
-"""組合評分提示詞（job-scoring.md §8.2）。模板放在 prompts/scoring.md，和程式碼分開。"""
+"""組合評分提示詞。模板放在 prompts/scoring.md，和程式碼分開。"""
 
 from pathlib import Path
 from string import Template

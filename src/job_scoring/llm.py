@@ -1,5 +1,5 @@
 """
-LLM 供應商抽象層（job-scoring.md §8.4）。
+LLM 供應商抽象層。
 
 只有本模組可以依賴特定供應商的 SDK；其他模組只透過 LLMClient 介面與 get_client() 使用 LLM。
 """

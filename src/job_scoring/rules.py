@@ -1,4 +1,4 @@
-"""程式規則：硬性淘汰（job-scoring.md §4）與薪資換算、計分（§5）。"""
+"""程式規則：硬性淘汰與薪資換算、計分。"""
 
 from typing import Any, NamedTuple
 

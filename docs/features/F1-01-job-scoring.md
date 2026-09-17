@@ -273,29 +273,24 @@ profile/
 src/
   score_job.py               CLI 進入點
   job_scoring/
-    models.py                Pydantic 模型：Preferences、AIAssessment、JobScore
-    profile.py               load_preferences(path: str | Path) -> Preferences
-                             load_experience(path: str | Path) -> str
-    rules.py                 check_hard_filters(job, prefs) -> list[str]
-                             score_salary(job, prefs) -> tuple[int | None, str]（分數, 理由）
-    prompt.py                build_prompt(job, prefs, experience) -> tuple[str, str]（system, user）
+    models.py                Pydantic 模型：偏好檔、AI 輸出、評分結果
+    profile.py               讀取並驗證個人資料檔
+    rules.py                 硬性淘汰、薪資換算與計分
+    prompt.py                組合 system 與 user 提示詞
     prompts/scoring.md       提示詞模板
-    llm.py                   LLMClient Protocol、GeminiClient、get_client(provider, model)
-    scorer.py                compute_total(scores, weights) -> int（§5.6，scores 的值可為 None）
-                             score_job(job, prefs, experience, client) -> JobScore
+    llm.py                   LLM 供應商抽象層與 Gemini 實作
+    scorer.py                評分流程與總分計算；F4 重複使用的入口
 tests/
   conftest.py                共用 fixture（測試資料、假的 LLM client）
   test_job_scoring_profile.py
   test_job_scoring_rules.py
   test_job_scoring_scorer.py
-  test_job_scoring_llm.py       GeminiClient 的請求與錯誤處理（以假的 SDK client 測試）
+  test_job_scoring_llm.py      GeminiClient 的請求與錯誤處理（以假的 SDK client 測試）
   test_score_job_cli.py
   test_job_scoring_network.py  需要網路的測試（network 標記）
 ```
 
 用 `uv run src/score_job.py` 執行時，`src/` 會在 import 路徑上，可以直接 `import job_scoring`。pytest 已在 `pyproject.toml` 設定 `pythonpath = ["src"]`，測試中也可以直接 import。
-
-新增的依賴：`google-genai`、`pydantic`、`pyyaml`、`python-dotenv`（dev：`types-PyYAML`）。
 
 #### 5.8.2 提示詞設計
 
@@ -331,8 +326,8 @@ class LLMClient(Protocol):
     def assess(self, system: str, user: str) -> AIAssessment: ...
 ```
 
-- `GeminiClient(model)`：使用 `google-genai`（≥ 2.3.0，Interactions API）。呼叫 `client.interactions.create(model=..., input=..., system_instruction=..., response_format={"type": "text", "mime_type": "application/json", "schema_": AIAssessment.model_json_schema()}, store=False, stream=False, timeout=120)`，再用 `AIAssessment.model_validate_json(interaction.output_text)` 驗證（參考 [Gemini structured output 文件](https://ai.google.dev/gemini-api/docs/structured-output)）。
-  - SDK 的 TypedDict 鍵名是 `schema_`，送出時會序列化成 API 的 `schema`。
+- `GeminiClient(model)`：使用 `google-genai` 的 Interactions API，以 structured output 要求符合 `AIAssessment` schema 的 JSON，再用 Pydantic 驗證（參考 [Gemini structured output 文件](https://ai.google.dev/gemini-api/docs/structured-output)）。
+  - `response_format` 裡 schema 的鍵名要寫 `schema_`（SDK 的 TypedDict 鍵名），送出時才會序列化成 API 的 `schema`。
   - `store=False`：提示詞含個人經歷，不在伺服器端保存互動紀錄。
   - SDK 的錯誤類別（HTTP、連線、逾時）沒有公開匯出，因此 `interactions.create` 拋出的任何例外都轉成 `LLMError`；`output_text` 為空時也是 `LLMError`。
 - API key 從環境變數 `GEMINI_API_KEY` 讀取，由 `GeminiClient` 建構時檢查，**沒有設定或是空字串**就拋出例外。CLI 只在「沒被淘汰、也不是 `--dry-run`」時才建立 client，所以只有真的要呼叫 AI 時才需要 key。

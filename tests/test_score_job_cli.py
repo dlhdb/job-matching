@@ -1,4 +1,4 @@
-"""工作評分 CLI（score_job.py）的測試：dry-run（AC-5）、被淘汰職缺（AC-6）、錯誤處理與供應商隔離（AC-7）。"""
+"""工作評分 CLI（score_job.py）的測試：dry-run、被淘汰職缺、錯誤處理與供應商隔離。"""
 
 import ast
 import json
