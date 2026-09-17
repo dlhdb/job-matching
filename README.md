@@ -61,7 +61,7 @@ uv run src/fetch_104_jobs.py -k "後端工程師,Backend,Python" -a 新竹
 
 想做統計或篩選時，打開 [notebooks/analyze_104_jobs.ipynb](notebooks/analyze_104_jobs.ipynb)，kernel 選專案的虛擬環境（devcontainer 內是 `~/.venv/bin/python`）。
 
-### 我想讓 AI 幫我評估某個職缺適不適合
+### 我想讓 AI 幫我評估職缺適不適合
 
 1. 複製範本，填入自己的偏好與經歷，並在 `.env` 填入 [Gemini API key](https://aistudio.google.com/apikey)：
 
@@ -71,13 +71,21 @@ uv run src/fetch_104_jobs.py -k "後端工程師,Backend,Python" -a 新竹
    cp .env.example .env
    ```
 
-2. 對爬蟲結果中的一筆職缺評分（省略 `--job-no` 時評分第一筆）：
+2. 對整份爬蟲結果評分：
+
+   ```bash
+   uv run src/score_job.py --jobs output/104/<檔名>.json
+   ```
+
+   結果寫到 `output/scores/<檔名>_scored.json` 與 `_scored.csv`，CSV 可以直接用 Excel 依總分排序；各維度的理由在 JSON 裡。個別職缺評分失敗時會跳過並列在摘要中，不影響其他職缺。
+
+3. 只想看一筆職缺時，加上 `--job-no`，結果會以 JSON 印在終端機：
 
    ```bash
    uv run src/score_job.py --jobs output/104/<檔名>.json --job-no <職缺代碼>
    ```
 
-結果是包含各維度分數、理由與 0–100 總分的 JSON。薪資太低、公司或職稱在排除清單中的職缺會直接淘汰，不呼叫 AI。想調整提示詞時，加上 `--dry-run` 就只會印出提示詞，不呼叫 AI。評分方式見 [F1-01 工作評分](docs/features/F1-01-job-scoring.md#5-設計)。
+結果包含各維度分數、理由與 0–100 總分。薪資太低、公司或職稱在排除清單中的職缺會直接淘汰，不呼叫 AI。想調整提示詞時，指定 `--job-no` 並加上 `--dry-run`，就只會印出提示詞，不呼叫 AI。評分方式見 [F1-01 工作評分](docs/features/F1-01-job-scoring.md#5-設計)。
 
 ## 在隔離環境中讓 Coding Agent 自主執行
 
@@ -106,13 +114,14 @@ uv run src/fetch_104_jobs.py -k "後端工程師,Backend,Python" -a 新竹
 src/
   main.py              uv 產生的樣板，尚未成為真正的進入點
   fetch_104_jobs.py    104 職缺爬蟲
-  score_job.py         單筆職缺評分 CLI
+  score_job.py         職缺評分 CLI（單筆或整批）
   job_scoring/         工作評分邏輯（規則、提示詞、LLM 抽象層）
 tests/                 pytest 測試（uv run pytest）
 notebooks/             分析爬蟲資料的 Jupyter notebook（輸出含職缺資料，由 git filter 在提交時移除）
 scripts/
   setup-dev-env.sh     建立開發環境：安裝依賴、設定 git filter（主機與容器共用）
 output/104/            爬蟲輸出（不進版控）
+output/scores/         整批評分結果（不進版控）
 profile/               求職偏好與工作經歷（評分用；真實資料不進版控）
 .env.example           API key 範本，複製成 .env 後填入
 TODO.md                已確認、但尚未要做的事項

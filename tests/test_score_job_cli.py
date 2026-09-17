@@ -90,6 +90,65 @@ def test_error_invalid_ai_response(jobs_file, profile_dir, monkeypatch, capsys):
     assert "[-]" in capsys.readouterr().err
 
 
+@pytest.fixture
+def scores_dir(tmp_path, monkeypatch):
+    """
+    把整批結果的輸出目錄指到 tmp_path
+
+    :return: Path, 輸出目錄
+    """
+    path = tmp_path / "scores"
+    monkeypatch.setattr(score_job, "SCORES_DIR", path)
+    return path
+
+
+def test_main_batch_writes_files_and_summary(jobs_file, profile_dir, fake_client, scores_dir, monkeypatch, capsys):
+    monkeypatch.setattr(score_job, "get_client", lambda provider, model: fake_client)
+
+    code = _run(jobs_file, profile_dir)
+    captured = capsys.readouterr()
+
+    assert code == 0
+    assert captured.out == ""
+    assert "共 2 筆，成功 1、淘汰 1、失敗 0" in captured.err
+    for suffix in ("json", "csv"):
+        path = scores_dir / f"jobs_scored.{suffix}"
+        assert path.is_file()
+        assert str(path) in captured.err
+
+
+def test_main_batch_dryrun_needs_job_no(jobs_file, profile_dir, forbid_client, scores_dir, capsys):
+    code = _run(jobs_file, profile_dir, "--dry-run")
+
+    assert code == 1
+    assert "[-]" in capsys.readouterr().err
+    assert not scores_dir.exists()
+
+
+def test_main_batch_all_eliminated_no_client(tmp_path, profile_dir, out_job, forbid_client, scores_dir):
+    jobs_file = tmp_path / "only_out.json"
+    jobs_file.write_text(json.dumps([out_job], ensure_ascii=False), encoding="utf-8")
+
+    code = _run(jobs_file, profile_dir)
+    records = json.loads((scores_dir / "only_out_scored.json").read_text(encoding="utf-8"))
+
+    assert code == 0
+    assert [r["淘汰"] for r in records] == [True]
+    assert forbid_client == []
+
+
+def test_main_batch_missing_api_key(jobs_file, profile_dir, scores_dir, monkeypatch, capsys):
+    monkeypatch.setenv("GEMINI_API_KEY", "")
+
+    code = _run(jobs_file, profile_dir)
+    err = capsys.readouterr().err
+
+    assert code == 1
+    assert "[-]" in err
+    assert "GEMINI_API_KEY" in err
+    assert not scores_dir.exists()
+
+
 def test_error_unknown_provider():
     with pytest.raises(ValueError):
         get_client("no-such-provider", "any-model")

@@ -9,6 +9,7 @@ import yaml
 
 import fetch_104_jobs
 import score_job as score_job_cli
+from job_scoring.llm import LLMError
 from job_scoring.models import AIAssessment
 from job_scoring.profile import load_preferences
 
@@ -224,6 +225,39 @@ def fake_client(make_client):
     :return: FakeLLMClient, 以 len(client.calls) 取得呼叫次數
     """
     return make_client()
+
+
+class BatchFakeLLMClient:
+    """
+    整批用的假 LLM client：依 user 提示詞中的職缺名稱決定行為
+
+    behaviors 的值可以是 dict（make_assessment 的參數）、"llm_error"（拋出 LLMError）
+    或 "invalid"（以 6 分驗證，拋出 ValidationError）；沒列到的職缺回傳預設的 make_assessment()
+    """
+
+    def __init__(self, behaviors):
+        self.behaviors = behaviors
+        self.calls = []
+
+    def assess(self, system, user):
+        name = next((n for n in self.behaviors if n in user), None)
+        self.calls.append(name)
+        behavior = self.behaviors.get(name, {})
+        if behavior == "llm_error":
+            raise LLMError("模擬的 API 錯誤")
+        if behavior == "invalid":
+            return make_assessment(career=6)
+        return make_assessment(**behavior)
+
+
+@pytest.fixture
+def make_batch_client():
+    """
+    產生整批用的假 LLM client
+
+    :return: callable, make_batch_client(behaviors: dict) -> BatchFakeLLMClient
+    """
+    return BatchFakeLLMClient
 
 
 @pytest.fixture

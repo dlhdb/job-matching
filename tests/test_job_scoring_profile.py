@@ -33,7 +33,7 @@ def test_main_profile_invalid(mutate, preferences_data, write_profile, jobs_file
     mutate(preferences_data)
     profile_dir = write_profile(preferences_data)
 
-    code = score_job.main(["--jobs", str(jobs_file), "--profile-dir", str(profile_dir), "--dry-run"])
+    code = score_job.main(["--jobs", str(jobs_file), "--profile-dir", str(profile_dir), "--job-no", "ok", "--dry-run"])
 
     assert code == 1
     assert "[-]" in capsys.readouterr().err
@@ -41,7 +41,7 @@ def test_main_profile_invalid(mutate, preferences_data, write_profile, jobs_file
 
 def test_main_profile_valid_example(profile_dir, jobs_file, forbid_client):
     """以範本為基礎的共用偏好檔本身必須合法"""
-    assert score_job.main(["--jobs", str(jobs_file), "--profile-dir", str(profile_dir), "--dry-run"]) == 0
+    assert score_job.main(["--jobs", str(jobs_file), "--profile-dir", str(profile_dir), "--job-no", "ok", "--dry-run"]) == 0
 
 
 def _is_ignored(path):

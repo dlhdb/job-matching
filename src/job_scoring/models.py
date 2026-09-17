@@ -126,3 +126,20 @@ class JobScore(BaseModel):
     total: int | None = Field(serialization_alias="總分")
     unknown_dimensions: list[str] = Field(serialization_alias="未知維度")
     comment: str | None = Field(serialization_alias="評語")
+
+
+class BatchResult(BaseModel):
+    """整批評分中的一筆結果：評分結果加上從職缺帶入的欄位與失敗原因；欄位順序即輸出順序"""
+
+    job_no: str = Field(serialization_alias="職缺代碼")
+    job_name: str | None = Field(serialization_alias="職缺名稱")
+    company: str | None = Field(serialization_alias="公司名稱")
+    salary_text: str | None = Field(serialization_alias="薪資待遇")
+    job_url: str | None = Field(serialization_alias="職缺連結")
+    eliminated: bool = Field(serialization_alias="淘汰")
+    elimination_reasons: list[str] = Field(serialization_alias="淘汰原因")
+    dimensions: dict[str, DimensionScore] | None = Field(serialization_alias="維度")
+    total: int | None = Field(serialization_alias="總分")
+    unknown_dimensions: list[str] = Field(serialization_alias="未知維度")
+    comment: str | None = Field(serialization_alias="評語")
+    failure: str | None = Field(serialization_alias="失敗原因")
