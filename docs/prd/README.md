@@ -52,7 +52,7 @@
 | F1-01 | 工作評分邏輯 | 已完成 | [F1-01-job-scoring.md](features/F1-01-job-scoring.md) |
 | F2-01 | 104 職缺爬蟲 | ✅ 已完成 | [F2-01-104-job-scraper.md](features/F2-01-104-job-scraper.md) |
 | F3 | 擷取公司資訊與評價 | 待撰寫 | — |
-| F4 | AI 分析工作流 | 待撰寫 | — |
+| F4-01 | 職缺批次評分與排序 | 待實作 | [F4-01-batch-job-scoring.md](features/F4-01-batch-job-scoring.md) |
 | F5 | 趨勢與興趣分佈分析 | 待撰寫 | — |
 
 狀態值：`草稿` → `待實作` → `實作中` → `✅ 已完成`。「待撰寫」表示還沒有 PRD。
