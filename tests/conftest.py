@@ -2,7 +2,6 @@
 
 import copy
 import json
-from pathlib import Path
 
 import pytest
 import yaml
@@ -12,8 +11,6 @@ import score_job as score_job_cli
 from job_scoring.llm import LLMError
 from job_scoring.models import AIAssessment
 from job_scoring.profile import load_preferences
-
-PROJECT_ROOT = Path(__file__).resolve().parents[1]
 
 
 @pytest.fixture
@@ -65,9 +62,10 @@ def make_raw_job():
 # 工作評分的共用測試資料
 # ---------------------------------------------------------------------------
 
-# 覆寫範本 preferences.example.yaml 的欄位
+# 共用測試偏好（完整的偏好檔內容）
 TEST_PREFERENCES = {
     "目標方向": ["目標標記-AAA"],
+    "產業偏好": {"喜歡": ["軟體及網路相關業", "金融科技"], "不喜歡": ["博弈"]},
     "薪資": {"期望月薪": 70000, "底線月薪": 55000, "年薪換算月數": 14},
     "淘汰條件": {"公司": ["乙公司"], "職稱關鍵字": ["業務"]},
     "權重": {"職涯方向契合度": 0.4, "技能匹配度": 0.25, "產業公司吸引力": 0.15, "薪資水準": 0.2},
@@ -77,14 +75,11 @@ TEST_PREFERENCES = {
 @pytest.fixture
 def preferences_data():
     """
-    以 profile/preferences.example.yaml 為基礎、覆寫測試欄位後的偏好 dict（可在測試中再修改）
+    共用測試偏好的副本（可在測試中修改）
 
     :return: dict, 偏好檔內容
     """
-    example = PROJECT_ROOT / "profile" / "preferences.example.yaml"
-    data = yaml.safe_load(example.read_text(encoding="utf-8"))
-    data.update(copy.deepcopy(TEST_PREFERENCES))
-    return data
+    return copy.deepcopy(TEST_PREFERENCES)
 
 
 @pytest.fixture

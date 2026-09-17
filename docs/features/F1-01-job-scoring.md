@@ -304,6 +304,9 @@ tests/
   test_score_job_cli.py        CLI 流程、錯誤處理與供應商隔離
   e2e/
     test_job_scoring.py        真實評分（network 標記）
+    data/                      真實評分的固定輸入
+      profile/                 擬真的偏好檔與經歷檔
+      104/jobs.json            5 筆職缺，改寫自 104 職缺（虛構公司、內文重新表述）
 ```
 
 用 `uv run src/score_job.py` 執行時，`src/` 會在 import 路徑上，可以直接 `import job_scoring`。pytest 已在 `pyproject.toml` 設定 `pythonpath = ["src"]`，測試中也可以直接 import。
@@ -444,8 +447,9 @@ flowchart TD
 
 放在 `tests/conftest.py` 的 fixture，各測試檔共用：
 
-- **偏好檔**：以 `profile/preferences.example.yaml` 為基礎（順便確認範本本身合法），覆寫下列欄位後寫到 `tmp_path`：
+- **偏好檔**：完整的測試偏好寫在 conftest 裡，由測試寫到 `tmp_path`，不讀取範本：
   - `目標方向: [目標標記-AAA]`
+  - `產業偏好: {喜歡: [軟體及網路相關業, 金融科技], 不喜歡: [博弈]}`
   - `薪資: {期望月薪: 70000, 底線月薪: 55000, 年薪換算月數: 14}`
   - `淘汰條件: {公司: [乙公司], 職稱關鍵字: [業務]}`
   - `權重: {職涯方向契合度: 0.4, 技能匹配度: 0.25, 產業公司吸引力: 0.15, 薪資水準: 0.2}`
@@ -475,7 +479,7 @@ uv run pytest tests/test_job_scoring_*.py tests/test_score_job_cli.py
 
 - **Given**：(a) `preferences.yaml` 缺少 `權重`；(b) `權重` 多了一個不存在的維度；(c) `底線月薪` 大於 `期望月薪`；(d) `淘汰條件.職稱關鍵字` 含空字串
 - **When**：以 `--dry-run` 呼叫 CLI 的 `main`（同時指定 `ok` 的 `--job-no`）
-- **Then**：四種情況都回傳 1，stderr 含 `[-]`；以 `git check-ignore` 檢查時，`profile/preferences.yaml`、`profile/experience.md`、`.env` 被忽略，對應的範本檔沒有被忽略
+- **Then**：四種情況都回傳 1，stderr 含 `[-]`；以 `git check-ignore` 檢查時，`profile/preferences.yaml`、`profile/experience.md`、`.env` 被忽略，對應的範本檔沒有被忽略；兩個範本檔都能成功載入
 - **驗證方式**：`uv run pytest tests/test_job_scoring_profile.py`
 - **通過條件**：全部 passed。
 
@@ -569,8 +573,8 @@ uv run pytest tests/test_job_scoring_*.py tests/test_score_job_cli.py
 
 ### AC-8：真實評分 〔需網路〕（涵蓋 FR-4、FR-5、FR-6）
 
-- **Given**：已填寫 `profile/preferences.yaml` 與 `profile/experience.md`，已在 `.env` 設定 `GEMINI_API_KEY`，而且 `output/104/` 中有爬蟲結果；缺少任何一項時，測試顯示 skipped 並說明原因
-- **When**：對最新一份結果中，第一筆有工作內容、而且沒被淘汰的職缺呼叫 `main`
+- **Given**：已在 `.env` 設定 `GEMINI_API_KEY`，沒有設定時測試顯示 skipped 並說明原因；個人資料與職缺使用 `tests/e2e/data/` 的固定測試資料
+- **When**：以 `tests/e2e/data/profile/` 為個人資料，對 `tests/e2e/data/104/jobs.json` 中第一筆有工作內容、而且沒被淘汰的職缺呼叫 `main`
 - **Then**：
   - 輸出符合 [§5.7](#57-輸出jobscore)，四個維度依序出現
   - 每個維度都有非空的理由，分數是 1–5 或 `None`
@@ -630,8 +634,8 @@ uv run pytest tests/test_job_scoring_*.py tests/test_score_job_cli.py
 
 ### AC-13：真實整批評分 〔需網路〕（涵蓋 FR-8～FR-11）
 
-- **Given**：與 AC-8 相同；缺少任何一項時，測試顯示 skipped 並說明原因
-- **When**：取 `output/104/` 最新一份結果的前 5 筆，存成暫存檔後，不指定 `--job-no` 呼叫 `main`，輸出目錄指到 `tmp_path`
+- **Given**：與 AC-8 相同
+- **When**：以 `tests/e2e/data/profile/` 為個人資料，對 `tests/e2e/data/104/jobs.json`（5 筆，其中 1 筆會被淘汰）不指定 `--job-no` 呼叫 `main`，輸出目錄指到 `tmp_path`
 - **Then**：回傳 0；結果檔有 5 筆；測試印出摘要與前幾名的評語（用 `-s` 顯示）
 - **驗證方式**：`uv run pytest -m network -s tests/e2e/test_job_scoring.py -k real_batch`
 - **通過條件**：passed；使用者抽查前幾名的評分理由是否合理。

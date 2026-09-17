@@ -68,7 +68,8 @@ uv run pytest -m network tests/e2e   # 連到真實外部服務的測試
 - `src/` 已經加入 import 路徑，直接 `import fetch_104_jobs`，不用 importlib 載入。
 - **只換外部依賴**：離線測試用 `monkeypatch` 把 `requests.get`、LLM client 等外部呼叫換成假函式，專案內的函式照常執行，重構時測試才不會跟著壞。只有準備假資料的成本明顯過高時，才換掉專案內的函式，例如測 `main` 的參數解析時換掉 `execute_scraping`。
 - `time.sleep` 用 `no_sleep` fixture 取代，這個 fixture 也會記錄延遲秒數，方便驗證頻率限制。
-- `tests/e2e/` 的測試缺少 API key 或輸入資料等前提時，用 `pytest.skip` 說明原因，不要讓測試失敗。
+- **測試資料固定不變**：測試不讀 `profile/`、`output/` 這類會變動的專案資料。離線測試的資料寫在測試碼裡，需要檔案時寫到 `tmp_path`；e2e 的輸入資料放在 `tests/e2e/data/`。範本檔（`*.example.*`）只在驗證範本本身的測試中讀取。
+- `tests/e2e/` 的測試缺少 API key 等前提時，用 `pytest.skip` 說明原因，不要讓測試失敗。
 - 檔案一律寫到 `tmp_path`。會寫入 `output/` 的程式，用 monkeypatch 把輸出目錄改掉，不要污染真實資料。
 - 需要多組輸入時，用 `@pytest.mark.parametrize`。功能文件驗收標準中的「輸入 → 預期」表格，就直接對應到這裡的參數。
 - 測試函式名稱以被測的函式名稱開頭（例如 `test_parse_keywords_*`），讓驗收標準可以用 `-k <函式名>` 挑出對應的測試。
