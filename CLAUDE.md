@@ -2,7 +2,7 @@
 
 This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
 
-「求職雷達」：自動抓取職缺與公司資訊，交由 AI 依評分邏輯打分，避免人工在海量職缺中過濾。目前已實作 104 職缺爬蟲（F2-01）與單筆職缺評分（F1-01），其餘皆未動工。
+「求職雷達」：自動抓取職缺與公司資訊，交由 AI 依評分邏輯打分，避免人工在海量職缺中過濾。
 
 ## 常用指令
 
@@ -11,8 +11,6 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 ```bash
 scripts/setup-dev-env.sh     # 建立開發環境：uv sync + 設定 nbstripout git filter（可重複執行）
 uv sync                      # 只安裝依賴（含 dev group）
-uv run src/main.py           # 目前仍是 uv 樣板，尚未成為真正進入點
-uv run src/score_job.py --jobs output/104/<檔名>.json [--job-no <代碼>] [--dry-run]  # 單筆職缺評分
 uv run pytest                # 離線測試（預設跳過需要網路的測試）
 uv run pytest -m network     # 只跑需要網路的測試（會實際連線到外部服務）
 uv run mypy src/             # 型別檢查（mypy 已列為 dev 依賴，但尚無設定檔）
@@ -38,6 +36,8 @@ uv add <pkg>                 # 新增依賴
 | Claude Code 專屬的權限規則（deny/ask）與設計理由 | [docs/ai-coding-setup/claude-code.md](docs/ai-coding-setup/claude-code.md) |
 
 所有文件都描述系統的現況：需求、設計或實作改變時，直接更新對應的文件。一個功能的需求、設計與驗收標準都寫在同一份功能文件裡。撰寫或修改任何文件前，先讀 [docs/conventions.md](docs/conventions.md#文件撰寫) 的「文件撰寫」。
+
+實作進度只記在 [docs/README.md](docs/README.md#功能清單) 的狀態與「現況」，本檔不記錄進度。
 
 ## 待辦事項
 

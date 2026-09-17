@@ -1,25 +1,28 @@
-# F1-01 單筆職缺評分
+# F1-01 職缺評分
 
 | 欄位 | 內容 |
 | :--- | :--- |
 | ID | F1-01 |
 | 核心技術 | 1 — 職缺自動評分（見 [專案總覽](../README.md#核心技術)） |
-| 狀態 | ✅ 已完成 |
+| 狀態 | 待實作 |
 | 依賴 | F2-01（使用其輸出的職缺 JSON 作為輸入） |
 | 程式碼 | [src/score_job.py](../../src/score_job.py)（CLI）、[src/job_scoring/](../../src/job_scoring/) |
 
 ## 1. 背景與目標
 
 爬蟲一次會抓到上百筆職缺，逐筆閱讀並判斷是否適合自己，要花很多時間。
-本功能根據使用者提供的**工作偏好**與**工作經歷**，對單筆職缺做多維度評分，並產出總分與簡短評語，讓使用者快速判斷哪些職缺值得細看、原因是什麼（UC-02）。批次評分與排序由 F1-02 負責，會重複使用本功能的評分函式。
+本功能根據使用者提供的**工作偏好**與**工作經歷**，對一整批職缺逐筆做多維度評分，產出總分與簡短評語，寫成結果檔，讓使用者快速判斷哪些職缺值得細看、原因是什麼（UC-02）。
+
+目前的入口是 CLI，只是為了快速開發；之後會整合進 app。
 
 ## 2. 使用情境
 
+- 身為求職者，我想要把一整批爬到的職缺一次送進評分，並拿到結果檔，以便用表格工具排序、篩選後，挑出值得細看的職缺。
 - 身為求職者，我想要把偏好和經歷寫成檔案，以便每次評分都依照同一套標準。
 - 身為求職者，我想要看到每個維度的分數與理由，以便知道總分是怎麼來的，並判斷要不要相信它。
 - 身為求職者，我想要明顯不合的職缺（薪資太低、不想去的公司）直接被淘汰，以便不浪費時間與 AI 費用。
-- 身為調整提示詞的開發者，我想要在不呼叫 AI 的情況下看到完整的提示詞，以便反覆修改。
-- 身為後續的批次評分功能（F1-02），我需要固定格式的評分結果與可替換的 LLM 供應商，以便批次處理。
+- 身為求職者，我想要個別職缺評分失敗時其餘職缺仍能跑完，以便不浪費整批已經花掉的時間與 AI 費用。
+- 身為調整提示詞的開發者，我想要只評單筆職缺，或在不呼叫 AI 的情況下看到完整的提示詞，以便反覆修改。
 
 ## 3. 範圍
 
@@ -31,16 +34,19 @@
 - 加權總分（未知維度以 3 分代入）
 - 提示詞模板
 - LLM 供應商抽象層與 Gemini 實作
-- 對單筆職缺評分的 CLI，包含 `--dry-run`
+- CLI：單筆評分，包含 `--dry-run`
+- 〔規劃中〕CLI：整批評分，單筆失敗不中斷，結果寫成 JSON 與 CSV，並印出摘要
 
 **範圍外**（實作時不要做）
 
-- 批次評分、結果存檔、排序與篩選（屬 F1-02）
+- 結果的排序、篩選與互動式瀏覽介面（只產出檔案，排序與篩選交給讀取結果檔的工具，例如 pandas）
+- 公司評分（等 F3 完成後再擴充，見 [TODO.md](../../TODO.md#職缺評分範圍外)）
 - OpenAI 或其他供應商的實作（只保留介面，見 [TODO.md](../../TODO.md#llm)）
 - 通勤便利度、資歷門檻、工作型態與福利、競爭程度／新鮮度等維度（候選做法見 [TODO.md](../../TODO.md)）
 - 公司評價資訊（屬 F3；本功能的產業公司吸引力只看產業類別與公司名稱）
 - 修改爬蟲或擴充爬蟲欄位（見 [TODO.md](../../TODO.md#爬蟲)）
-- 評分結果快取、重試機制（屬 F1-02，見 [TODO.md](../../TODO.md#f1-02-職缺批次評分v1-範圍外)）
+- 評分結果快取、失敗重試（見 [TODO.md](../../TODO.md#職缺評分範圍外)）
+- 平行呼叫 AI（整批維持循序執行）
 
 ## 4. 功能需求
 
@@ -49,8 +55,12 @@
 - **FR-3**：依 [§5.5](#55-薪資換算與計分) 換算月薪並計算薪資分數；面議、時薪、日薪、論件計酬與缺值都視為未知（`null`），不會因此被淘汰。
 - **FR-4**：由 AI 依 [§5.3.1](#531-ai-維度的錨點描述) 的錨點，為三個 AI 維度各給 1–5 分或 `null`，每個維度都附上理由，另外提供總評；AI 回應必須通過 schema 驗證，否則視為失敗。
 - **FR-5**：依 [§5.6](#56-總分) 計算 0–100 的加權總分；分數為 `null` 的維度以 3 分代入，讓所有沒被淘汰的職缺都有可以互相比較的總分。
-- **FR-6**：提供 `src/score_job.py` CLI，參數與結束碼依 [§5.8.5](#585-cli)；`--dry-run` 只印出提示詞，不建立 LLM client。
+- **FR-6**〔規劃中〕：提供 `src/score_job.py` CLI，參數與結束碼依 [§5.8.5](#585-cli)。指定 `--job-no` 時評單筆並印出結果；省略時評整批。`--dry-run` 只印出提示詞、不建立 LLM client，而且必須搭配 `--job-no`。
 - **FR-7**：LLM 呼叫透過 `LLMClient` 介面與 `get_client(provider, model)` 工廠函式；預設使用 Gemini。API key 讀取環境變數 `GEMINI_API_KEY`，CLI 啟動時會從專案根目錄的 `.env` 載入，但不覆寫已存在的環境變數；`.env` 不進版控，版控中提供 `.env.example`。只有 `llm.py` 可以依賴特定供應商的 SDK。
+- **FR-8**〔規劃中〕：整批評分時，依輸入順序逐筆套用 [§5.1](#51-評分流程) 的流程。
+- **FR-9**〔規劃中〕：單筆評分失敗（LLM 呼叫失敗或回應驗證失敗）時，記下失敗原因並繼續下一筆，不中斷整批。
+- **FR-10**〔規劃中〕：整批結果寫成 JSON 與 CSV 兩個檔案，位置與格式依 [§5.9.2](#592-結果檔)；CSV 使用 `utf-8-sig`，讓 Excel 能正常顯示中文。
+- **FR-11**〔規劃中〕：整批評分結束時印出摘要：總筆數、成功、淘汰、失敗筆數，以及兩個結果檔的路徑。
 
 ## 5. 設計
 
@@ -281,12 +291,14 @@ src/
     prompt.py                組合 system 與 user 提示詞
     prompts/scoring.md       提示詞模板
     llm.py                   LLM 供應商抽象層與 Gemini 實作
-    scorer.py                評分流程與總分計算；F1-02 重複使用的入口
+    scorer.py                單筆評分流程與總分計算
+    batch.py                 〔規劃中〕整批評分、寫出結果檔
 tests/
   conftest.py                共用 fixture（測試資料、假的 LLM client）
   test_job_scoring_profile.py
   test_job_scoring_rules.py
   test_job_scoring_scorer.py
+  test_job_scoring_batch.py    〔規劃中〕整批評分與結果檔
   test_job_scoring_llm.py      GeminiClient 的請求與錯誤處理（以假的 SDK client 測試）
   test_score_job_cli.py
   test_job_scoring_network.py  需要網路的測試（network 標記）
@@ -340,37 +352,93 @@ class LLMClient(Protocol):
 #### 5.8.5 CLI
 
 ```bash
-uv run src/score_job.py --jobs output/104/<檔名>.json [--job-no <職缺代碼>] \
-    [--profile-dir profile] [--provider gemini] [--model gemini-3.8-flash] [--dry-run]
+uv run src/score_job.py --jobs output/104/<檔名>.json [--job-no <職缺代碼> [--dry-run]] \
+    [--profile-dir profile] [--provider gemini] [--model gemini-3.8-flash]
 ```
 
 | 參數 | 說明 |
 | :--- | :--- |
 | `--jobs` | 必填，爬蟲輸出的 JSON 檔 |
-| `--job-no` | 要評分的職缺代碼；省略時使用第一筆；找不到時印出 `[-]` 並結束 |
+| `--job-no` | 〔規劃中〕指定時只評這筆職缺，找不到時印出 `[-]` 並結束；省略時評整批（見 [§5.9](#59-整批評分)） |
 | `--profile-dir` | 放 `preferences.yaml` 與 `experience.md` 的目錄，預設為專案根目錄下的 `profile/`（以腳本位置為基準，不受工作目錄影響） |
 | `--provider` | LLM 供應商，預設 `gemini` |
 | `--model` | 模型名稱，預設 `gemini-3.8-flash` |
-| `--dry-run` | 先執行硬性淘汰與薪資計分，再印出完整的 system 與 user 提示詞，**不建立 LLM client、不發出網路請求** |
+| `--dry-run` | 先執行硬性淘汰與薪資計分，再印出完整的 system 與 user 提示詞，**不建立 LLM client、不發出網路請求**。〔規劃中〕必須搭配 `--job-no`，否則印出 `[-]` 並結束 |
 
-評分結果以 JSON 印到 stdout（`ensure_ascii=False`，縮排 2）。進度與錯誤訊息印到 stderr，方便把 stdout 導向檔案。
+單筆評分的結果以 JSON 印到 stdout（`ensure_ascii=False`，縮排 2）；〔規劃中〕整批評分的結果寫成檔案，stdout 不輸出。進度、摘要與錯誤訊息都印到 stderr，方便把 stdout 導向檔案。
 
 進入點是 `main(argv: list[str] | None = None) -> int`，回傳結束碼；`if __name__ == "__main__"` 區塊只負責 `sys.exit(main())`。測試直接呼叫 `main([...])`，不必另外啟動子行程。
 
 結束碼：
 
-- `0`：成功，包括被淘汰
+- `0`：成功，包括被淘汰；〔規劃中〕整批評分時，即使有職缺評分失敗也回傳 0，失敗筆數見摘要
 - `1`：以下情況會印出 `[-]` 並結束
   - 個人資料檔缺少或格式錯誤
   - 找不到職缺
+  - 〔規劃中〕使用 `--dry-run` 但沒有指定 `--job-no`
   - 不支援的供應商
   - 缺少 API key
-  - Gemini API 呼叫失敗或沒有回傳文字
-  - AI 回應格式錯誤
+  - 單筆評分時 Gemini API 呼叫失敗、沒有回傳文字，或 AI 回應格式錯誤
+
+### 5.9 整批評分
+
+〔規劃中〕本節內容都還沒實作。
+
+#### 5.9.1 流程
+
+```mermaid
+flowchart TD
+    L[讀取職缺 JSON 陣列] --> N{還有下一筆？}
+    N -->|有| S["§5.1 評分流程"]
+    S -->|淘汰| R[記錄結果]
+    S -->|成功| R
+    S -->|"LLMError / ValidationError"| E[記錄失敗原因] --> R
+    R --> N
+    N -->|沒有| W["寫出 JSON 與 CSV"] --> M[印出摘要]
+```
+
+- 依輸入順序逐筆處理，不平行呼叫 AI。每筆開始前在 stderr 印出進度，例如 `⏳ [i] (3/120) Python 工程師 - 甲公司`。
+- LLM client 在第一次需要呼叫 AI 時才建立，所以整批都被淘汰時不需要 API key。client 建立失敗時（不支援的供應商、缺少 API key），每一筆都會失敗，所以直接印出 `[-]`、回傳 1，此時還沒呼叫過 AI。
+- 只有 `LLMError` 與 `ValidationError` 算單筆失敗，失敗原因記錄例外訊息。其他例外代表程式錯誤，直接讓程式中止。
+- 不管成功、淘汰或失敗，每一筆輸入職缺都會有一筆結果。
+
+#### 5.9.2 結果檔
+
+- 寫到專案根目錄的 `output/scores/`（以腳本位置推算，不受工作目錄影響，不存在時自動建立，已在 `.gitignore` 的 `output/` 之下）。
+- 檔名是輸入檔的檔名主體加上 `_scored`，例如輸入 `jobs_104_python_20260917_101500.json`，輸出 `jobs_104_python_20260917_101500_scored.json` 與 `_scored.csv`，方便對回原始爬蟲結果。重跑同一個輸入檔時直接覆寫。
+- 結果檔要能直接用來挑職缺，所以每筆除了 [§5.7](#57-輸出jobscore) 的 `JobScore` 欄位，還從輸入職缺帶入 `職缺名稱`、`公司名稱`、`薪資待遇`、`職缺連結`，並多一個 `失敗原因` 欄位。
+
+| 欄位 | 型態 | 說明 |
+| :--- | :--- | :--- |
+| `職缺代碼` | str | |
+| `職缺名稱`、`公司名稱`、`薪資待遇`、`職缺連結` | 同 [F2-01 §5.5](F2-01-104-job-scraper.md#55-欄位字典) | 從輸入職缺原樣帶入 |
+| `淘汰`、`淘汰原因`、`維度`、`總分`、`未知維度`、`評語` | 同 §5.7 | 評分失敗時：`淘汰` 為 false，清單為空，其餘為 `null` |
+| `失敗原因` | str \| null | 評分失敗時的例外訊息；其他情況為 `null` |
+
+- **JSON**：UTF-8、`ensure_ascii=False`、縮排 2，內容是依輸入順序排列的陣列（不排序），每個元素的鍵依上表順序排列。
+- **CSV**：`utf-8-sig`，每筆一列，欄位順序如下：
+  - `職缺代碼`、`職缺名稱`、`公司名稱`、`薪資待遇`
+  - `總分`，以及四個維度的分數（欄名就是維度名稱，依 §5.3 的順序；未知時留空）
+  - `未知維度`、`淘汰原因`（清單以 `, ` 合併）
+  - `評語`、`失敗原因`、`職缺連結`
+
+  CSV 不放各維度的理由，要看理由時查 JSON。
+
+#### 5.9.3 摘要
+
+整批結束後在 stderr 印出：
+
+```
+🎉 [+] 評分完成：共 120 筆，成功 95、淘汰 23、失敗 2
+[i] JSON：output/scores/jobs_104_python_20260917_101500_scored.json
+[i] CSV：output/scores/jobs_104_python_20260917_101500_scored.csv
+```
+
+有失敗時，另外逐筆印出 `[!] <職缺代碼> <職缺名稱>：<失敗原因>`。
 
 ## 6. 驗收標準
 
-測試與實作一起撰寫，依 [conventions.md 的測試章節](../conventions.md#測試)。除了 AC-8，其餘都離線執行，也不需要 API key。
+測試與實作一起撰寫，依 [conventions.md 的測試章節](../conventions.md#測試)。除了 AC-8 與 AC-13，其餘都離線執行，也不需要 API key。
 
 ### 共用測試資料
 
@@ -386,6 +454,7 @@ uv run src/score_job.py --jobs output/104/<檔名>.json [--job-no <職缺代碼>
   - `ok`：職缺名稱 `Python 工程師`，不會被淘汰
   - `out`：職缺名稱 `業務專員`，會被淘汰
 - **假的 LLM client**：不連網，回傳固定的 `AIAssessment`，並記錄被呼叫的次數
+- 〔規劃中〕**整批用的假 LLM client**：依職缺名稱回傳不同分數，或對指定職缺拋出 `LLMError`／回傳超出範圍的分數；整批測試的職缺清單在各測試內建立
 - **禁止建立 client**：用 monkeypatch 把 `score_job.get_client` 換成一呼叫就讓測試失敗的函式，並把 `GEMINI_API_KEY` 設為空字串
 
 一次跑完所有離線驗收：
@@ -405,7 +474,7 @@ uv run pytest tests/test_job_scoring_*.py tests/test_score_job_cli.py
 ### AC-1：個人資料檔驗證與版控（涵蓋 FR-1、FR-6）
 
 - **Given**：(a) `preferences.yaml` 缺少 `權重`；(b) `權重` 多了一個不存在的維度；(c) `底線月薪` 大於 `期望月薪`；(d) `淘汰條件.職稱關鍵字` 含空字串
-- **When**：以 `--dry-run` 呼叫 CLI 的 `main`
+- **When**：以 `--dry-run` 呼叫 CLI 的 `main`（〔規劃中〕同時指定 `ok` 的 `--job-no`）
 - **Then**：四種情況都回傳 1，stderr 含 `[-]`；以 `git check-ignore` 檢查時，`profile/preferences.yaml`、`profile/experience.md`、`.env` 被忽略，對應的範本檔沒有被忽略
 - **驗證方式**：`uv run pytest tests/test_job_scoring_profile.py`
 - **通過條件**：全部 passed。
@@ -509,6 +578,63 @@ uv run pytest tests/test_job_scoring_*.py tests/test_score_job_cli.py
   - 測試會印出完整結果（用 `-s` 顯示）
 - **驗證方式**：`uv run pytest -m network -s tests/test_job_scoring_network.py -k real_scoring`
 - **通過條件**：passed；使用者閱讀印出的理由，確認內容確實引用了職缺內容，而且與自己的判斷大致相符。
+
+### AC-9〔規劃中〕：整批評分（涵蓋 FR-2、FR-8）
+
+- **Given**：五筆職缺，依序為：正常、會被淘汰、正常、會評分失敗、正常；整批用的假 LLM client
+- **When**：呼叫整批評分函式
+- **Then**：
+  - 結果有 5 筆，職缺代碼的順序與輸入相同
+  - 假 client 被呼叫 4 次，被淘汰的職缺沒有呼叫
+  - 被淘汰的那筆 `淘汰` 為 true、`失敗原因` 為 `None`；成功的三筆 `失敗原因` 為 `None`
+- **驗證方式**：`uv run pytest tests/test_job_scoring_batch.py -k batch_scoring`
+- **通過條件**：全部 passed。
+
+### AC-10〔規劃中〕：單筆失敗不中斷整批（涵蓋 FR-9）
+
+- **Given**：三筆職缺，假 client 對第一筆拋出 `LLMError`、對第二筆回傳 6 分，第三筆正常
+- **When**：呼叫整批評分函式
+- **Then**：
+  - 前兩筆的 `失敗原因` 不為空，`總分`、`維度`、`評語` 為 `None`，`淘汰` 為 false
+  - 第三筆有總分
+  - 沒有拋出例外
+- **驗證方式**：`uv run pytest tests/test_job_scoring_batch.py -k failure`
+- **通過條件**：全部 passed。
+
+### AC-11〔規劃中〕：結果檔（涵蓋 FR-10）
+
+- **Given**：AC-9 的結果，輸出目錄以 monkeypatch 指到 `tmp_path`，輸入檔名為 `jobs_104_測試_20260101_000000.json`
+- **When**：寫出結果檔
+- **Then**：
+  - 產生 `jobs_104_測試_20260101_000000_scored.json` 與 `_scored.csv`
+  - JSON 可解析，每個元素的鍵與順序符合 [§5.9.2](#592-結果檔) 的表
+  - CSV 以 `utf-8-sig` 讀取時，表頭符合 §5.9.2 的欄位順序、列的順序與 JSON 相同，未知維度的分數欄是空字串，被淘汰那列的 `淘汰原因` 以 `, ` 合併
+- **驗證方式**：`uv run pytest tests/test_job_scoring_batch.py -k output`
+- **通過條件**：全部 passed。
+
+### AC-12〔規劃中〕：整批 CLI 與摘要（涵蓋 FR-6、FR-11）
+
+- **Given**：共用的測試資料，輸出目錄指到 `tmp_path`
+- **When**：
+  - (a) 以假 client 取代 `get_client`，不指定 `--job-no` 呼叫 `main`
+  - (b) 使用 `--dry-run` 但不指定 `--job-no`
+  - (c) 已禁止建立 client，職缺檔只有 `out`，不指定 `--job-no`
+  - (d) `GEMINI_API_KEY` 設為空字串，不指定 `--job-no`
+- **Then**：
+  - (a) 回傳 0；stdout 為空；stderr 含 `共 2 筆，成功 1、淘汰 1、失敗 0` 與兩個結果檔的路徑
+  - (b) 回傳 1，stderr 含 `[-]`
+  - (c) 回傳 0，結果檔中該筆 `淘汰` 為 true
+  - (d) 回傳 1，stderr 含 `[-]` 與 `GEMINI_API_KEY`，沒有產生結果檔
+- **驗證方式**：`uv run pytest tests/test_score_job_cli.py -k batch`
+- **通過條件**：全部 passed。
+
+### AC-13〔規劃中〕：真實整批評分 〔需網路〕（涵蓋 FR-8～FR-11）
+
+- **Given**：與 AC-8 相同；缺少任何一項時，測試顯示 skipped 並說明原因
+- **When**：取 `output/104/` 最新一份結果的前 5 筆，存成暫存檔後，不指定 `--job-no` 呼叫 `main`，輸出目錄指到 `tmp_path`
+- **Then**：回傳 0；結果檔有 5 筆；測試印出摘要與前幾名的評語（用 `-s` 顯示）
+- **驗證方式**：`uv run pytest -m network -s tests/test_job_scoring_network.py -k real_batch`
+- **通過條件**：passed；使用者抽查前幾名的評分理由是否合理。
 
 ## 7. 待決問題
 
