@@ -95,7 +95,7 @@ uv run src/import_jobs.py output/104/*.json
    uv run src/score_job.py --jobs output/104/<檔名>.json --job-no <職缺代碼>
    ```
 
-結果包含各維度分數、理由與 0–100 總分。薪資太低、公司或職稱在排除清單中的職缺會直接淘汰，不呼叫 AI。想調整提示詞時，指定 `--job-no` 並加上 `--dry-run`，就只會印出提示詞，不呼叫 AI。評分方式見 [F1-01 對單筆職缺評分](docs/features/F1-01-job-scoring.md#6-對單筆職缺評分score)。
+結果包含各維度分數、理由與 0–100 總分。薪資太低、公司或職稱在排除清單中的職缺會直接淘汰，不呼叫 AI。想調整提示詞時，指定 `--job-no` 並加上 `--dry-run`，就只會印出提示詞，不呼叫 AI。評分方式見 [F1-01 評單筆職缺並看懂每個分數](docs/features/F1-01-job-scoring.md#4-評單筆職缺並看懂每個分數score)。
 
 ## 在隔離環境中讓 Coding Agent 自主執行
 
