@@ -57,7 +57,7 @@ uv run src/fetch_104_jobs.py -k "後端工程師,Backend,Python" -a 新竹
 | `jobs_104_<關鍵字>_<時間>.csv` | 用 Excel 直接開啟篩選，中文不會亂碼 |
 | `jobs_104_<關鍵字>_<時間>.json` | 交給程式或 AI 做後續分析 |
 
-各欄位的意義見 [F2-01 §5.5 欄位字典](docs/features/F2-01-104-job-scraper.md#55-欄位字典)，完整參數說明見 [§5.6](docs/features/F2-01-104-job-scraper.md#56-cli)。
+各欄位的意義見 [104-job-scraper §5.5 欄位字典](docs/features/104-job-scraper.md#55-欄位字典)，完整參數說明見 [§5.6](docs/features/104-job-scraper.md#56-cli)。
 
 想做統計或篩選時，打開 [notebooks/analyze_104_jobs.ipynb](notebooks/analyze_104_jobs.ipynb)，kernel 選專案的虛擬環境（devcontainer 內是 `~/.venv/bin/python`）。
 
@@ -69,7 +69,7 @@ uv run src/fetch_104_jobs.py -k "後端工程師,Backend,Python" -a 新竹
 uv run src/import_jobs.py output/104/*.json
 ```
 
-用 `pandas.read_sql` 或任何 SQLite 工具讀取即可，資料表說明見 [F2-02 §5.2](docs/features/F2-02-job-database.md#52-資料表)。
+用 `pandas.read_sql` 或任何 SQLite 工具讀取即可，資料表說明見 [job-database §5.2](docs/features/job-database.md#52-資料表)。
 
 ### 我想讓 AI 幫我評估職缺適不適合
 
@@ -95,7 +95,7 @@ uv run src/import_jobs.py output/104/*.json
    uv run src/score_job.py --jobs output/104/<檔名>.json --job-no <職缺代碼>
    ```
 
-結果包含各維度分數、理由與 0–100 總分。薪資太低、公司或職稱在排除清單中的職缺會直接淘汰，不呼叫 AI。想調整提示詞時，指定 `--job-no` 並加上 `--dry-run`，就只會印出提示詞，不呼叫 AI。評分方式見 [F1-01 評單筆職缺並看懂每個分數](docs/features/F1-01-job-scoring.md#4-評單筆職缺並看懂每個分數score)。
+結果包含各維度分數、理由與 0–100 總分。薪資太低、公司或職稱在排除清單中的職缺會直接淘汰，不呼叫 AI。想調整提示詞時，指定 `--job-no` 並加上 `--dry-run`，就只會印出提示詞，不呼叫 AI。評分方式見 [job-scoring 評單筆職缺並看懂每個分數](docs/features/job-scoring.md#4-評單筆職缺並看懂每個分數score)。
 
 ## 在隔離環境中讓 Coding Agent 自主執行
 
@@ -136,10 +136,10 @@ docs/           專案總覽、功能文件與開發慣例
 
 | 文件 | 內容 |
 | :--- | :--- |
-| [docs/README.md](docs/README.md) | 專案總覽：目標、使用者問題、核心技術、功能清單與現況 |
-| [docs/features/F1-01-job-scoring.md](docs/features/F1-01-job-scoring.md) | 職缺評分：需求、評分規則、提示詞、LLM 抽象層、整批評分與結果檔、驗收標準 |
-| [docs/features/F2-01-104-job-scraper.md](docs/features/F2-01-104-job-scraper.md) | 104 爬蟲：需求、API 限制、欄位字典、驗收標準 |
-| [docs/features/F2-02-job-database.md](docs/features/F2-02-job-database.md) | 職缺資料庫：需求、資料表、寫入規則、匯入指令、驗收標準 |
+| [docs/README.md](docs/README.md) | 專案總覽：目標、使用者問題、功能清單與現況 |
+| [docs/features/job-scoring.md](docs/features/job-scoring.md) | 職缺評分：需求、評分規則、提示詞、LLM 抽象層、整批評分與結果檔、驗收標準 |
+| [docs/features/104-job-scraper.md](docs/features/104-job-scraper.md) | 104 爬蟲：需求、API 限制、欄位字典、驗收標準 |
+| [docs/features/job-database.md](docs/features/job-database.md) | 職缺資料庫：需求、資料表、寫入規則、匯入指令、驗收標準 |
 | [docs/conventions.md](docs/conventions.md) | 開發慣例 |
 | [docs/ai-coding-setup/devcontainer.md](docs/ai-coding-setup/devcontainer.md) | 隔離容器與防火牆白名單（所有 AI coding 工具共用） |
 | [docs/ai-coding-setup/claude-code.md](docs/ai-coding-setup/claude-code.md) | Claude Code 專屬的權限規則（deny/ask） |

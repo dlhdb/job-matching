@@ -25,14 +25,14 @@ uv add <pkg>                 # 新增依賴
 
 | 想知道什麼 | 讀哪份 |
 | :--- | :--- |
-| 產品目標與成功指標、使用者問題、核心技術定義、跨功能的使用者旅程、功能清單與現況、名詞定義 | [docs/README.md](docs/README.md) |
-| 單一功能的需求、範圍、設計、驗收標準 | `docs/features/F<編號>-*.md` |
+| 產品目標與成功指標、使用者問題、跨功能的使用者旅程、功能清單與現況、名詞定義 | [docs/README.md](docs/README.md) |
+| 單一功能的需求、範圍、設計、驗收標準 | `docs/features/<功能 ID>.md` |
 | 撰寫新功能文件的格式 | [docs/features/feature_template.md](docs/features/feature_template.md) |
 | 專案檔案結構 | [README.md](README.md) 的「專案結構」 |
-| 104 爬蟲的請求標頭與頻率限制、職缺欄位字典、執行方式與輸出位置 | [docs/features/F2-01-104-job-scraper.md](docs/features/F2-01-104-job-scraper.md) |
-| 職缺資料庫的資料表、跨次去重與出現時間的寫入規則、匯入既有 JSON 的指令 | [docs/features/F2-02-job-database.md](docs/features/F2-02-job-database.md) |
-| 工作評分的維度、淘汰與薪資規則、偏好檔格式、提示詞設計、輸出欄位、LLM 抽象層 | [docs/features/F1-01-job-scoring.md](docs/features/F1-01-job-scoring.md) |
-| MCP 介面的 tool 清單與參數、stdout 限制、註冊方式 | [docs/features/F5-01-mcp-server.md](docs/features/F5-01-mcp-server.md) |
+| 104 爬蟲的請求標頭與頻率限制、職缺欄位字典、執行方式與輸出位置 | [docs/features/104-job-scraper.md](docs/features/104-job-scraper.md) |
+| 職缺資料庫的資料表、跨次去重與出現時間的寫入規則、匯入既有 JSON 的指令 | [docs/features/job-database.md](docs/features/job-database.md) |
+| 工作評分的維度、淘汰與薪資規則、偏好檔格式、提示詞設計、輸出欄位、LLM 抽象層 | [docs/features/job-scoring.md](docs/features/job-scoring.md) |
+| MCP 介面的 tool 清單與參數、stdout 限制、註冊方式 | [docs/features/mcp-server.md](docs/features/mcp-server.md) |
 | 程式碼風格、docstring 格式、文件撰寫規範（內容、功能文件結構、決策紀錄、格式、繪圖）、終端輸出慣例、依賴管理、測試慣例 | [docs/conventions.md](docs/conventions.md) |
 | 過去的取捨、考慮過但不採用的做法與原因 | [docs/decisions/](docs/decisions/) |
 | 隔離容器與防火牆白名單設計（所有 AI coding 工具共用） | [docs/ai-coding-setup/devcontainer.md](docs/ai-coding-setup/devcontainer.md) |
@@ -50,7 +50,7 @@ uv add <pkg>                 # 新增依賴
 
 需要使用者做決定時，不在對話中逐一詢問，改寫成問卷放在 `to-be-confirm/<主題>.md`，使用者填完後會通知你：
 
-- 每題一個標題，寫出位置、問題與建議改法。位置與參考來源一律用相對於問卷的 markdown 超連結，指到行號（`[F1-01 第 63 行](../docs/features/F1-01-job-scoring.md#L63)`）或章節錨點，方便使用者跳轉查看。
+- 每題一個標題，寫出位置、問題與建議改法。位置與參考來源一律用相對於問卷的 markdown 超連結，指到行號（`[job-scoring 第 63 行](../docs/features/job-scoring.md#L63)`）或章節錨點，方便使用者跳轉查看。
 - 選項用 `- [ ]` 列出，建議的選項標上「（建議）」，每題最後留一行「備註：」。
 - 使用者通知填完後：
   - 讀取整份問卷再依答案處理，答案或備註不清楚時先問清楚再動手
@@ -58,6 +58,6 @@ uv add <pkg>                 # 新增依賴
 
 ## 功能開發流程
 
-1. 先讀 docs/README.md 確認功能對應哪一項核心技術，再讀該功能的文件。功能文件以「使用者故事」為章節，一個故事自己帶著需求、設計與驗收（結構規則見 [docs/conventions.md](docs/conventions.md#功能文件的結構)），所以只需要讀要動到的故事那章、它連到的設計，加上「非功能需求」與「共用設計」。沒有功能文件，或功能文件仍有待決問題時，先與使用者釐清，不要直接實作。修改既有功能時，先在功能文件把新增或修改的使用者故事標上〔規劃中〕、狀態退回待規劃，與使用者確認後再實作。
+1. 先在 docs/README.md 的功能清單找到要做的功能，再讀該功能的文件。功能文件以「使用者故事」為章節，一個故事自己帶著需求、設計與驗收（結構規則見 [docs/conventions.md](docs/conventions.md#功能文件的結構)），所以只需要讀要動到的故事那章、它連到的設計，加上「非功能需求」與「共用設計」。沒有功能文件，或功能文件仍有待決問題時，先與使用者釐清，不要直接實作。修改既有功能時，先在功能文件把新增或修改的使用者故事標上〔規劃中〕、狀態退回待規劃，與使用者確認後再實作。
 2. 實作時只做該使用者故事「需求」列出的事，不碰「範圍外」。設計有調整時，同步更新該故事的「設計」小節。
-3. 完成後逐條執行該使用者故事「驗收」小節的每一條，回報 ✅ / ❌ 與實際輸出；全部通過才移除〔規劃中〕標記，把功能文件與 docs/README.md 的狀態改為 ✅ 已完成，並更新 docs/README.md 中所屬核心技術的「現況」。
+3. 完成後逐條執行該使用者故事「驗收」小節的每一條，回報 ✅ / ❌ 與實際輸出；全部通過才移除〔規劃中〕標記，把功能文件與 docs/README.md 的狀態改為 ✅ 已完成，並更新 docs/README.md 中該功能的「現況」。
