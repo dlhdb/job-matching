@@ -7,7 +7,11 @@
 
 ## 1. 背景與目標
 
-目前抓取、評分都要在終端機下指令，結果散在 `output/` 的檔案與 `data/jobs.db`，想問「這週新出現、分數高的職缺有哪些」時，得自己寫 SQL 或開 notebook。
+目前的問題：
+
+- 抓取、評分都要在終端機下指令。
+- 結果散在 `output/` 的檔案與 `data/jobs.db`。
+- 想問「這週新出現、分數高的職缺有哪些」時，得自己寫 SQL 或開 notebook。
 
 本功能提供一個本機的 MCP server，讓 Claude Code 這類 agent 以 tool 的形式抓取、評分與查詢職缺：
 
@@ -22,18 +26,22 @@
 
 範圍外（實作時不要做）：
 
-- 評分結果入庫與快取的設計（屬 [job-scoring §7](job-scoring.md#7-依分數查詢職缺store)、[§8](job-scoring.md#8-重跑時不重複付-ai-費用cache)）；本功能只呼叫它
+- 評分結果入庫與快取的設計：屬 [job-scoring §7](job-scoring.md#7-依分數查詢職缺store)、[§8](job-scoring.md#8-重跑時不重複付-ai-費用cache)，本功能只呼叫它
 - 修改個人資料檔（`profile/`）的 tool：偏好與經歷由使用者自己編輯
 - 讓 agent 選擇 LLM 供應商或模型：一律使用 job-scoring 的預設值
-- 查看抓取紀錄的 tool：不做。`score_jobs` 需要的執行編號由 `search_104_jobs` 回傳，其他情況用不太到
+- 查看抓取紀錄的 tool：`score_jobs` 需要的執行編號由 `search_104_jobs` 回傳，其他情況用不太到
 
 ## 3. 設計總覽
 
 ### 3.1 輸入與輸出
 
-- 讀寫 `data/jobs.db`，資料表契約見 [job-database 的資料表](job-database.md#722-資料表)。評分結果的 `job_scores` 表見 [job-scoring §7.2.1](job-scoring.md#721-資料表)，每筆職缺只有最新一列。
-- 抓取沿用 104-job-scraper，頻率限制與輸出檔見 [104 API 的限制](104-job-scraper.md#422-104-api-的限制)、[輸出檔](104-job-scraper.md#621-輸出檔)。
-- 評分沿用 job-scoring，流程見 [job-scoring §4.2.3](job-scoring.md#423-評分流程)、[§6](job-scoring.md#6-一次評完整批並拿到結果檔batch)；個人資料檔讀取 `profile/`，API key 讀取 `.env`。
+- 資料庫：讀寫 `data/jobs.db`
+  - 資料表契約見 [job-database 的資料表](job-database.md#722-資料表)。
+  - 評分結果的 `job_scores` 表見 [job-scoring §7.2.1](job-scoring.md#721-資料表)，每筆職缺只有最新一列。
+- 抓取：沿用 104-job-scraper，頻率限制與輸出檔見 [104 API 的限制](104-job-scraper.md#422-104-api-的限制)、[輸出檔](104-job-scraper.md#621-輸出檔)。
+- 評分：沿用 job-scoring，流程見 [job-scoring §4.2.3](job-scoring.md#423-評分流程)、[§6](job-scoring.md#6-一次評完整批並拿到結果檔batch)。
+  - 個人資料檔讀取 `profile/`。
+  - API key 讀取 `.env`。
 - tool 回傳 JSON，鍵名使用中文，與爬蟲、評分的輸出一致。
 
 ### 3.2 使用者故事清單
@@ -62,12 +70,13 @@
 `search_104_jobs`：抓取並寫入資料庫。
 
 - `keywords`（list[str]）：必填，1–5 個關鍵字
-- `area`（str | null）：縣市名稱，規則同 104-job-scraper CLI 的 `-a`；`null` 代表全台灣
+- `area`（str | null）：縣市名稱，規則同 104-job-scraper CLI 的 `-a`
+  - `null` 代表全台灣
 - `pages`（int）：每個關鍵字抓幾頁，1–5，預設 1
 - `job_type`（int）：`0`／`1`／`2`，意義同 [104-job-scraper 的 CLI](104-job-scraper.md#822-cli)，預設 `0`
 
 - 回傳：`執行編號`、`職缺數`、`新增`、`更新`、`JSON 檔`。
-- 沒有抓到任何職缺時，回傳 `職缺數` 為 0，`執行編號` 為 `null`，不算錯誤。
+- 沒有抓到任何職缺時不算錯誤，回傳 `職缺數` 為 0、`執行編號` 為 `null`。
 - `keywords` 與 `pages` 的上限見 [§8](#8-非功能需求)。
 
 ### 4.3 驗收
@@ -76,7 +85,10 @@
 
 #### AC-search：抓取
 
-- Given：`requests.get` 換成回傳固定資料的假函式，`time.sleep` 用 `no_sleep` 取代，輸出目錄改到 `tmp_path`
+- Given：
+  - `requests.get` 換成回傳固定資料的假函式
+  - `time.sleep` 用 `no_sleep` 取代
+  - 輸出目錄改到 `tmp_path`
 - When：呼叫 `search_104_jobs`
 - Then：
   - 回傳的 `新增`、`更新` 與資料庫內容一致，`scrape_runs` 多一列
@@ -97,7 +109,7 @@
   - 結果寫入資料庫。
   - 回傳每筆的精簡結果與摘要。
   - 單筆失敗不中斷。
-  - 以 `limit` 參數限制每次評分的筆數，並設上限，避免塞滿 agent 的 context。
+  - 以 `limit` 參數限制每次評分的筆數並設上限，避免塞滿 agent 的 context。
 
 ### 5.2 設計
 
@@ -109,20 +121,35 @@
 
 - `run_id` 與 `job_nos` 必須剛好給一個，否則回傳 tool error。
 - `run_id` 取自 `search_104_jobs` 的回傳。
-- 職缺內容從 `jobs` 表讀取，交給 job-scoring 的整批評分函式，並傳入同一個資料庫連線，由它查快取、寫入 `job_scores`。`job_nos` 中有代碼不在 `jobs` 表時，回傳 tool error，不評任何一筆。
-- 職缺依 `run_jobs` 或 `job_nos` 的順序處理，超過 `limit` 的部分不評分，回傳中的 `未處理` 列出這些職缺代碼，agent 可以再呼叫一次。
-- 回傳：摘要（`成功`、`沿用`、`淘汰`、`失敗`、`未處理`；`沿用` 是沿用上次 AI 評分的筆數，見 [job-scoring §8.2.2](job-scoring.md#822-沿用時的行為)，算在 `成功` 裡），以及每筆的 `職缺代碼`、`職缺名稱`、`總分`、`淘汰`、`評語`、`失敗原因`。各維度理由不放在這裡，要看時用 `get_job_detail`。
-- 整批評分可能跑好幾分鐘，超過 client 的 tool 逾時。所以用 `limit` 控制每次的筆數，並在每筆開始時送出 MCP progress 通知（client 有提供 progress token 時）。
+- 評分流程：
+  1. 從 `jobs` 表讀取職缺內容。
+  2. 交給 job-scoring 的整批評分函式，並傳入同一個資料庫連線。
+  3. 由評分函式查快取、寫入 `job_scores`。
+- `job_nos` 中有代碼不在 `jobs` 表時，回傳 tool error，不評任何一筆。
+- 職缺依 `run_jobs` 或 `job_nos` 的順序處理：
+  - 超過 `limit` 的部分不評分，列在回傳的 `未處理`。
+  - agent 可以再呼叫一次，評完剩下的職缺。
+- 回傳：
+  - 摘要：`成功`、`沿用`、`淘汰`、`失敗`、`未處理`。`沿用` 是沿用上次 AI 評分的筆數（見 [job-scoring §8.2.2](job-scoring.md#822-沿用時的行為)），算在 `成功` 裡。
+  - 每筆的 `職缺代碼`、`職缺名稱`、`總分`、`淘汰`、`評語`、`失敗原因`。
+  - 不含各維度理由，要看時用 `get_job_detail`。
+- 整批評分可能跑好幾分鐘，超過 client 的 tool 逾時。因應方式：
+  - 用 `limit` 控制每次的筆數。
+  - 每筆開始時送出 MCP progress 通知（client 有提供 progress token 時）。
 - client 建立失敗（缺少 API key、不支援的供應商）時回傳 tool error，同 [job-scoring §6.2.1](job-scoring.md#621-流程)。
 
 ### 5.3 驗收
 
 #### AC-score：評分
 
-- Given：資料庫中有一次執行，含會被淘汰、會評分成功、會評分失敗的職缺各一筆；LLM client 換成假 client；個人資料檔寫到 `tmp_path`
+- Given：
+  - 資料庫中有一次執行，含會被淘汰、會評分成功、會評分失敗的職缺各一筆
+  - LLM client 換成假 client
+  - 個人資料檔寫到 `tmp_path`
 - When：以 `run_id` 呼叫 `score_jobs`，再分別以錯誤的參數組合、`limit=1` 呼叫
 - Then：
-  - 摘要為成功 1、淘汰 1、失敗 1；`job_scores` 有成功與淘汰兩列，失敗的那筆沒有列
+  - 摘要為成功 1、淘汰 1、失敗 1
+  - `job_scores` 有成功與淘汰兩列，失敗的那筆沒有列
   - 以同一個 `run_id` 再呼叫一次時，假 client 只對失敗那筆被呼叫，摘要的 `沿用` 為 1（`成功` 仍為 1）
   - `job_nos` 含不存在的代碼時，回傳 tool error，假 client 沒有被呼叫
   - `run_id` 與 `job_nos` 同時給或都不給時，回傳 tool error
@@ -140,22 +167,28 @@
 - FR-query：`query_jobs` 依分數、首次出現時間、關鍵字篩選職缺。
   - 依 [§6.2](#62-設計) 的規則排序。
   - 回傳精簡欄位。
-  - 以 `limit` 參數限制回傳的筆數，並設上限，避免塞滿 agent 的 context。
+  - 以 `limit` 參數限制回傳的筆數並設上限，避免塞滿 agent 的 context。
 
 ### 6.2 設計
 
 `query_jobs`：查詢職缺。
 
-- `min_score`（int | null）：只回傳 `總分` ≥ 此值的職缺，會排除未評分的職缺
+- `min_score`（int | null）：只回傳 `總分` ≥ 此值的職缺
+  - 會排除未評分的職缺
 - `since`（str | null）：只回傳 `首次出現時間` ≥ 此日期（`YYYY-MM-DD`）的職缺
 - `keyword`（str | null）：`職缺名稱` 或 `公司名稱` 包含此字串，不分大小寫
 - `include_eliminated`（bool）：是否包含被淘汰的職缺，預設 `false`
 - `limit`（int）：1–100，預設 20
 
-- 排序：`總分` 由高到低，未評分的排在最後；同分時 `首次出現時間` 較新的在前。
-- 回傳：`職缺代碼`、`職缺名稱`、`公司名稱`、`薪資待遇`、`總分`、`評語`、`首次出現時間`、`職缺連結`，以及 `符合筆數`（套用 `limit` 前的總數）。
-- 以 `jobs` LEFT JOIN `job_scores`（`職缺代碼`）取分數，沒有對應列的職缺視為未評分，照常出現在結果中。
-- `include_eliminated` 為 `false` 時，排除 `job_scores.淘汰` 為 1 的職缺；未評分職缺的 `淘汰` 是 NULL，條件要寫成 `IFNULL(淘汰, 0) = 0`，才不會連未評分的職缺一起排除。
+- 排序：
+  1. `總分` 由高到低，未評分的排在最後。
+  2. 同分時 `首次出現時間` 較新的在前。
+- 回傳：
+  - 每筆的 `職缺代碼`、`職缺名稱`、`公司名稱`、`薪資待遇`、`總分`、`評語`、`首次出現時間`、`職缺連結`
+  - `符合筆數`：套用 `limit` 前的總數
+- 以 `jobs` LEFT JOIN `job_scores`（`職缺代碼`）取分數。沒有對應列的職缺視為未評分，照常出現在結果中。
+- `include_eliminated` 為 `false` 時，排除 `job_scores.淘汰` 為 1 的職缺。
+  - 未評分職缺的 `淘汰` 是 NULL，條件要寫成 `IFNULL(淘汰, 0) = 0`，才不會連未評分的職缺一起排除。
 
 ### 6.3 驗收
 
@@ -191,7 +224,9 @@
 `get_job_detail`：查看單筆職缺。
 
 - 參數：`job_no`（str，必填）。
-- 回傳：`jobs` 表的全部欄位，加上 `評分`。`評分` 是 `job_scores.評分結果` 解析後的物件，格式同 [job-scoring §11.2.2](job-scoring.md#1122-jobscore-輸出格式) 的 JobScore，尚未評分時為 `null`。
+- 回傳：`jobs` 表的全部欄位，加上 `評分`。
+  - `評分` 是 `job_scores.評分結果` 解析後的物件，格式同 [job-scoring §11.2.2](job-scoring.md#1122-jobscore-輸出格式) 的 JobScore。
+  - 尚未評分時 `評分` 為 `null`。
 - 找不到職缺時回傳 tool error。
 
 ### 7.3 驗收
@@ -210,10 +245,14 @@
 
 ### 8.1 需求
 
-- NFR-rate：`search_104_jobs` 的 `keywords` 最多 5 個、`pages` 最多 5 頁，避免 agent 一次發出大量請求，違反 [非目標](../README.md#非目標) 的頻率限制。
+- NFR-rate：`search_104_jobs` 的 `keywords` 最多 5 個、`pages` 最多 5 頁。
+  - 避免 agent 一次發出大量請求，違反 [非目標](../README.md#非目標) 的頻率限制。
   - 請求之間的延遲沿用 104-job-scraper（見 [104-job-scraper 的非功能需求](104-job-scraper.md#7-非功能需求)）。
-- NFR-cost：評分由專案內的 scorer 執行，不讓 agent 自己打分，才能用上 job-scoring 的評分快取，送給 AI 的內容沒變的職缺不重複呼叫 AI（見 [job-scoring §8.2.1](job-scoring.md#821-快取鍵)）。
-- NFR-null：職缺欄位與評分欄位缺值時回傳 `null`，尚未評分的職缺，評分相關欄位都是 `null`（依 [development.md](../conventions/development.md#防禦性設計)）。
+- NFR-cost：評分由專案內的 scorer 執行，不讓 agent 自己打分。
+  - 這樣才能用上 job-scoring 的評分快取：送給 AI 的內容沒變的職缺，不重複呼叫 AI（見 [job-scoring §8.2.1](job-scoring.md#821-快取鍵)）。
+- NFR-null：缺值時回傳 `null`，不回填（依 [development.md](../conventions/development.md#防禦性設計)）。
+  - 職缺欄位與評分欄位缺值時為 `null`。
+  - 尚未評分的職缺，評分相關欄位都是 `null`。
 
 ### 8.2 設計
 
@@ -226,7 +265,9 @@
 
 - NFR-rate：[AC-search](#ac-search抓取)（`keywords`、`pages` 超出範圍時回傳 tool error，且沒有發出請求）
 - NFR-cost：[AC-score](#ac-score評分)（再呼叫一次時，假 client 只對失敗那筆被呼叫）
-- NFR-null：[AC-query](#ac-query查詢)（未評分的 d 照常出現）、[AC-detail](#ac-detail單筆職缺)（`d` 的 `評分` 為 `null`）
+- NFR-null：
+  - [AC-query](#ac-query查詢)（未評分的 d 照常出現）
+  - [AC-detail](#ac-detail單筆職缺)（`d` 的 `評分` 為 `null`）
 
 ## 9. 共用設計
 
@@ -237,8 +278,13 @@
 - FR-server：`uv run src/mcp_server.py` 以 stdio 啟動 MCP server。
   - `--db` 可指定資料庫路徑，預設為 `data/jobs.db`（同 [job-database 的資料庫預設路徑](job-database.md#71-需求)）。
   - 專案根目錄的 `.mcp.json` 註冊這個 server，設定見 [§9.2.2](#922-註冊)。
-- FR-stdout：tool 執行期間，stdout 只輸出 MCP 協定內容，進度與訊息一律寫到 stderr（見 [§9.2.3](#923-stdout-只留給協定)）。
-- FR-error：參數錯誤、找不到職缺、個人資料檔有誤、缺少 API key 等情況，以 tool error 回傳訊息，server 繼續執行。
+- FR-stdout：tool 執行期間，stdout 只輸出 MCP 協定內容（見 [§9.2.3](#923-stdout-只留給協定)）。
+  - 進度與訊息一律寫到 stderr。
+- FR-error：下列情況以 tool error 回傳訊息，server 繼續執行：
+  - 參數錯誤
+  - 找不到職缺
+  - 個人資料檔有誤
+  - 缺少 API key
 
 ### 9.2 設計
 
@@ -254,11 +300,13 @@ flowchart LR
     B --> D
 ```
 
-- 每個 tool 只做參數檢查與格式轉換，邏輯都呼叫既有模組，CLI 與 MCP 的行為才會一致。之後若加上 Web 介面，也呼叫同一組函式。
+- 每個 tool 只做參數檢查與格式轉換，邏輯都呼叫既有模組：
+  - CLI 與 MCP 的行為才會一致。
+  - 之後若加上 Web 介面，也呼叫同一組函式。
 - 評分由專案內的 scorer 執行，不讓 agent 自己打分：
   - 分數依同一套偏好檔、提示詞與模型產生，不同 agent 或不同次對話的結果可以比較。
   - 才能用上 job-scoring 的評分快取（見 [job-scoring §8.2.1](job-scoring.md#821-快取鍵)）。
-- tool 函式可以不經過 MCP 直接呼叫，離線測試直接呼叫函式。
+- tool 函式可以不經過 MCP 直接呼叫，離線測試就是這樣測。
 - 使用官方的 `mcp` Python SDK。
 
 #### 9.2.2 註冊
@@ -278,7 +326,9 @@ flowchart LR
 
 #### 9.2.3 stdout 只留給協定
 
-stdio 傳輸以 stdout 傳送協定訊息，任何其他輸出都會讓 client 解析失敗。104-job-scraper 的 `execute_scraping` 會把進度與預覽表格 `print` 到 stdout，所以 tool 執行期間把 stdout 導向 stderr（`contextlib.redirect_stdout`）。這樣不必修改爬蟲 CLI 的輸出。
+- 限制：stdio 傳輸以 stdout 傳送協定訊息，任何其他輸出都會讓 client 解析失敗。
+- 問題：104-job-scraper 的 `execute_scraping` 會把進度與預覽表格 `print` 到 stdout。
+- 做法：tool 執行期間把 stdout 導向 stderr（`contextlib.redirect_stdout`），不必修改爬蟲 CLI 的輸出。
 
 ### 9.3 驗收
 
@@ -290,7 +340,10 @@ stdio 傳輸以 stdout 傳送協定訊息，任何其他輸出都會讓 client �
 #### AC-server：啟動、tool 清單與錯誤不中斷
 
 - Given：`tmp_path` 中的空資料庫
-- When：以子行程啟動 `src/mcp_server.py --db <tmp>`，用 MCP client 列出 tools，依序呼叫 `get_job_detail`（不存在的代碼）、`query_jobs`
+- When：
+  1. 以子行程啟動 `src/mcp_server.py --db <tmp>`
+  2. 用 MCP client 列出 tools
+  3. 依序呼叫 `get_job_detail`（不存在的代碼）、`query_jobs`
 - Then：
   - 列出的 tool 剛好是 §4–§7 的四個
   - `get_job_detail` 回傳 tool error，之後的 `query_jobs` 仍正常回傳空清單
@@ -300,7 +353,9 @@ stdio 傳輸以 stdout 傳送協定訊息，任何其他輸出都會讓 client �
 
 #### AC-agent-real：在 Claude Code 中實際使用 〔需網路〕
 
-- Given：`profile/` 已填入真實資料，`.env` 有 API key
+- Given：
+  - `profile/` 已填入真實資料
+  - `.env` 有 API key
 - When：在專案目錄開啟 Claude Code，確認 `job-radar` server 已載入，請 agent 依序做這幾件事：
   1. 抓取一個關鍵字、1 頁
   2. 評分其中 5 筆
@@ -308,8 +363,12 @@ stdio 傳輸以 stdout 傳送協定訊息，任何其他輸出都會讓 client �
 - Then：
   - agent 依序呼叫 `search_104_jobs`、`score_jobs`、`query_jobs`、`get_job_detail`，都沒有出現 tool error
   - 回答中的分數與理由，與資料庫中的內容一致
-- 驗證方式：使用者手動操作。另外 `uv run pytest -m network tests/e2e/test_mcp_server.py` 實際呼叫 `search_104_jobs`（1 個關鍵字、1 頁）
-- 通過條件：pytest 全部 passed；使用者確認 agent 的回答與資料庫內容一致。
+- 驗證方式：
+  - 使用者手動操作
+  - `uv run pytest -m network tests/e2e/test_mcp_server.py` 實際呼叫 `search_104_jobs`（1 個關鍵字、1 頁）
+- 通過條件：
+  - pytest 全部 passed
+  - 使用者確認 agent 的回答與資料庫內容一致
 
 ## 10. 待決問題
 
