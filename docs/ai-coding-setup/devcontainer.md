@@ -13,6 +13,15 @@
 - `node` 對 root 只有一條免密碼 sudo 規則，就是下面的 `init-firewall.sh`，沒有其他 root 權限。
 - 即使 agent 在容器內執行了不該執行的指令，影響範圍也侷限在非 root 使用者能碰到的範圍。
 
+## 容器內的工具
+
+- 系統工具都在 `.devcontainer/Dockerfile` 建置時以 apt 安裝，此時防火牆尚未啟用。
+- 容器啟動後無法補裝：`node` 沒有 root 權限，防火牆也沒有放行 apt 的套件來源。
+- 需要新工具時加進 Dockerfile，再重建容器（「Dev Containers: Rebuild Container」）。
+- `sqlite3`：在終端機查詢 SQLite 資料庫，例如 `sqlite3 data/jobs.db`。
+  - VS Code 的 SQLite 擴充套件（例如 vscode-sqlite）也要呼叫系統的 `sqlite3`。
+  - 這些擴充套件內建的備用執行檔只支援 x86，在 ARM（例如 Apple Silicon）的容器中無法使用。
+
 ## 虛擬環境與 git 設定
 
 專案資料夾以 bind mount 掛進容器，主機與容器看到的是同一份 `/workspace`，包含 `.venv/` 與 `.git/config`：
