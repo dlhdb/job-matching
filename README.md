@@ -95,7 +95,7 @@ uv run src/import_jobs.py output/104/*.json
    uv run src/score_job.py --jobs output/104/<檔名>.json --job-no <職缺代碼>
    ```
 
-結果包含各維度分數、理由與 0–100 總分。薪資太低、公司或職稱在排除清單中的職缺會直接淘汰，不呼叫 AI。想調整提示詞時，指定 `--job-no` 並加上 `--dry-run`，就只會印出提示詞，不呼叫 AI。評分方式見 [F1-01 工作評分](docs/features/F1-01-job-scoring.md#5-設計)。
+結果包含各維度分數、理由與 0–100 總分。薪資太低、公司或職稱在排除清單中的職缺會直接淘汰，不呼叫 AI。想調整提示詞時，指定 `--job-no` 並加上 `--dry-run`，就只會印出提示詞，不呼叫 AI。評分方式見 [F1-01 對單筆職缺評分](docs/features/F1-01-job-scoring.md#6-對單筆職缺評分score)。
 
 ## 在隔離環境中讓 Coding Agent 自主執行
 
@@ -125,7 +125,7 @@ src/            程式碼：爬蟲、職缺資料庫、評分 CLI 與評分邏�
 tests/          測試
 notebooks/      分析資料的 Jupyter notebook
 scripts/        工具腳本
-profile/        用戶求職偏好與工作經歷（真實資料不進版控）
+profile/        使用者的求職偏好與工作經歷（真實資料不進版控）
 output/         應用程式輸出結果（不進版控）
 data/           職缺資料庫 jobs.db（不進版控）
 docs/           專案總覽、功能文件與開發慣例
@@ -136,7 +136,7 @@ docs/           專案總覽、功能文件與開發慣例
 
 | 文件 | 內容 |
 | :--- | :--- |
-| [docs/README.md](docs/README.md) | 專案總覽：目標、用例、核心技術、功能清單與現況 |
+| [docs/README.md](docs/README.md) | 專案總覽：目標、使用者問題、核心技術、功能清單與現況 |
 | [docs/features/F1-01-job-scoring.md](docs/features/F1-01-job-scoring.md) | 職缺評分：需求、評分規則、提示詞、LLM 抽象層、整批評分與結果檔、驗收標準 |
 | [docs/features/F2-01-104-job-scraper.md](docs/features/F2-01-104-job-scraper.md) | 104 爬蟲：需求、API 限制、欄位字典、驗收標準 |
 | [docs/features/F2-02-job-database.md](docs/features/F2-02-job-database.md) | 職缺資料庫：需求、資料表、寫入規則、匯入指令、驗收標準 |

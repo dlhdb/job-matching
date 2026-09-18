@@ -4,7 +4,7 @@
 
 ## 實際使用前
 
-- [ ] `profile/preferences.yaml` 與 `profile/experience.md` 目前是測試用的虛構資料，執行 F1-01 AC-8（真實評分）前要換成自己的偏好與經歷，才能判斷 AI 的理由是否與自己的判斷相符
+- [ ] `profile/preferences.yaml` 與 `profile/experience.md` 目前是測試用的虛構資料，執行 F1-01 AC-score-real（真實評分）前要換成自己的偏好與經歷，才能判斷 AI 的理由是否與自己的判斷相符
 
 ## 評分維度（F1-01 後續迭代）
 
@@ -34,3 +34,4 @@
 ## 文件
 
 - [ ] [README.md](README.md) 的「文件導覽」缺 F5-01，加一列指到 [docs/features/F5-01-mcp-server.md](docs/features/F5-01-mcp-server.md)
+- [ ] F2-01、F2-02、F5-01 改成系統能力結構（見 [conventions.md](docs/conventions.md#功能文件的結構)）：目前只有 F1-01 遷移過，這三份還是「需求／設計／驗收」各一章、FR／AC 用流水號。等 F1-01 的新結構實際用過一輪、確認好讀再遷；F2-02 至少會切成「資料庫與寫入規則」「爬蟲整合」「匯入既有 JSON」三個系統能力
