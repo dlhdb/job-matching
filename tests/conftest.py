@@ -8,9 +8,34 @@ import yaml
 
 import fetch_104_jobs
 import score_job as score_job_cli
+from job_db import open_db
 from job_scoring.llm import LLMError
 from job_scoring.models import AIAssessment
 from job_scoring.profile import load_preferences
+
+
+@pytest.fixture(autouse=True)
+def isolate_db(tmp_path, monkeypatch):
+    """
+    把評分 CLI 的預設資料庫指到 tmp_path，沒有指定 --db 的測試也不會寫入 data/jobs.db
+
+    :return: Path, 預設資料庫的路徑
+    """
+    path = tmp_path / "jobs.db"
+    monkeypatch.setattr(score_job_cli, "DEFAULT_DB_PATH", path)
+    return path
+
+
+@pytest.fixture
+def db_conn(tmp_path):
+    """
+    tmp_path 下已初始化的資料庫連線（與 isolate_db 是同一個檔案）
+
+    :return: sqlite3.Connection
+    """
+    connection = open_db(tmp_path / "jobs.db")
+    yield connection
+    connection.close()
 
 
 @pytest.fixture

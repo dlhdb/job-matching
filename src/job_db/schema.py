@@ -63,6 +63,20 @@ SCHEMA = [
         PRIMARY KEY ("執行編號", "職缺代碼")
     )
     """,
+    # 評分結果，每筆職缺只留最新一次；不設外鍵，評分的職缺不一定匯入過 jobs
+    """
+    CREATE TABLE IF NOT EXISTS job_scores (
+        "職缺代碼" TEXT PRIMARY KEY,
+        "評分時間" TEXT NOT NULL,
+        "淘汰" INTEGER NOT NULL,
+        "總分" INTEGER,
+        "評語" TEXT,
+        "評分結果" TEXT NOT NULL,
+        "快取鍵" TEXT,
+        "供應商" TEXT,
+        "模型" TEXT
+    )
+    """,
 ]
 
 

@@ -2,7 +2,7 @@
 
 - ID：job-scoring
 - 狀態：待規劃
-- 依賴：104-job-scraper（使用其輸出的職缺 JSON 作為輸入）、job-database（評分結果寫入其資料庫）〔規劃中〕
+- 依賴：104-job-scraper（使用其輸出的職缺 JSON 作為輸入）、job-database（評分結果寫入其資料庫）
 - 程式碼：[src/score_job.py](../../src/score_job.py)（CLI）、[src/job_scoring/](../../src/job_scoring/)
 
 ## 1. 背景與目標
@@ -28,7 +28,8 @@
 - 通勤便利度、資歷門檻、工作型態與福利、競爭程度／新鮮度等維度（候選做法見 [TODO.md](../../TODO.md)）
 - 修改爬蟲或擴充爬蟲欄位（見 [TODO.md](../../TODO.md#爬蟲)）
 - 失敗重試（見 [TODO.md](../../TODO.md#職缺評分範圍外)）
-- 〔規劃中〕保留評分歷史、從資料庫讀取職缺、強制重新評分的參數（見 [TODO.md](../../TODO.md#職缺評分範圍外)）
+- 保留評分歷史、從資料庫讀取職缺（見 [TODO.md](../../TODO.md#職缺評分範圍外)）
+- 〔規劃中〕強制重新評分的參數（見 [TODO.md](../../TODO.md#職缺評分範圍外)）
 - 平行呼叫 AI（整批維持循序執行）
 
 ## 3. 設計總覽
@@ -44,7 +45,7 @@
 - 單筆輸出：`JobScore` 的 JSON 印到 stdout，欄位見 [§11.2.2](#1122-jobscore-輸出格式)。
 - 整批輸出：`output/scores/` 下同名的 JSON 與 CSV，欄位見 [§6.2.2](#622-結果檔)。
   - 給使用者用 pandas 或 Excel 排序、篩選，本功能不提供瀏覽介面。
-- 〔規劃中〕整批與單筆的結果都寫入 job-database 資料庫的 `job_scores` 表（見 [§7.2.1](#721-資料表)），供 [mcp-server](mcp-server.md) 查詢。
+- 整批與單筆的結果都寫入 job-database 資料庫的 `job_scores` 表（見 [§7.2.1](#721-資料表)），供 [mcp-server](mcp-server.md) 查詢。
 
 ### 3.2 使用者故事清單
 
@@ -53,7 +54,7 @@
 - [評單筆職缺並看懂每個分數](#4-評單筆職缺並看懂每個分數score)（`score`）：✅
 - [明顯不合的職缺直接淘汰](#5-明顯不合的職缺直接淘汰filter)（`filter`）：✅
 - [一次評完整批並拿到結果檔](#6-一次評完整批並拿到結果檔batch)（`batch`）：✅
-- [依分數查詢職缺](#7-依分數查詢職缺store)（`store`）：〔規劃中〕
+- [依分數查詢職缺](#7-依分數查詢職缺store)（`store`）：✅
 - [重跑時不重複付 AI 費用](#8-重跑時不重複付-ai-費用cache)（`cache`）：〔規劃中〕
 - [換設定試跑而不影響正式分數](#9-換設定試跑而不影響正式分數dry-run)（`dry-run`）：〔規劃中〕
 
@@ -484,7 +485,8 @@ flowchart TD
     N -->|沒有| W["寫出 JSON 與 CSV"] --> M[印出摘要]
 ```
 
-- 〔規劃中〕每筆的「§4.2.3 評分流程」改為 [§7.2.2](#722-流程)：評分前先查快取，評完寫入資料庫。
+- 每筆的「§4.2.3 評分流程」改為 [§7.2.2](#722-流程)：評完寫入資料庫。
+- 〔規劃中〕評分前先查快取（見 [§8](#8-重跑時不重複付-ai-費用cache)）。
 - 依輸入順序逐筆處理，不平行呼叫 AI。
 - 每筆開始前在 stderr 印出進度，例如 `⏳ [i] (3/120) Python 工程師 - 甲公司`。
 - LLM client 在第一次需要呼叫 AI 時才建立：
@@ -630,8 +632,6 @@ flowchart TD
 
 ## 7. 依分數查詢職缺（store）
 
-〔規劃中〕本章全部尚未實作，內部不再逐條標記。
-
 身為求職者，我想要隨時依分數查詢評過的職缺，以便先看分數高的職缺，不必翻找每次評分的結果檔。
 
 ### 7.1 需求
@@ -680,13 +680,15 @@ flowchart TD
   - `CREATE TABLE IF NOT EXISTS` 會在既有的資料庫補上這張表，不影響原有資料。
 - 資料庫只放正式評分：
   - 表中只有最新結果。
-  - 試跑（換偏好檔、經歷或模型來比較）時要加 `--dry-run`，否則會覆寫正式的分數。
+  - 〔規劃中〕試跑（換偏好檔、經歷或模型來比較）時要加 `--dry-run`，否則會覆寫正式的分數（見 [§9](#9-換設定試跑而不影響正式分數dry-run)）。
 - `評分結果` 中的 AI 三個維度與 `評語` 是 [§8.2.1](#821-快取鍵) 沿用的來源，其餘欄位每次重算後覆寫。
 - 不記錄評分時使用的偏好檔與經歷內容，只記錄供應商與模型（見 [TODO.md](../../TODO.md#職缺評分範圍外)）。
 
 #### 7.2.2 流程
 
 每筆職缺套用以下流程，取代 [§4.2.3](#423-評分流程) 的直接評分。查快取與沿用屬於 [§8](#8-重跑時不重複付-ai-費用cache)。
+
+〔規劃中〕查快取與沿用尚未實作：目前沒被淘汰的職缺一律呼叫 AI，但照常計算快取鍵並寫入 `快取鍵` 欄。
 
 ```mermaid
 flowchart TD
@@ -709,6 +711,10 @@ flowchart TD
 - 整批評分中途發生 SQLite 錯誤時，比照 [§6.2.1](#621-流程) 的其他例外中止：
   - 回傳 1、不寫結果檔。
   - 已寫入的職缺留在資料庫，重跑時沿用。
+- 模組分工：
+  - `job_db/scores.py` 只負責把一列寫入 `job_scores`，參數用基本型別，因為 `job_db` 不 import 專案內的其他模組。
+  - `job_scoring/scorer.py` 負責「評分、計算快取鍵、寫入」這一步，單筆 CLI 與整批評分函式共用。
+  - 整批評分函式以參數接收資料庫連線、供應商與模型。CLI 與 [mcp-server](mcp-server.md) 各自開啟連線後傳入。
 
 ### 7.3 驗收
 
@@ -739,6 +745,22 @@ flowchart TD
   - 原本的職缺資料不變
 - 驗證方式：`uv run pytest tests/test_score_job_cli.py -k db_path`
 - 通過條件：passed。
+
+#### AC-store-real：真實評分結果入庫 〔需網路〕
+
+- Given：與 [AC-score-real](#ac-score-real真實評分-需網路)、[AC-batch-real](#ac-batch-real真實整批評分-需網路) 相同，另以 `--db` 指到單筆與整批共用的 `output/e2e/jobs.db`（開始前刪除上次留下的檔案）
+- When：執行 AC-score-real 與 AC-batch-real 的單筆與整批評分
+- Then：
+  - 單筆：`job_scores` 有該職缺的列
+  - 整批：評分成功與被淘汰的職缺各有一列
+    - 評分失敗的職缺不檢查：共用的資料庫中可能留有單筆評分寫入的列。失敗不寫入由 [AC-store-write](#ac-store-write評分結果入庫) 驗證
+  - 沒被淘汰的列：
+    - `評分結果` 解析後與輸出的 JobScore 相同，`總分`、`評語` 與其中的值一致
+    - `淘汰` 為 0，`快取鍵` 是 64 字元的十六進位字串，`供應商`、`模型` 為 `gemini`、`gemini-3.8-flash`
+  - 被淘汰的列：`淘汰` 為 1，`總分`、`快取鍵`、`供應商`、`模型` 為 `null`，`淘汰原因` 與結果檔相同
+  - 印出資料庫的路徑（用 `-s` 顯示），跑完保留，可以直接打開查看
+- 驗證方式：`uv run pytest -m network -s tests/e2e/test_job_scoring.py -k real`
+- 通過條件：全部 passed。
 
 ## 8. 重跑時不重複付 AI 費用（cache）
 
@@ -951,7 +973,7 @@ src/
     jobs.py                  讀取並驗證爬蟲輸出的職缺 JSON
     batch.py                 整批評分、寫出結果檔
   job_db/
-    scores.py                〔規劃中〕讀寫 job_scores（表定義在 job-database 的 schema.py）
+    scores.py                寫入 job_scores（表定義在 job-database 的 schema.py）
 tests/
   conftest.py                  共用 fixture（測試資料、假的 LLM client）
   test_job_scoring_profile.py  透過 main 驗證偏好檔、個人資料的版控設定
@@ -1057,13 +1079,13 @@ uv run src/score_job.py --jobs output/104/<檔名>.json [--job-no <職缺代碼>
 - `--provider`：LLM 供應商，預設 `gemini`
 - `--model`：模型名稱，預設 `gemini-3.8-flash`
 - `--dry-run`：先執行硬性淘汰與薪資計分，再印出完整的 system 與 user 提示詞
-  - 不建立 LLM client、不發出網路請求
+  - 不建立 LLM client、不發出網路請求、不開啟資料庫
   - 必須搭配 `--job-no`，否則印出 `[-]` 並結束
   - 〔規劃中〕改為試跑（見 [§9](#9-換設定試跑而不影響正式分數dry-run)），用於換一份偏好檔、經歷或模型，實際看 AI 會給幾分、理由是什麼：
     - 完整評分，會呼叫 AI
     - 不讀寫資料庫、不沿用上次的 AI 評分，不影響已存的正式分數
     - 單筆照常印到 stdout，整批照常寫出結果檔
-- `--db`：〔規劃中〕評分結果寫入的資料庫，預設為專案根目錄的 `data/jobs.db`（見 [§7](#7-依分數查詢職缺store)）
+- `--db`：評分結果寫入的資料庫，預設為專案根目錄的 `data/jobs.db`（見 [§7](#7-依分數查詢職缺store)）
 
 輸出：
 
@@ -1088,12 +1110,12 @@ uv run src/score_job.py --jobs output/104/<檔名>.json [--job-no <職缺代碼>
   - 不支援的供應商
   - 缺少 API key
   - 單筆評分時 Gemini API 呼叫失敗、沒有回傳文字，或 AI 回應格式錯誤
-  - 〔規劃中〕無法開啟資料庫，或寫入資料庫時發生 SQLite 錯誤（整批評分的行為見 [§7.2.2](#722-流程)）
+  - 無法開啟資料庫，或寫入資料庫時發生 SQLite 錯誤（整批評分的行為見 [§7.2.2](#722-流程)）
 
 #### 11.2.5 測試慣例與共用測試資料
 
 - 測試與實作一起撰寫，依 [development.md 的測試章節](../conventions/development.md#測試)。
-- 除了 AC-score-real 與 AC-batch-real，其餘驗收都離線執行，也不需要 API key。
+- 除了 AC-score-real、AC-batch-real 與 AC-store-real，其餘驗收都離線執行，也不需要 API key。
 
 放在 `tests/conftest.py` 的 fixture，各測試檔共用：
 
@@ -1121,7 +1143,11 @@ uv run src/score_job.py --jobs output/104/<檔名>.json [--job-no <職缺代碼>
 - 禁止建立 client：
   - 用 monkeypatch 把 `score_job.get_client` 換成一呼叫就讓測試失敗的函式
   - 把 `GEMINI_API_KEY` 設為空字串
-- 資料庫〔規劃中〕：所有測試（含 AC-score-real、AC-batch-real）都以 `--db` 或連線參數指到 `tmp_path` 的資料庫，不寫入 `data/jobs.db`
+- 資料庫：所有測試（含 AC-score-real、AC-batch-real、AC-store-real）都不寫入 `data/jobs.db`
+  - autouse 的 fixture 把 CLI 的預設資料庫換成 `tmp_path` 下的檔案，沒有指定 `--db` 的測試也不會寫到真實資料庫
+  - 要檢查資料庫內容的離線測試，以 `--db` 明確指到 `tmp_path` 下的檔案
+  - e2e 例外：單筆與整批共用 `output/e2e/jobs.db`，開始前刪除上次留下的檔案，跑完保留，方便直接打開查看
+  - 直接呼叫整批評分函式的測試，傳入 `tmp_path` 下資料庫的連線
 
 一次跑完所有離線驗收：
 

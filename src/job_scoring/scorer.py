@@ -1,8 +1,11 @@
 """評分流程：硬性淘汰 → 薪資計分 → AI 評分 → 加權總分。"""
 
+import sqlite3
+from datetime import datetime
 from fractions import Fraction
 from typing import Any
 
+from job_db import save_score
 from job_scoring.llm import LLMClient
 from job_scoring.models import (
     CAREER_FIT,
@@ -10,15 +13,23 @@ from job_scoring.models import (
     INDUSTRY_FIT,
     SALARY,
     SKILL_MATCH,
+    AIAssessment,
     DimensionScore,
     JobScore,
     Preferences,
 )
-from job_scoring.prompt import build_prompt
+from job_scoring.prompt import build_prompt, cache_key
 from job_scoring.rules import check_hard_filters, round_half_up, score_salary
 
 # 分數未知的維度以此分數（中性）代入，讓每筆職缺都用相同的維度與權重計算，總分才能互相比較
 UNKNOWN_SCORE = 3
+
+
+class NeverCalledClient:
+    """被淘汰的職缺使用的佔位 client；score_job 不會呼叫它，被呼叫就代表流程有錯"""
+
+    def assess(self, system: str, user: str) -> AIAssessment:
+        raise AssertionError("被淘汰的職缺不應呼叫 LLM")
 
 
 def compute_total(scores: dict[str, int | None], weights: dict[str, float]) -> int:
@@ -77,3 +88,51 @@ def score_job(job: dict[str, Any], prefs: Preferences, experience: str, client: 
         unknown_dimensions=[name for name, s in scores.items() if s is None],
         comment=assessment.comment,
     )
+
+
+def score_and_save(
+    job: dict[str, Any],
+    prefs: Preferences,
+    experience: str,
+    client: LLMClient,
+    conn: sqlite3.Connection,
+    provider: str,
+    model: str,
+) -> JobScore:
+    """
+    對單筆職缺評分並寫入 job_scores；評分失敗時例外直接往外拋，資料庫中原本的列不變。
+
+    :param job: dict, 爬蟲輸出的單筆職缺
+    :param prefs: Preferences, 偏好設定
+    :param experience: str, experience.md 全文
+    :param client: LLMClient, LLM client；被淘汰的職缺不會呼叫
+    :param conn: sqlite3.Connection, open_db 開啟的連線
+    :param provider: str, 產生 client 的 LLM 供應商
+    :param model: str, 產生 client 的模型名稱
+    :return: JobScore, 評分結果
+    :raises LLMError: LLM 呼叫失敗
+    :raises pydantic.ValidationError: LLM 回應不符合 schema
+    :raises sqlite3.Error: 寫入資料庫失敗
+    """
+    score = score_job(job, prefs, experience, client)
+    # 被淘汰的職缺沒有呼叫 AI，不需要快取鍵，也沒有使用任何 LLM
+    key: str | None = None
+    used_provider: str | None = None
+    used_model: str | None = None
+    if not score.eliminated:
+        system, user = build_prompt(job, prefs, experience)
+        key, used_provider, used_model = cache_key(provider, model, system, user), provider, model
+
+    save_score(
+        conn,
+        job_no=score.job_no,
+        scored_at=datetime.now(),
+        eliminated=score.eliminated,
+        total=score.total,
+        comment=score.comment,
+        result=score.model_dump(by_alias=True),
+        cache_key=key,
+        provider=used_provider,
+        model=used_model,
+    )
+    return score

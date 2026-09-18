@@ -71,6 +71,8 @@ uv run pytest -m network tests/e2e   # 連到真實外部服務的測試
   - 範本檔（`*.example.*`）只在驗證範本本身的測試中讀取。
 - `tests/e2e/` 的測試缺少 API key 等前提時，用 `pytest.skip` 說明原因，不要讓測試失敗。
 - 檔案一律寫到 `tmp_path`。會寫入 `output/` 的程式，用 monkeypatch 把輸出目錄改掉，不要污染真實資料。
+  - 例外：e2e 測試中要讓使用者跑完直接打開查看的檔案，寫到 `output/e2e/`（不進版控）。
+  - 每次執行前刪除上次留下的檔案，跑完保留。
 - 需要多組輸入時，用 `@pytest.mark.parametrize`。
   - 功能文件驗收標準中逐項列出的「輸入 → 預期」，就直接對應到這裡的參數。
 - 測試函式名稱以被測的函式名稱開頭（例如 `test_parse_keywords_*`），讓驗收標準可以用 `-k <函式名>` 挑出對應的測試。

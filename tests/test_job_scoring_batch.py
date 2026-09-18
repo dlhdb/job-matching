@@ -1,10 +1,13 @@
-"""整批評分（job_scoring.batch）的測試：逐筆評分、單筆失敗不中斷、結果檔。"""
+"""整批評分（job_scoring.batch）的測試：逐筆評分、單筆失敗不中斷、結果寫入資料庫、結果檔。"""
 
 import csv
 import json
+import re
+from datetime import datetime
 
 import pytest
 
+from job_db import save_score
 from job_scoring.batch import score_batch, write_results
 from job_scoring.models import DIMENSIONS
 
@@ -23,6 +26,15 @@ def _no_progress(message):
     pass
 
 
+def _store(conn):
+    """
+    score_batch 寫入資料庫需要的參數
+
+    :return: dict, conn、provider、model
+    """
+    return {"conn": conn, "provider": "gemini", "model": "測試模型"}
+
+
 @pytest.fixture
 def five_jobs(make_job):
     """正常、會被淘汰、正常、會評分失敗、正常"""
@@ -36,7 +48,7 @@ def five_jobs(make_job):
 
 
 @pytest.fixture
-def five_results(five_jobs, prefs, make_batch_client):
+def five_results(five_jobs, prefs, make_batch_client, db_conn):
     """
     五筆職缺的整批結果與使用的假 client
 
@@ -48,7 +60,7 @@ def five_results(five_jobs, prefs, make_batch_client):
         "丁職缺": "llm_error",
         "戊職缺": {},
     })
-    return score_batch(five_jobs, prefs, "經歷", lambda: client, _no_progress), client
+    return score_batch(five_jobs, prefs, "經歷", lambda: client, _no_progress, **_store(db_conn)), client
 
 
 def test_score_batch_scoring_order_and_calls(five_results):
@@ -65,7 +77,7 @@ def test_score_batch_scoring_order_and_calls(five_results):
     assert results[0].total > results[2].total
 
 
-def test_score_batch_failure_does_not_stop(make_job, prefs, make_batch_client):
+def test_score_batch_failure_does_not_stop(make_job, prefs, make_batch_client, db_conn):
     jobs = [
         make_job(**{"職缺代碼": "a", "職缺名稱": "甲職缺"}),
         make_job(**{"職缺代碼": "b", "職缺名稱": "乙職缺"}),
@@ -73,7 +85,7 @@ def test_score_batch_failure_does_not_stop(make_job, prefs, make_batch_client):
     ]
     client = make_batch_client({"甲職缺": "llm_error", "乙職缺": "invalid", "丙職缺": {}})
 
-    results = score_batch(jobs, prefs, "經歷", lambda: client, _no_progress)
+    results = score_batch(jobs, prefs, "經歷", lambda: client, _no_progress, **_store(db_conn))
 
     for r in results[:2]:
         assert r.failure
@@ -87,15 +99,67 @@ def test_score_batch_failure_does_not_stop(make_job, prefs, make_batch_client):
     assert results[2].total == 75
 
 
-def test_score_batch_client_created_lazily(out_job, prefs):
+def test_score_batch_client_created_lazily(out_job, prefs, db_conn):
     def _factory():
         pytest.fail("全部被淘汰時不應建立 client")
 
     progress = []
-    results = score_batch([out_job, out_job], prefs, "經歷", _factory, progress.append)
+    results = score_batch([out_job, out_job], prefs, "經歷", _factory, progress.append, **_store(db_conn))
 
     assert all(r.eliminated for r in results)
     assert progress[1].startswith("⏳ [i] (2/2) 業務專員 - 甲公司")
+
+
+def _score_rows(conn):
+    """
+    以職缺代碼為鍵取出 job_scores 表
+
+    :return: dict[str, dict]
+    """
+    cursor = conn.execute("SELECT * FROM job_scores")
+    names = [d[0] for d in cursor.description]
+    return {row[0]: dict(zip(names, row)) for row in cursor}
+
+
+def test_score_batch_store_write(make_job, prefs, make_batch_client, db_conn):
+    jobs = [
+        make_job(**{"職缺代碼": "a", "職缺名稱": "甲職缺"}),
+        make_job(**{"職缺代碼": "b", "職缺名稱": "業務專員"}),
+        make_job(**{"職缺代碼": "c", "職缺名稱": "丙職缺"}),
+    ]
+    save_score(
+        db_conn, job_no="c", scored_at=datetime(2026, 9, 1, 10, 0, 0), eliminated=False, total=60,
+        comment="舊評語", result={"職缺代碼": "c", "總分": 60}, cache_key="舊鍵", provider="gemini", model="舊模型",
+    )
+    old_row = _score_rows(db_conn)["c"]
+    client = make_batch_client({"甲職缺": {}, "丙職缺": "llm_error"})
+
+    results = score_batch(jobs, prefs, "經歷", lambda: client, _no_progress, **_store(db_conn))
+    rows = _score_rows(db_conn)
+
+    assert set(rows) == {"a", "b", "c"}
+    for job_no, result in (("a", results[0]), ("b", results[1])):
+        row = rows[job_no]
+        stored = json.loads(row["評分結果"])
+        assert list(stored) == ["職缺代碼", "淘汰", "淘汰原因", "維度", "總分", "未知維度", "評語"]
+        assert stored["職缺代碼"] == job_no
+        assert row["淘汰"] == int(stored["淘汰"])
+        assert row["總分"] == stored["總分"] == result.total
+        assert row["評語"] == stored["評語"] == result.comment
+        assert re.fullmatch(r"\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}", row["評分時間"])
+
+    assert rows["a"]["淘汰"] == 0
+    assert rows["a"]["總分"] == 75
+    assert re.fullmatch(r"[0-9a-f]{64}", rows["a"]["快取鍵"])
+    assert (rows["a"]["供應商"], rows["a"]["模型"]) == ("gemini", "測試模型")
+
+    assert rows["b"]["淘汰"] == 1
+    assert rows["b"]["總分"] is None
+    assert rows["b"]["快取鍵"] is None
+    assert json.loads(rows["b"]["評分結果"])["淘汰原因"]
+
+    assert results[2].failure
+    assert rows["c"] == old_row
 
 
 def test_write_results_output_files(five_results, tmp_path):

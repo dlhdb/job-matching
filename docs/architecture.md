@@ -25,7 +25,7 @@ flowchart LR
     fetch["fetch_104_jobs.py"] --> jobdb["job_db"]
     imp["import_jobs.py"] --> jobdb
     score["score_job.py"] --> scoring["job_scoring"]
-    scoring -.-> jobdb
+    scoring --> jobdb
     mcp["mcp_server.py"] -.-> fetch
     mcp -.-> scoring
     mcp -.-> jobdb
@@ -38,7 +38,7 @@ flowchart LR
 ```
 
 - `job_db` 在最底層，不 import 專案內的其他模組。原因見 [job-database 的模組佈局](features/job-database.md#721-模組佈局)。
-- 〔規劃中〕`job_scoring` 經由 `job_db/scores.py` 讀寫 `job_scores`（見 [job-scoring 的模組佈局](features/job-scoring.md#1121-模組佈局)）。
+- `job_scoring` 經由 `job_db/scores.py` 寫入 `job_scores`（見 [job-scoring 的模組佈局](features/job-scoring.md#1121-模組佈局)）。
 - mcp-server 的 tool 只做參數檢查與格式轉換，邏輯都呼叫 CLI 用的同一組函式（見 [mcp-server 的架構](features/mcp-server.md#921-架構)）。
 
 ## 資料存放
@@ -49,7 +49,7 @@ flowchart LR
 - 各表由哪個功能負責：
   - `jobs`、`scrape_runs`、`run_jobs`：job-database（見 [資料表](features/job-database.md#722-資料表)）
     - 寫入：爬蟲、匯入 CLI
-  - `job_scores`：〔規劃中〕job-scoring（見 [資料表](features/job-scoring.md#721-資料表)）
+  - `job_scores`：job-scoring（見 [資料表](features/job-scoring.md#721-資料表)）
     - 寫入：評分（CLI 或 mcp-server）
 - 表之間以 `職缺代碼` 關聯，它是 `jobs` 與 `job_scores` 的主鍵。
 - 欄名沿用中文，與爬蟲的 CSV／JSON、評分結果、mcp-server 回傳的鍵名一致。
@@ -59,6 +59,7 @@ flowchart LR
 - `output/104/`：爬蟲每次輸出一組 CSV 與 JSON，不進版控（見 [輸出檔](features/104-job-scraper.md#621-輸出檔)）
   - JSON 是評分 CLI 與匯入 CLI 的輸入
 - `output/scores/`：整批評分的結果檔 JSON 與 CSV，不進版控（見 [結果檔](features/job-scoring.md#622-結果檔)）
+- `output/e2e/`：e2e 測試留下供查看的檔案，例如評分測試的資料庫 `jobs.db`，不進版控（見 [測試](conventions/development.md#測試)）
 - `profile/`：求職偏好與工作經歷（見 [個人資料檔](features/job-scoring.md#421-個人資料檔)）
   - 範本進版控，真實資料不進版控
 - `.env`：API key，不進版控，範本是 `.env.example`

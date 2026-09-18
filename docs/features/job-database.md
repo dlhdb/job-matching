@@ -277,7 +277,8 @@ uv run src/import_jobs.py output/104/*.json [--db data/jobs.db]
 src/
 ├── job_db/
 │   ├── __init__.py
-│   ├── schema.py      # 建表語法、開啟連線並初始化
+│   ├── schema.py      # 建表語法、開啟連線並初始化（含 job-scoring 的 job_scores）
+│   ├── scores.py      # 寫入評分結果，由 job-scoring 呼叫
 │   └── store.py       # 寫入一次抓取的結果、匯入 JSON
 ├── import_jobs.py     # 匯入 CLI
 └── fetch_104_jobs.py  # 新增 --db、--no-db，寫完檔案後呼叫 job_db

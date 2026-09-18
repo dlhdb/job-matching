@@ -5,31 +5,36 @@
 讀取爬蟲輸出的職缺 JSON 與 profile/ 的個人資料，對職缺評分。
 - 單筆：把 JobScore JSON 印到 stdout。
 - 整批：結果寫成 output/scores/ 下的 JSON 與 CSV，stdout 不輸出。
+單筆與整批的結果都寫入資料庫（預設 data/jobs.db）的 job_scores，每筆職缺只留最新一次。
 進度、摘要與錯誤訊息印到 stderr，可以把 stdout 直接導向檔案。
 
 使用說明：
 - 評分整批職缺：`uv run src/score_job.py --jobs output/104/<檔名>.json`
 - 只評一筆職缺：`uv run src/score_job.py --jobs output/104/<檔名>.json --job-no 8s12x`
+- 寫入其他資料庫：加上 `--db <路徑>`
 - 只看提示詞（不呼叫 AI）：指定 `--job-no` 並加上 `--dry-run`
 """
 
 import argparse
 import json
+import sqlite3
 import sys
+from contextlib import closing
 from pathlib import Path
 from typing import Any
 
 from dotenv import load_dotenv
 from pydantic import ValidationError
 
-from job_scoring.batch import NeverCalledClient, score_batch, write_results
+from job_db import DEFAULT_DB_PATH, open_db
+from job_scoring.batch import score_batch, write_results
 from job_scoring.jobs import find_job, load_jobs
-from job_scoring.llm import DEFAULT_MODEL, DEFAULT_PROVIDER, LLMError, get_client
+from job_scoring.llm import DEFAULT_MODEL, DEFAULT_PROVIDER, LLMClient, LLMError, get_client
 from job_scoring.models import Preferences
 from job_scoring.profile import ProfileError, load_experience, load_preferences
 from job_scoring.prompt import build_prompt
 from job_scoring.rules import check_hard_filters, score_salary
-from job_scoring.scorer import score_job
+from job_scoring.scorer import NeverCalledClient, score_and_save
 
 # 以腳本位置為基準，不受執行時的工作目錄影響
 PROJECT_ROOT = Path(__file__).resolve().parents[1]
@@ -61,7 +66,9 @@ def parse_args(argv: list[str] | None) -> argparse.Namespace:
     parser.add_argument("--provider", default=DEFAULT_PROVIDER, help=f"LLM 供應商（預設 {DEFAULT_PROVIDER}）")
     parser.add_argument("--model", default=DEFAULT_MODEL, help=f"模型名稱（預設 {DEFAULT_MODEL}）")
     parser.add_argument("--dry-run", action="store_true",
-                        help="只印出提示詞，不建立 LLM client、不發出網路請求；必須搭配 --job-no")
+                        help="只印出提示詞，不建立 LLM client、不發出網路請求、不開啟資料庫；必須搭配 --job-no")
+    parser.add_argument("--db", type=Path, default=DEFAULT_DB_PATH,
+                        help="評分結果寫入的資料庫（預設為專案根目錄的 data/jobs.db）")
     return parser.parse_args(argv)
 
 
@@ -87,24 +94,29 @@ def print_dry_run(job: dict[str, Any], prefs: Preferences, experience: str) -> N
     print(user)
 
 
-def run_single(args: argparse.Namespace, job: dict[str, Any], prefs: Preferences, experience: str) -> int:
+def run_single(args: argparse.Namespace, job: dict[str, Any], prefs: Preferences, experience: str,
+               conn: sqlite3.Connection) -> int:
     """
-    評單筆職缺，把結果 JSON 印到 stdout
+    評單筆職缺並寫入資料庫，把結果 JSON 印到 stdout
 
     :param args: argparse.Namespace, 命令列參數
     :param job: dict, 職缺資料
     :param prefs: Preferences, 偏好設定
     :param experience: str, 經歷全文
+    :param conn: sqlite3.Connection, 評分結果寫入的資料庫連線
     :return: int, 結束碼
     """
     try:
         if check_hard_filters(job, prefs):
             # 被淘汰的職缺不會呼叫 AI，不需要建立 client（也就不需要 API key）
-            result = score_job(job, prefs, experience, client=NeverCalledClient())
+            client: LLMClient = NeverCalledClient()
         else:
             client = get_client(args.provider, args.model)
             log(f"⏳ 正在以 {args.provider}/{args.model} 評分職缺 {job.get('職缺代碼')}：{job.get('職缺名稱')}")
-            result = score_job(job, prefs, experience, client)
+        result = score_and_save(job, prefs, experience, client, conn, args.provider, args.model)
+    except sqlite3.Error as e:
+        log(f"[-] 寫入資料庫失敗：{e}")
+        return 1
     except ValidationError as e:
         # ValidationError 是 ValueError 的子類別，必須先攔截
         log(f"[-] AI 回應不符合評分格式，本次評分失敗：\n{e}")
@@ -121,20 +133,27 @@ def run_single(args: argparse.Namespace, job: dict[str, Any], prefs: Preferences
     return 0
 
 
-def run_batch(args: argparse.Namespace, jobs: list[dict[str, Any]], prefs: Preferences, experience: str) -> int:
+def run_batch(args: argparse.Namespace, jobs: list[dict[str, Any]], prefs: Preferences, experience: str,
+              conn: sqlite3.Connection) -> int:
     """
-    評整批職缺，寫出結果檔並把摘要印到 stderr
+    評整批職缺並逐筆寫入資料庫，寫出結果檔並把摘要印到 stderr
 
     :param args: argparse.Namespace, 命令列參數
     :param jobs: list[dict], 職缺清單
     :param prefs: Preferences, 偏好設定
     :param experience: str, 經歷全文
-    :return: int, 結束碼；單筆評分失敗仍回傳 0，只有 client 建立失敗回傳 1
+    :param conn: sqlite3.Connection, 評分結果寫入的資料庫連線
+    :return: int, 結束碼；單筆評分失敗仍回傳 0，client 建立失敗或寫入資料庫失敗回傳 1
     """
     log(f"⏳ 正在以 {args.provider}/{args.model} 評分 {len(jobs)} 筆職缺")
     try:
         # 以 lambda 延後查找 get_client，第一次需要呼叫 AI 時才建立 client
-        results = score_batch(jobs, prefs, experience, lambda: get_client(args.provider, args.model), log)
+        results = score_batch(jobs, prefs, experience, lambda: get_client(args.provider, args.model), log,
+                              conn=conn, provider=args.provider, model=args.model)
+    except sqlite3.Error as e:
+        # 已評完的職缺各自寫入，留在資料庫中；結果檔不完整，因此不寫出
+        log(f"[-] 寫入資料庫失敗，已中止評分：{e}")
+        return 1
     except (LLMError, ValueError) as e:
         log(f"[-] {e}")
         return 1
@@ -174,12 +193,19 @@ def main(argv: list[str] | None = None) -> int:
         log(f"[-] {e}")
         return 1
 
-    if job is None:
-        return run_batch(args, jobs, prefs, experience)
-    if args.dry_run:
+    if job is not None and args.dry_run:
         print_dry_run(job, prefs, experience)
         return 0
-    return run_single(args, job, prefs, experience)
+
+    try:
+        conn = open_db(args.db)
+    except (sqlite3.Error, OSError) as e:
+        log(f"[-] 無法開啟資料庫 {args.db}：{e}")
+        return 1
+    with closing(conn):
+        if job is None:
+            return run_batch(args, jobs, prefs, experience, conn)
+        return run_single(args, job, prefs, experience, conn)
 
 
 if __name__ == "__main__":

@@ -3,9 +3,11 @@
 """
 
 from job_db.schema import DEFAULT_DB_PATH, JOB_COLUMNS, open_db
+from job_db.scores import save_score
 from job_db.store import SaveResult, import_json, parse_run_time, save_run
 
 __all__ = [
     "DEFAULT_DB_PATH", "JOB_COLUMNS", "open_db",
     "SaveResult", "import_json", "parse_run_time", "save_run",
+    "save_score",
 ]

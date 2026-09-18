@@ -1,12 +1,15 @@
-"""工作評分 CLI（score_job.py）的測試：dry-run、被淘汰職缺、錯誤處理與供應商隔離。"""
+"""工作評分 CLI（score_job.py）的測試：dry-run、被淘汰職缺、資料庫路徑、錯誤處理與供應商隔離。"""
 
 import ast
 import json
+from contextlib import closing
+from datetime import datetime
 from pathlib import Path
 
 import pytest
 
 import score_job
+from job_db import open_db, save_run
 from job_scoring.llm import get_client
 from job_scoring.models import AIAssessment
 
@@ -46,6 +49,48 @@ def test_main_ok_uses_client_and_prints_json(jobs_file, profile_dir, fake_client
     assert code == 0
     assert data["職缺代碼"] == "ok"
     assert data["總分"] == 75
+
+
+def test_main_single_writes_default_db(jobs_file, profile_dir, fake_client, isolate_db, monkeypatch):
+    monkeypatch.setattr(score_job, "get_client", lambda provider, model: fake_client)
+
+    code = _run(jobs_file, profile_dir, "--job-no", "ok")
+
+    assert code == 0
+    with closing(open_db(isolate_db)) as conn:
+        row = conn.execute('SELECT "總分", "供應商" FROM job_scores WHERE "職缺代碼" = ?', ("ok",)).fetchone()
+    assert row == (75, "gemini")
+
+
+def test_main_db_path(tmp_path, jobs_file, profile_dir, make_job, forbid_client):
+    db = tmp_path / "other" / "jobs.db"
+    conn = open_db(db)
+    save_run(conn, [make_job(**{"職缺代碼": "x1"})], datetime(2026, 9, 1, 10, 0, 0), "匯入")
+    # 模擬評分入庫之前建立的資料庫：只有 job-database 的三張表
+    conn.execute("DROP TABLE job_scores")
+    jobs_before = conn.execute("SELECT * FROM jobs").fetchall()
+    conn.close()
+
+    code = _run(jobs_file, profile_dir, "--job-no", "out", "--db", str(db))
+
+    assert code == 0
+    conn = open_db(db)
+    try:
+        rows = conn.execute('SELECT "職缺代碼", "淘汰" FROM job_scores').fetchall()
+        assert rows == [("out", 1)]
+        assert conn.execute("SELECT * FROM jobs").fetchall() == jobs_before
+    finally:
+        conn.close()
+
+
+def test_error_db_unopenable(tmp_path, jobs_file, profile_dir, forbid_client, capsys):
+    db_dir = tmp_path / "is_a_directory"
+    db_dir.mkdir()
+
+    code = _run(jobs_file, profile_dir, "--job-no", "out", "--db", str(db_dir))
+
+    assert code == 1
+    assert "[-]" in capsys.readouterr().err
 
 
 def test_error_missing_api_key(jobs_file, profile_dir, monkeypatch, capsys):

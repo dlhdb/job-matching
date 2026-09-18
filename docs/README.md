@@ -71,7 +71,7 @@ flowchart LR
     scraper["104-job-scraper 104 職缺爬蟲 (UP-01)"] -->|職缺 JSON| db["job-database 職缺資料庫"]
     scraper -->|職缺 JSON| scoring["job-scoring 職缺評分 (UP-02)"]
     scoring -->|結果檔 JSON / CSV| U(["使用者用表格工具排序、篩選"])
-    scoring -.->|job_scores| db
+    scoring -->|job_scores| db
     db -.->|職缺與分數| mcp["mcp-server MCP 介面 (UP-01、UP-02)"]
     mcp -.->|抓取、評分| scraper
     mcp -.->|抓取、評分| scoring
@@ -125,6 +125,7 @@ flowchart LR
   - 可對單筆或整批職缺評分，依職涯方向、技能、產業公司、薪資四個維度給出 0–100 總分與評語。
   - 薪資低於底線、公司或職稱在排除清單中的職缺直接淘汰。
   - 整批評分時單筆失敗不中斷，結果寫成 JSON 與 CSV，可用表格工具排序、篩選。
+  - 單筆與整批的評分結果都寫入 `data/jobs.db` 的 `job_scores`，每筆職缺只留最新一次，可用 SQL 依總分查詢。
 - trend-analysis：尚無。
 - mcp-server：尚無。
 
