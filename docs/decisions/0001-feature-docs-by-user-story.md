@@ -15,4 +15,4 @@
 - 一章一個使用者故事，每個故事是一個可以單獨交付的價值切片，章名寫使用者能做到的事。
 - 附帶條件的小故事寫成所屬故事的 FR；設計放在最先用到它的故事，後面的故事用連結引用。
 - 規則見 [documentation.md「功能文件的結構」](../conventions/documentation.md#功能文件的結構)，骨架見 [feature_template.md](../features/feature_template.md)。
-- 目前只有 [job-scoring](../features/job-scoring.md) 採用，104-job-scraper、job-database、mcp-server 的遷移記在 [TODO.md](../../TODO.md#文件)。
+- 所有功能文件都採用這個結構。

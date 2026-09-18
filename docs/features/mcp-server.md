@@ -3,7 +3,7 @@
 | 欄位 | 內容 |
 | :--- | :--- |
 | ID | mcp-server |
-| 狀態 | 待實作 |
+| 狀態 | 待規劃 |
 | 依賴 | 104-job-scraper（抓取）、job-database（職缺資料庫）、job-scoring（評分，含[依分數查詢職缺](job-scoring.md#7-依分數查詢職缺store)與[重跑時不重複付 AI 費用](job-scoring.md#8-重跑時不重複付-ai-費用cache)） |
 | 程式碼 | 尚未實作 |
 
@@ -18,19 +18,9 @@
 
 固定的抓取、評分流程直接執行 CLI，不經過本功能，避免每次都多付一層 agent 的 LLM 費用。
 
-## 2. 使用情境
+## 2. 範圍
 
-- 身為求職者，我想要叫 agent 用幾個關鍵字抓一次職缺，以便不必記爬蟲的參數（UP-01）。
-- 身為求職者，我想要叫 agent 對剛抓到的職缺評分，並列出分數最高的幾筆與理由，以便只細看少數職缺（UP-02）。
-- 身為求職者，我想要問「最近一週新出現、70 分以上的職缺」，以便不必自己寫 SQL（UP-02）。
-- 身為求職者，我想要看到某筆職缺的完整內容與各維度的評分理由，以便決定要不要細看（UP-02）。
-
-## 3. 範圍
-
-**範圍內**
-
-- 以 stdio 傳輸的 MCP server，以及專案根目錄的 `.mcp.json` 註冊設定
-- 四個 tool：抓取、評分、查詢職缺、查看單筆職缺
+**範圍內**：見 [§3 設計總覽](#3-設計總覽)的使用者故事清單，以及 [§8 非功能需求](#8-非功能需求)、[§9 共用設計](#9-共用設計)。
 
 **範圍外**（實作時不要做）
 
@@ -42,73 +32,39 @@
 - 讓 agent 選擇 LLM 供應商或模型：一律使用 job-scoring 的預設值
 - 查看抓取紀錄的 tool：不做。`score_jobs` 需要的執行編號由 `search_104_jobs` 回傳，其他情況用不太到
 
-## 4. 功能需求
+## 3. 設計總覽
 
-- **FR-1**：`uv run src/mcp_server.py` 以 stdio 啟動 MCP server。
-  - `--db` 可指定資料庫路徑，預設為 `data/jobs.db`（同 [job-database FR-1](job-database.md#4-功能需求)）。
-- **FR-2**：tool 執行期間，stdout 只輸出 MCP 協定內容，進度與訊息一律寫到 stderr（見 [§5.3](#53-stdout-只留給協定)）。
-- **FR-3**：`search_104_jobs` 依 [§5.4](#54-tool-清單) 抓取 104 職缺。
+**輸入與輸出**
+
+- 讀寫 `data/jobs.db`，資料表契約見 [job-database 的資料表](job-database.md#722-資料表)。評分結果的 `job_scores` 表見 [job-scoring §7.2.1](job-scoring.md#721-資料表)，每筆職缺只有最新一列。
+- 抓取沿用 104-job-scraper，頻率限制與輸出檔見 [104 API 的限制](104-job-scraper.md#422-104-api-的限制)、[輸出檔](104-job-scraper.md#621-輸出檔)。
+- 評分沿用 job-scoring，流程見 [job-scoring §4.2.3](job-scoring.md#423-評分流程)、[§6](job-scoring.md#6-一次評完整批並拿到結果檔batch)；個人資料檔讀取 `profile/`，API key 讀取 `.env`。
+- tool 回傳 JSON，鍵名使用中文，與爬蟲、評分的輸出一致。
+
+**使用者故事清單**
+
+本功能範圍內的使用者故事，細節見各章的「需求」。
+
+| 使用者故事 | slug | 狀態 | 章節 |
+| :--- | :--- | :--- | :--- |
+| 叫 agent 抓職缺 | `search` | 〔規劃中〕 | [§4](#4-叫-agent-抓職缺search) |
+| 叫 agent 評分剛抓到的職缺 | `score` | 〔規劃中〕 | [§5](#5-叫-agent-評分剛抓到的職缺score) |
+| 用條件查詢職缺 | `query` | 〔規劃中〕 | [§6](#6-用條件查詢職缺query) |
+| 看單筆職缺的完整內容與評分理由 | `detail` | 〔規劃中〕 | [§7](#7-看單筆職缺的完整內容與評分理由detail) |
+
+[§8 非功能需求](#8-非功能需求)與 [§9 共用設計](#9-共用設計)不是使用者故事。§9 放跨越各章的基礎設施：架構、註冊方式與 stdout 的限制。
+
+## 4. 叫 agent 抓職缺（search）
+
+身為求職者，我想要叫 agent 用幾個關鍵字抓一次職缺，以便不必記爬蟲的參數（UP-01）。
+
+### 4.1 需求
+
+- **FR-search**：`search_104_jobs` 依 [§4.2](#42-設計) 抓取 104 職缺。
   - 結果寫入 CSV、JSON 與資料庫。
   - 回傳這次執行的摘要。
-- **FR-4**：`score_jobs` 依 job-scoring 的流程評分指定的職缺。
-  - 結果寫入資料庫。
-  - 回傳每筆的精簡結果與摘要。
-  - 單筆失敗不中斷。
-- **FR-5**：`query_jobs` 依分數、首次出現時間、關鍵字篩選職缺。
-  - 依 [§5.4](#54-tool-清單) 的規則排序。
-  - 回傳精簡欄位。
-- **FR-6**：`get_job_detail` 回傳單筆職缺的全部欄位，以及資料庫中評分結果的各維度分數與理由。
-- **FR-7**：參數錯誤、找不到職缺、個人資料檔有誤、缺少 API key 等情況，以 tool error 回傳訊息，server 繼續執行。
-- **FR-8**：會回傳多筆資料的 tool 都有 `limit` 參數與上限，避免塞滿 agent 的 context。
 
-## 5. 設計
-
-- **輸入與輸出**
-  - 讀寫 `data/jobs.db`，資料表契約見 [job-database §5.2](job-database.md#52-資料表)。評分結果的 `job_scores` 表見 [job-scoring §7.2.1](job-scoring.md#721-資料表)，每筆職缺只有最新一列。
-  - 抓取沿用 104-job-scraper，輸出檔與頻率限制見 [104-job-scraper §5.2](104-job-scraper.md#52-104-api-的限制)、[§5.4](104-job-scraper.md#54-輸出)。
-  - 評分沿用 job-scoring，流程見 [job-scoring §4.2.3](job-scoring.md#423-評分流程)、[§6](job-scoring.md#6-一次評完整批並拿到結果檔batch)；個人資料檔讀取 `profile/`，API key 讀取 `.env`。
-  - tool 回傳 JSON，鍵名使用中文，與爬蟲、評分的輸出一致。
-- **缺值處理**：職缺欄位與評分欄位缺值時回傳 `null`；尚未評分的職缺，評分相關欄位都是 `null`。
-
-### 5.1 架構
-
-```mermaid
-flowchart LR
-    A["Agent（Claude Code 等）"] <-->|"stdio"| S["src/mcp_server.py"]
-    S --> F["fetch_104_jobs"]
-    S --> B["job_scoring（score_batch）"]
-    S --> D[("data/jobs.db")]
-    F --> D
-    B --> D
-```
-
-- 每個 tool 只做參數檢查與格式轉換，邏輯都呼叫既有模組，CLI 與 MCP 的行為才會一致。之後若加上 Web 介面，也呼叫同一組函式。
-- 評分由專案內的 scorer 執行，不讓 agent 自己打分：
-  - 分數依同一套偏好檔、提示詞與模型產生，不同 agent 或不同次對話的結果可以比較。
-  - 才能用上 job-scoring 的評分快取（見 [job-scoring §8.2.1](job-scoring.md#821-快取鍵)）。
-- tool 函式可以不經過 MCP 直接呼叫，離線測試直接呼叫函式。
-- 使用官方的 `mcp` Python SDK。
-
-### 5.2 註冊
-
-專案根目錄的 `.mcp.json` 讓 Claude Code 在這個專案中自動載入 server：
-
-```json
-{
-  "mcpServers": {
-    "job-radar": {
-      "command": "uv",
-      "args": ["run", "src/mcp_server.py"]
-    }
-  }
-}
-```
-
-### 5.3 stdout 只留給協定
-
-stdio 傳輸以 stdout 傳送協定訊息，任何其他輸出都會讓 client 解析失敗。104-job-scraper 的 `execute_scraping` 會把進度與預覽表格 `print` 到 stdout，所以 tool 執行期間把 stdout 導向 stderr（`contextlib.redirect_stdout`）。這樣不必修改爬蟲 CLI 的輸出。
-
-### 5.4 tool 清單
+### 4.2 設計
 
 **`search_104_jobs`**：抓取並寫入資料庫。
 
@@ -117,11 +73,42 @@ stdio 傳輸以 stdout 傳送協定訊息，任何其他輸出都會讓 client �
 | `keywords` | list[str] | 必填，1–5 個關鍵字 |
 | `area` | str \| null | 縣市名稱，規則同 104-job-scraper CLI 的 `-a`；`null` 代表全台灣 |
 | `pages` | int | 每個關鍵字抓幾頁，1–5，預設 1 |
-| `job_type` | int | `0`／`1`／`2`，意義同 [104-job-scraper §5.6](104-job-scraper.md#56-cli)，預設 `0` |
+| `job_type` | int | `0`／`1`／`2`，意義同 [104-job-scraper 的 CLI](104-job-scraper.md#822-cli)，預設 `0` |
 
 - 回傳：`執行編號`、`職缺數`、`新增`、`更新`、`JSON 檔`。
 - 沒有抓到任何職缺時，回傳 `職缺數` 為 0，`執行編號` 為 `null`，不算錯誤。
-- `keywords` 與 `pages` 的上限，是為了避免 agent 一次發出大量請求，違反 [非目標](../README.md#非目標) 的頻率限制。
+- `keywords` 與 `pages` 的上限見 [§8](#8-非功能需求)。
+
+### 4.3 驗收
+
+驗證方式中的測試檔，會隨實作一起撰寫。
+
+#### AC-search：抓取
+
+- **Given**：`requests.get` 換成回傳固定資料的假函式，`time.sleep` 用 `no_sleep` 取代，輸出目錄改到 `tmp_path`
+- **When**：呼叫 `search_104_jobs`
+- **Then**：
+  - 回傳的 `新增`、`更新` 與資料庫內容一致，`scrape_runs` 多一列
+  - 呼叫期間 stdout 沒有任何輸出
+  - `keywords` 為空或超過 5 個、`pages` 不在 1–5 時，回傳 tool error，且沒有發出請求
+- **驗證方式**：`uv run pytest tests/test_mcp_server.py -k search_104_jobs`
+- **通過條件**：全部 passed。
+
+## 5. 叫 agent 評分剛抓到的職缺（score）
+
+身為求職者，我想要叫 agent 對剛抓到的職缺評分，並列出分數最高的幾筆與理由，以便只細看少數職缺（UP-02）。
+
+列出分數最高的幾筆與理由，由 agent 接著呼叫 [§6](#6-用條件查詢職缺query) 與 [§7](#7-看單筆職缺的完整內容與評分理由detail) 的 tool 完成。
+
+### 5.1 需求
+
+- **FR-score**：`score_jobs` 依 job-scoring 的流程評分指定的職缺。
+  - 結果寫入資料庫。
+  - 回傳每筆的精簡結果與摘要。
+  - 單筆失敗不中斷。
+  - 以 `limit` 參數限制每次評分的筆數，並設上限，避免塞滿 agent 的 context。
+
+### 5.2 設計
 
 **`score_jobs`**：評分並寫入資料庫。
 
@@ -139,6 +126,35 @@ stdio 傳輸以 stdout 傳送協定訊息，任何其他輸出都會讓 client �
 - 整批評分可能跑好幾分鐘，超過 client 的 tool 逾時。所以用 `limit` 控制每次的筆數，並在每筆開始時送出 MCP progress 通知（client 有提供 progress token 時）。
 - client 建立失敗（缺少 API key、不支援的供應商）時回傳 tool error，同 [job-scoring §6.2.1](job-scoring.md#621-流程)。
 
+### 5.3 驗收
+
+#### AC-score：評分
+
+- **Given**：資料庫中有一次執行，含會被淘汰、會評分成功、會評分失敗的職缺各一筆；LLM client 換成假 client；個人資料檔寫到 `tmp_path`
+- **When**：以 `run_id` 呼叫 `score_jobs`，再分別以錯誤的參數組合、`limit=1` 呼叫
+- **Then**：
+  - 摘要為成功 1、淘汰 1、失敗 1；`job_scores` 有成功與淘汰兩列，失敗的那筆沒有列
+  - 以同一個 `run_id` 再呼叫一次時，假 client 只對失敗那筆被呼叫，摘要的 `沿用` 為 1（`成功` 仍為 1）
+  - `job_nos` 含不存在的代碼時，回傳 tool error，假 client 沒有被呼叫
+  - `run_id` 與 `job_nos` 同時給或都不給時，回傳 tool error
+  - `limit=1` 時只評一筆，其餘列在 `未處理`
+  - 個人資料檔缺少、缺少 API key 時回傳 tool error
+- **驗證方式**：`uv run pytest tests/test_mcp_server.py -k score_jobs`
+- **通過條件**：全部 passed。
+
+## 6. 用條件查詢職缺（query）
+
+身為求職者，我想要問「最近一週新出現、70 分以上的職缺」，以便不必自己寫 SQL（UP-02）。
+
+### 6.1 需求
+
+- **FR-query**：`query_jobs` 依分數、首次出現時間、關鍵字篩選職缺。
+  - 依 [§6.2](#62-設計) 的規則排序。
+  - 回傳精簡欄位。
+  - 以 `limit` 參數限制回傳的筆數，並設上限，避免塞滿 agent 的 context。
+
+### 6.2 設計
+
 **`query_jobs`**：查詢職缺。
 
 | 參數 | 型態 | 說明 |
@@ -154,58 +170,9 @@ stdio 傳輸以 stdout 傳送協定訊息，任何其他輸出都會讓 client �
 - 以 `jobs` LEFT JOIN `job_scores`（`職缺代碼`）取分數，沒有對應列的職缺視為未評分，照常出現在結果中。
 - `include_eliminated` 為 `false` 時，排除 `job_scores.淘汰` 為 1 的職缺；未評分職缺的 `淘汰` 是 NULL，條件要寫成 `IFNULL(淘汰, 0) = 0`，才不會連未評分的職缺一起排除。
 
-**`get_job_detail`**：查看單筆職缺。
+### 6.3 驗收
 
-- 參數：`job_no`（str，必填）。
-- 回傳：`jobs` 表的全部欄位，加上 `評分`。`評分` 是 `job_scores.評分結果` 解析後的物件，格式同 [job-scoring §11.2.2](job-scoring.md#1122-jobscore-輸出格式) 的 JobScore，尚未評分時為 `null`。
-- 找不到職缺時回傳 tool error。
-
-## 6. 驗收標準
-
-驗證方式中的測試檔，會隨實作一起撰寫。
-
-### AC-0：型別檢查（涵蓋全部）
-
-- **驗證方式**：`uv run mypy src/`
-- **通過條件**：沒有錯誤。
-
-### AC-1：啟動、tool 清單與錯誤不中斷（涵蓋 FR-1、FR-2、FR-7）
-
-- **Given**：`tmp_path` 中的空資料庫
-- **When**：以子行程啟動 `src/mcp_server.py --db <tmp>`，用 MCP client 列出 tools，依序呼叫 `get_job_detail`（不存在的代碼）、`query_jobs`
-- **Then**：
-  - 列出的 tool 剛好是 §5.4 的四個
-  - `get_job_detail` 回傳 tool error，之後的 `query_jobs` 仍正常回傳空清單
-  - client 沒有出現協定解析錯誤
-- **驗證方式**：`uv run pytest tests/test_mcp_server.py -k server_stdio`
-- **通過條件**：全部 passed。
-
-### AC-2：抓取（涵蓋 FR-2、FR-3、FR-8）
-
-- **Given**：`requests.get` 換成回傳固定資料的假函式，`time.sleep` 用 `no_sleep` 取代，輸出目錄改到 `tmp_path`
-- **When**：呼叫 `search_104_jobs`
-- **Then**：
-  - 回傳的 `新增`、`更新` 與資料庫內容一致，`scrape_runs` 多一列
-  - 呼叫期間 stdout 沒有任何輸出
-  - `keywords` 為空或超過 5 個、`pages` 不在 1–5 時，回傳 tool error，且沒有發出請求
-- **驗證方式**：`uv run pytest tests/test_mcp_server.py -k search_104_jobs`
-- **通過條件**：全部 passed。
-
-### AC-3：評分（涵蓋 FR-4、FR-7、FR-8）
-
-- **Given**：資料庫中有一次執行，含會被淘汰、會評分成功、會評分失敗的職缺各一筆；LLM client 換成假 client；個人資料檔寫到 `tmp_path`
-- **When**：以 `run_id` 呼叫 `score_jobs`，再分別以錯誤的參數組合、`limit=1` 呼叫
-- **Then**：
-  - 摘要為成功 1、淘汰 1、失敗 1；`job_scores` 有成功與淘汰兩列，失敗的那筆沒有列
-  - 以同一個 `run_id` 再呼叫一次時，假 client 只對失敗那筆被呼叫，摘要的 `沿用` 為 1（`成功` 仍為 1）
-  - `job_nos` 含不存在的代碼時，回傳 tool error，假 client 沒有被呼叫
-  - `run_id` 與 `job_nos` 同時給或都不給時，回傳 tool error
-  - `limit=1` 時只評一筆，其餘列在 `未處理`
-  - 個人資料檔缺少、缺少 API key 時回傳 tool error
-- **驗證方式**：`uv run pytest tests/test_mcp_server.py -k score_jobs`
-- **通過條件**：全部 passed。
-
-### AC-4：查詢（涵蓋 FR-5、FR-8）
+#### AC-query：查詢
 
 - **Given**：資料庫中有以下職缺
 
@@ -231,9 +198,27 @@ stdio 傳輸以 stdout 傳送協定訊息，任何其他輸出都會讓 client �
 - **驗證方式**：`uv run pytest tests/test_mcp_server.py -k query_jobs`
 - **通過條件**：全部 passed。
 
-### AC-5：單筆職缺（涵蓋 FR-6）
+## 7. 看單筆職缺的完整內容與評分理由（detail）
 
-- **Given**：同 AC-4 的資料庫
+身為求職者，我想要看到某筆職缺的完整內容與各維度的評分理由，以便決定要不要細看（UP-02）。
+
+### 7.1 需求
+
+- **FR-detail**：`get_job_detail` 回傳單筆職缺的全部欄位，以及資料庫中評分結果的各維度分數與理由。
+
+### 7.2 設計
+
+**`get_job_detail`**：查看單筆職缺。
+
+- 參數：`job_no`（str，必填）。
+- 回傳：`jobs` 表的全部欄位，加上 `評分`。`評分` 是 `job_scores.評分結果` 解析後的物件，格式同 [job-scoring §11.2.2](job-scoring.md#1122-jobscore-輸出格式) 的 JobScore，尚未評分時為 `null`。
+- 找不到職缺時回傳 tool error。
+
+### 7.3 驗收
+
+#### AC-detail：單筆職缺
+
+- **Given**：同 [AC-query](#ac-query查詢) 的資料庫
 - **When**：呼叫 `get_job_detail("a")`、`get_job_detail("d")`
 - **Then**：
   - `a` 的 `評分` 含四個維度的分數與理由
@@ -241,7 +226,101 @@ stdio 傳輸以 stdout 傳送協定訊息，任何其他輸出都會讓 client �
 - **驗證方式**：`uv run pytest tests/test_mcp_server.py -k get_job_detail`
 - **通過條件**：全部 passed。
 
-### AC-6：在 Claude Code 中實際使用 〔需網路〕（涵蓋 FR-1、FR-3～FR-6）
+## 8. 非功能需求
+
+### 8.1 需求
+
+- **NFR-rate**：`search_104_jobs` 的 `keywords` 最多 5 個、`pages` 最多 5 頁，避免 agent 一次發出大量請求，違反 [非目標](../README.md#非目標) 的頻率限制。
+  - 請求之間的延遲沿用 104-job-scraper（見 [104-job-scraper 的非功能需求](104-job-scraper.md#7-非功能需求)）。
+- **NFR-cost**：評分由專案內的 scorer 執行，不讓 agent 自己打分，才能用上 job-scoring 的評分快取，送給 AI 的內容沒變的職缺不重複呼叫 AI（見 [job-scoring §8.2.1](job-scoring.md#821-快取鍵)）。
+- **NFR-null**：職缺欄位與評分欄位缺值時回傳 `null`，尚未評分的職缺，評分相關欄位都是 `null`（依 [development.md](../conventions/development.md#防禦性設計)）。
+
+### 8.2 設計
+
+- 評分交給 scorer 的其他理由見 [§9.2.1](#921-架構)。
+- 缺值與未評分的處理見 [§6.2](#62-設計) 的 LEFT JOIN 與 [§7.2](#72-設計) 的 `評分`。
+
+### 8.3 驗收
+
+本章的需求由各章既有的驗收涵蓋，不另外寫測試：
+
+| 需求 | 驗收 |
+| :--- | :--- |
+| NFR-rate | [AC-search](#ac-search抓取)（`keywords`、`pages` 超出範圍時回傳 tool error，且沒有發出請求） |
+| NFR-cost | [AC-score](#ac-score評分)（再呼叫一次時，假 client 只對失敗那筆被呼叫） |
+| NFR-null | [AC-query](#ac-query查詢)（未評分的 d 照常出現）、[AC-detail](#ac-detail單筆職缺)（`d` 的 `評分` 為 `null`） |
+
+## 9. 共用設計
+
+跨越各章的基礎設施：架構、註冊方式與 stdout 的限制。
+
+### 9.1 需求
+
+- **FR-server**：`uv run src/mcp_server.py` 以 stdio 啟動 MCP server。
+  - `--db` 可指定資料庫路徑，預設為 `data/jobs.db`（同 [job-database 的資料庫預設路徑](job-database.md#71-需求)）。
+  - 專案根目錄的 `.mcp.json` 註冊這個 server，設定見 [§9.2.2](#922-註冊)。
+- **FR-stdout**：tool 執行期間，stdout 只輸出 MCP 協定內容，進度與訊息一律寫到 stderr（見 [§9.2.3](#923-stdout-只留給協定)）。
+- **FR-error**：參數錯誤、找不到職缺、個人資料檔有誤、缺少 API key 等情況，以 tool error 回傳訊息，server 繼續執行。
+
+### 9.2 設計
+
+#### 9.2.1 架構
+
+```mermaid
+flowchart LR
+    A["Agent（Claude Code 等）"] <-->|"stdio"| S["src/mcp_server.py"]
+    S --> F["fetch_104_jobs"]
+    S --> B["job_scoring（score_batch）"]
+    S --> D[("data/jobs.db")]
+    F --> D
+    B --> D
+```
+
+- 每個 tool 只做參數檢查與格式轉換，邏輯都呼叫既有模組，CLI 與 MCP 的行為才會一致。之後若加上 Web 介面，也呼叫同一組函式。
+- 評分由專案內的 scorer 執行，不讓 agent 自己打分：
+  - 分數依同一套偏好檔、提示詞與模型產生，不同 agent 或不同次對話的結果可以比較。
+  - 才能用上 job-scoring 的評分快取（見 [job-scoring §8.2.1](job-scoring.md#821-快取鍵)）。
+- tool 函式可以不經過 MCP 直接呼叫，離線測試直接呼叫函式。
+- 使用官方的 `mcp` Python SDK。
+
+#### 9.2.2 註冊
+
+專案根目錄的 `.mcp.json` 讓 Claude Code 在這個專案中自動載入 server：
+
+```json
+{
+  "mcpServers": {
+    "job-radar": {
+      "command": "uv",
+      "args": ["run", "src/mcp_server.py"]
+    }
+  }
+}
+```
+
+#### 9.2.3 stdout 只留給協定
+
+stdio 傳輸以 stdout 傳送協定訊息，任何其他輸出都會讓 client 解析失敗。104-job-scraper 的 `execute_scraping` 會把進度與預覽表格 `print` 到 stdout，所以 tool 執行期間把 stdout 導向 stderr（`contextlib.redirect_stdout`）。這樣不必修改爬蟲 CLI 的輸出。
+
+### 9.3 驗收
+
+#### AC-mypy：型別檢查
+
+- **驗證方式**：`uv run mypy src/`
+- **通過條件**：沒有錯誤。
+
+#### AC-server：啟動、tool 清單與錯誤不中斷
+
+- **Given**：`tmp_path` 中的空資料庫
+- **When**：以子行程啟動 `src/mcp_server.py --db <tmp>`，用 MCP client 列出 tools，依序呼叫 `get_job_detail`（不存在的代碼）、`query_jobs`
+- **Then**：
+  - 列出的 tool 剛好是 §4–§7 的四個
+  - `get_job_detail` 回傳 tool error，之後的 `query_jobs` 仍正常回傳空清單
+  - client 沒有出現協定解析錯誤
+- **驗證方式**：`uv run pytest tests/test_mcp_server.py -k server_stdio`
+- **通過條件**：全部 passed。
+
+#### AC-agent-real：在 Claude Code 中實際使用 〔需網路〕
 
 - **Given**：`profile/` 已填入真實資料，`.env` 有 API key
 - **When**：在專案目錄開啟 Claude Code，確認 `job-radar` server 已載入，請 agent 依序做這幾件事：
@@ -254,6 +333,6 @@ stdio 傳輸以 stdout 傳送協定訊息，任何其他輸出都會讓 client �
 - **驗證方式**：使用者手動操作。另外 `uv run pytest -m network tests/e2e/test_mcp_server.py` 實際呼叫 `search_104_jobs`（1 個關鍵字、1 頁）
 - **通過條件**：pytest 全部 passed；使用者確認 agent 的回答與資料庫內容一致。
 
-## 7. 待決問題
+## 10. 待決問題
 
 無。

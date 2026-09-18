@@ -116,7 +116,7 @@ flowchart LR
 | 〔規劃中〕 | 標在尚未實作的使用者故事或被改到的那一行 | [documentation.md](conventions/documentation.md#功能文件的結構) |
 | 現況 | 某個功能目前讓使用者做得到的事 | [現況](#現況) |
 | 決策紀錄（ADR） | 有替代方案的取捨，寫出不採用的原因 | [documentation.md](conventions/documentation.md#決策紀錄) |
-| 職缺代碼 | 104 的職缺識別碼（`jobNo`），用於去重，也是資料庫的主鍵 | [104-job-scraper 欄位字典](features/104-job-scraper.md#55-欄位字典) |
+| 職缺代碼 | 104 的職缺識別碼（`jobNo`），用於去重，也是資料庫的主鍵 | [104-job-scraper 欄位字典](features/104-job-scraper.md#821-欄位字典) |
 | 淘汰 | 職缺符合硬性淘汰條件（公司、職稱關鍵字、薪資低於底線），不呼叫 AI、沒有總分 | [job-scoring §5.2.1](features/job-scoring.md#521-硬性淘汰規則) |
 | AI 維度 | 由 AI 判斷的三個評分維度：職涯方向契合度、技能匹配度、產業公司吸引力 | [job-scoring §4.2.4](features/job-scoring.md#424-評分維度) |
 | 總分 | 四個維度加權後換算成的 0–100 分，未知的維度以 3 分代入 | [job-scoring §4.2.7](features/job-scoring.md#427-總分) |

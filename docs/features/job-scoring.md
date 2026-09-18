@@ -36,7 +36,7 @@
 
 **輸入與輸出**
 
-- 輸入的職缺：104-job-scraper 輸出的 JSON（以 `--jobs` 指定），欄位依 [104-job-scraper §5.5](104-job-scraper.md#55-欄位字典)，各維度實際看哪些欄位見 [§4.2.4](#424-評分維度)。
+- 輸入的職缺：104-job-scraper 輸出的 JSON（以 `--jobs` 指定），欄位依 [104-job-scraper §8.2.1](104-job-scraper.md#821-欄位字典)，各維度實際看哪些欄位見 [§4.2.4](#424-評分維度)。
 - 輸入的個人資料：`profile/preferences.yaml` 與 `profile/experience.md`，格式見 [§4.2.1](#421-個人資料檔)。由使用者自己維護，不來自其他功能。
 - 〔規劃中〕輸入的上次評分：job-database 資料庫中 `job_scores` 的 AI 維度與評語，用於沿用（見 [§8.2.1](#821-快取鍵)）。
 - 單筆輸出：`JobScore` 的 JSON 印到 stdout，欄位見 [§11.2.2](#1122-jobscore-輸出格式)。
@@ -431,7 +431,7 @@ flowchart TD
 | 欄位 | 型態 | 說明 |
 | :--- | :--- | :--- |
 | `職缺代碼` | str | |
-| `職缺名稱`、`公司名稱`、`薪資待遇`、`職缺連結` | 同 [104-job-scraper §5.5](104-job-scraper.md#55-欄位字典) | 從輸入職缺原樣帶入 |
+| `職缺名稱`、`公司名稱`、`薪資待遇`、`職缺連結` | 同 [104-job-scraper §8.2.1](104-job-scraper.md#821-欄位字典) | 從輸入職缺原樣帶入 |
 | `淘汰`、`淘汰原因`、`維度`、`總分`、`未知維度`、`評語` | 同 [§11.2.2](#1122-jobscore-輸出格式) | 評分失敗時：`淘汰` 為 false，清單為空，其餘為 `null` |
 | `失敗原因` | str \| null | 評分失敗時的例外訊息；其他情況為 `null` |
 
@@ -528,7 +528,7 @@ flowchart TD
 - **FR-store-write**：單筆與整批評分的結果都寫入 `job_scores` 表，格式依 [§7.2.1](#721-資料表)。
   - 每筆職缺只保留最新一次的結果。
   - 評分失敗的職缺不寫入，保留原本的列。
-- **FR-store-db-path**：CLI 以 `--db` 指定資料庫路徑，預設為 `data/jobs.db`（與 [job-database §4](job-database.md#4-功能需求) 的預設路徑相同）。
+- **FR-store-db-path**：CLI 以 `--db` 指定資料庫路徑，預設為 `data/jobs.db`（與 [job-database §7.1](job-database.md#71-需求) 的預設路徑相同）。
   - 評分結果都會寫入資料庫，只有試跑例外（見 [§9](#9-換設定試跑而不影響正式分數dry-run)）。
 
 ### 7.2 設計
@@ -537,7 +537,7 @@ flowchart TD
 
 評分結果寫進 job-database 的資料庫（預設 `data/jobs.db`），和 `jobs` 表分開存放，查詢時以 `職缺代碼` JOIN。分開存放的理由：
 
-- 爬蟲更新 `jobs` 時會覆寫整列（見 [job-database §5.3](job-database.md#53-寫入規則)），分數放在同一張表就得另外避開。
+- 爬蟲更新 `jobs` 時會覆寫整列（見 [job-database §4.2.1](job-database.md#421-寫入規則)），分數放在同一張表就得另外避開。
 - 職缺內容更新不代表要重新呼叫 AI，是否重問由 [§8.2.1](#821-快取鍵) 的快取鍵決定。
 - 要整批重評時，清空 `job_scores` 即可，不影響職缺資料。
 

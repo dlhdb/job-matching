@@ -34,8 +34,3 @@
 ## LLM
 
 - [ ] 實作 `OpenAIClient`，並註冊到 `get_client`
-
-## 文件
-
-- [ ] [README.md](README.md) 的「文件導覽」缺 mcp-server，加一列指到 [docs/features/mcp-server.md](docs/features/mcp-server.md)
-- [ ] 104-job-scraper、job-database、mcp-server 改成使用者故事結構（見 [documentation.md](docs/conventions/documentation.md#功能文件的結構)），並補上「非功能需求」一章：目前只有 job-scoring 遷移過，這三份還是「需求／設計／驗收」各一章、FR／AC 用流水號，AC 標題也還列著「涵蓋 FR-…」。mcp-server 引用 job-database 的 `FR-1`，遷移時一併改成描述加章節連結。等 job-scoring 的新結構實際用過一輪、確認好讀再遷
