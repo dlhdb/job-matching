@@ -33,12 +33,13 @@ uv add <pkg>                 # 新增依賴
 | 職缺資料庫的資料表、跨次去重與出現時間的寫入規則、匯入既有 JSON 的指令 | [docs/features/job-database.md](docs/features/job-database.md) |
 | 工作評分的維度、淘汰與薪資規則、偏好檔格式、提示詞設計、輸出欄位、LLM 抽象層 | [docs/features/job-scoring.md](docs/features/job-scoring.md) |
 | MCP 介面的 tool 清單與參數、stdout 限制、註冊方式 | [docs/features/mcp-server.md](docs/features/mcp-server.md) |
-| 程式碼風格、docstring 格式、文件撰寫規範（內容、功能文件結構、決策紀錄、格式、繪圖）、終端輸出慣例、依賴管理、測試慣例 | [docs/conventions.md](docs/conventions.md) |
+| 文件撰寫規範（內容、功能文件結構、FR／AC 命名、決策紀錄、格式、繪圖） | [docs/conventions/documentation.md](docs/conventions/documentation.md) |
+| 程式碼風格、docstring 格式、終端輸出慣例、依賴管理、測試慣例、防禦性設計 | [docs/conventions/development.md](docs/conventions/development.md) |
 | 過去的取捨、考慮過但不採用的做法與原因 | [docs/decisions/](docs/decisions/) |
 | 隔離容器與防火牆白名單設計（所有 AI coding 工具共用） | [docs/ai-coding-setup/devcontainer.md](docs/ai-coding-setup/devcontainer.md) |
 | Claude Code 專屬的權限規則（deny/ask）與設計理由 | [docs/ai-coding-setup/claude-code.md](docs/ai-coding-setup/claude-code.md) |
 
-所有文件都描述系統的現況：需求、設計或實作改變時，直接更新對應的文件。一個功能的需求、設計與驗收標準都寫在同一份功能文件裡。撰寫或修改任何文件前，先讀 [docs/conventions.md](docs/conventions.md#文件撰寫) 的「文件撰寫」。
+所有文件都描述系統的現況：需求、設計或實作改變時，直接更新對應的文件。一個功能的需求、設計與驗收標準都寫在同一份功能文件裡。撰寫或修改任何文件前，先讀 [docs/conventions/documentation.md](docs/conventions/documentation.md)。只改文件時不必讀 development.md。
 
 實作進度只記在 [docs/README.md](docs/README.md#功能清單) 的狀態與「現況」，本檔不記錄進度。
 
@@ -58,6 +59,6 @@ uv add <pkg>                 # 新增依賴
 
 ## 功能開發流程
 
-1. 先在 docs/README.md 的功能清單找到要做的功能，再讀該功能的文件。功能文件以「使用者故事」為章節，一個故事自己帶著需求、設計與驗收（結構規則見 [docs/conventions.md](docs/conventions.md#功能文件的結構)），所以只需要讀要動到的故事那章、它連到的設計，加上「非功能需求」與「共用設計」。沒有功能文件，或功能文件仍有待決問題時，先與使用者釐清，不要直接實作。修改既有功能時，先在功能文件把新增或修改的使用者故事標上〔規劃中〕、狀態退回待規劃，與使用者確認後再實作。
+1. 先在 docs/README.md 的功能清單找到要做的功能，再讀該功能的文件。功能文件以「使用者故事」為章節，一個故事自己帶著需求、設計與驗收（結構規則見 [docs/conventions/documentation.md](docs/conventions/documentation.md#功能文件的結構)），所以只需要讀要動到的故事那章、它連到的設計，加上「非功能需求」與「共用設計」。沒有功能文件，或功能文件仍有待決問題時，先與使用者釐清，不要直接實作。修改既有功能時，先在功能文件把新增或修改的使用者故事標上〔規劃中〕、狀態退回待規劃，與使用者確認後再實作。
 2. 實作時只做該使用者故事「需求」列出的事，不碰「範圍外」。設計有調整時，同步更新該故事的「設計」小節。
 3. 完成後逐條執行該使用者故事「驗收」小節的每一條，回報 ✅ / ❌ 與實際輸出；全部通過才移除〔規劃中〕標記，把功能文件與 docs/README.md 的狀態改為 ✅ 已完成，並更新 docs/README.md 中該功能的「現況」。

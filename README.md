@@ -128,7 +128,7 @@ scripts/        工具腳本
 profile/        使用者的求職偏好與工作經歷（真實資料不進版控）
 output/         應用程式輸出結果（不進版控）
 data/           職缺資料庫 jobs.db（不進版控）
-docs/           專案總覽、功能文件與開發慣例
+docs/           專案總覽、功能文件、決策紀錄與慣例
 .devcontainer/  開發環境隔離容器設定
 ```
 
@@ -140,7 +140,8 @@ docs/           專案總覽、功能文件與開發慣例
 | [docs/features/job-scoring.md](docs/features/job-scoring.md) | 職缺評分：需求、評分規則、提示詞、LLM 抽象層、整批評分與結果檔、驗收標準 |
 | [docs/features/104-job-scraper.md](docs/features/104-job-scraper.md) | 104 爬蟲：需求、API 限制、欄位字典、驗收標準 |
 | [docs/features/job-database.md](docs/features/job-database.md) | 職缺資料庫：需求、資料表、寫入規則、匯入指令、驗收標準 |
-| [docs/conventions.md](docs/conventions.md) | 開發慣例 |
+| [docs/conventions/documentation.md](docs/conventions/documentation.md) | 文件撰寫慣例 |
+| [docs/conventions/development.md](docs/conventions/development.md) | 開發慣例 |
 | [docs/ai-coding-setup/devcontainer.md](docs/ai-coding-setup/devcontainer.md) | 隔離容器與防火牆白名單（所有 AI coding 工具共用） |
 | [docs/ai-coding-setup/claude-code.md](docs/ai-coding-setup/claude-code.md) | Claude Code 專屬的權限規則（deny/ask） |
 

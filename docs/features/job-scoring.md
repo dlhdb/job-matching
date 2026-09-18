@@ -716,7 +716,7 @@ flowchart TD
 - **NFR-privacy**：真實的個人資料檔與 API key 不進版控，版控中只提供範本。
   - `profile/preferences.yaml`、`profile/experience.md` 的範本是 `.example` 檔（見 [§4.2.1](#421-個人資料檔)）。
   - `.env` 的範本是 `.env.example`（見 [§11.2.3](#1123-llm-供應商抽象層)）。
-- **NFR-null**：資訊不足時分數為 `null`，不猜分數、不回填預設值（依 [conventions.md](../conventions.md#防禦性設計)）。
+- **NFR-null**：資訊不足時分數為 `null`，不猜分數、不回填預設值（依 [development.md](../conventions/development.md#防禦性設計)）。
   - AI 資訊不足時給 `null`（[§4.2.8](#428-提示詞設計)），薪資無法換算時為 `null`（[§4.2.6](#426-薪資換算與計分)）。
   - 總分計算時才以 3 分代入，並把這些維度列入 `未知維度`（[§4.2.7](#427-總分)）。
 
@@ -878,7 +878,7 @@ uv run src/score_job.py --jobs output/104/<檔名>.json [--job-no <職缺代碼>
 
 #### 11.2.5 測試慣例與共用測試資料
 
-測試與實作一起撰寫，依 [conventions.md 的測試章節](../conventions.md#測試)。除了 AC-score-real 與 AC-batch-real，其餘驗收都離線執行，也不需要 API key。
+測試與實作一起撰寫，依 [development.md 的測試章節](../conventions/development.md#測試)。除了 AC-score-real 與 AC-batch-real，其餘驗收都離線執行，也不需要 API key。
 
 放在 `tests/conftest.py` 的 fixture，各測試檔共用：
 

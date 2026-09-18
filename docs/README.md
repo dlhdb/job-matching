@@ -6,7 +6,8 @@
 | :--- | :--- |
 | 本文件 | 產品目標與成功指標、使用者問題、使用者旅程、功能清單與現況、名詞定義 |
 | [features/](features/) | 單一功能的需求、設計與驗收標準，一個功能一份 |
-| [conventions.md](conventions.md) | 開發慣例 |
+| [conventions/documentation.md](conventions/documentation.md) | 文件撰寫慣例 |
+| [conventions/development.md](conventions/development.md) | 開發慣例 |
 | [decisions/](decisions/) | 決策紀錄：有替代方案的取捨，以及不採用的原因 |
 
 實作某功能時，只需讀本文件加上該功能的文件。
@@ -97,7 +98,7 @@ flowchart LR
 
 ## 撰寫與使用流程
 
-1. **新增功能或修改既有功能**：使用者能完成一件原本做不到的事時，才在 `features/` 複製 [feature_template.md](features/feature_template.md)，依命名規則取檔名，在上表登記，狀態設為 `待規劃`。同一件事換個入口（例如 CLI 改成網頁）或擴大處理量（例如單筆改成批次），或只是規則或結果改變，都屬於修改既有功能，直接修改原本的功能文件：新增或修改的使用者故事標上〔規劃中〕（標記層級見 [conventions.md](conventions.md#功能文件的結構)），狀態退回 `待規劃`；此時只有〔規劃中〕的使用者故事尚未實作，該功能的「現況」維持不變。
+1. **新增功能或修改既有功能**：使用者能完成一件原本做不到的事時，才在 `features/` 複製 [feature_template.md](features/feature_template.md)，依命名規則取檔名，在上表登記，狀態設為 `待規劃`。同一件事換個入口（例如 CLI 改成網頁）或擴大處理量（例如單筆改成批次），或只是規則或結果改變，都屬於修改既有功能，直接修改原本的功能文件：新增或修改的使用者故事標上〔規劃中〕（標記層級見 [documentation.md](conventions/documentation.md#功能文件的結構)），狀態退回 `待規劃`；此時只有〔規劃中〕的使用者故事尚未實作，該功能的「現況」維持不變。
 2. **範圍外的去處**：功能文件「範圍外」的每一項都要有去處。確定要做的新用法，登記到上方功能清單；小改善或技術債，記到 [TODO.md](../TODO.md)；決定不做的，寫進「非目標」。
 3. **定稿**：「待決問題」清空後，狀態改為 `待實作`。還有待決問題的功能，不要開始實作。
 4. **實作**：狀態改為 `實作中`，依該使用者故事的「需求」實作，不做「範圍外」列出的事。實作時調整了設計，就同步更新該使用者故事的「設計」小節。
@@ -111,10 +112,10 @@ flowchart LR
 | :--- | :--- | :--- |
 | 使用者問題（UP） | 使用者遇到的問題，用 job story 格式描述，不含解法 | [使用者問題](#使用者問題) |
 | 功能 | 系統中一個獨立且可交付的大型功能模組，一個功能一份功能文件，ID 用英文簡短描述 | [功能清單](#功能清單) |
-| 使用者故事 | 功能文件的一章，是一個可以單獨交付的價值切片，章內有需求、設計與驗收 | [conventions.md](conventions.md#功能文件的結構) |
-| 〔規劃中〕 | 標在尚未實作的使用者故事或被改到的那一行 | [conventions.md](conventions.md#功能文件的結構) |
+| 使用者故事 | 功能文件的一章，是一個可以單獨交付的價值切片，章內有需求、設計與驗收 | [documentation.md](conventions/documentation.md#功能文件的結構) |
+| 〔規劃中〕 | 標在尚未實作的使用者故事或被改到的那一行 | [documentation.md](conventions/documentation.md#功能文件的結構) |
 | 現況 | 某個功能目前讓使用者做得到的事 | [現況](#現況) |
-| 決策紀錄（ADR） | 有替代方案的取捨，寫出不採用的原因 | [conventions.md](conventions.md#決策紀錄) |
+| 決策紀錄（ADR） | 有替代方案的取捨，寫出不採用的原因 | [documentation.md](conventions/documentation.md#決策紀錄) |
 | 職缺代碼 | 104 的職缺識別碼（`jobNo`），用於去重，也是資料庫的主鍵 | [104-job-scraper 欄位字典](features/104-job-scraper.md#55-欄位字典) |
 | 淘汰 | 職缺符合硬性淘汰條件（公司、職稱關鍵字、薪資低於底線），不呼叫 AI、沒有總分 | [job-scoring §5.2.1](features/job-scoring.md#521-硬性淘汰規則) |
 | AI 維度 | 由 AI 判斷的三個評分維度：職涯方向契合度、技能匹配度、產業公司吸引力 | [job-scoring §4.2.4](features/job-scoring.md#424-評分維度) |
