@@ -22,7 +22,7 @@
 
 - 結果的排序、篩選與互動式瀏覽介面（只產出檔案，排序與篩選交給讀取結果檔的工具，例如 pandas）
 - 公司評分（等 company-info 完成後再擴充，見 [TODO.md](../../TODO.md#職缺評分範圍外)）
-- OpenAI 或其他供應商的實作（只保留介面，見 [TODO.md](../../TODO.md#llm)）
+- OpenAI 或其他供應商的實作（只保留介面）
 - 通勤便利度、資歷門檻、工作型態與福利、競爭程度／新鮮度等維度（候選做法見 [TODO.md](../../TODO.md)）
 - 公司評價資訊（屬 company-info；本功能的產業公司吸引力只看產業類別與公司名稱）
 - 修改爬蟲或擴充爬蟲欄位（見 [TODO.md](../../TODO.md#爬蟲)）
@@ -816,7 +816,7 @@ class LLMClient(Protocol):
 - API key 從環境變數 `GEMINI_API_KEY` 讀取，由 `GeminiClient` 建構時檢查，**沒有設定或是空字串**就拋出例外。CLI 只在「沒被淘汰、也不是 `--dry-run`」時才建立 client，所以只有真的要呼叫 AI 時才需要 key。〔規劃中〕沿用上次 AI 評分的職缺也不建立 client（見 [§8.2.2](#822-沿用時的行為)）。
 - API key 放在專案根目錄的 `.env`（不進版控，範本是 `.env.example`）。`score_job.py` 啟動時用 `python-dotenv` 的 `load_dotenv(專案根目錄 / ".env")` 載入。`load_dotenv` 預設**不覆寫已經存在的環境變數**（[python-dotenv](https://github.com/theskumar/python-dotenv)），所以 shell 設定的值優先；測試時用 `GEMINI_API_KEY=` 設成空字串，就能模擬沒有 key 的情況，不受 `.env` 影響。
 - 預設模型：`gemini-3.8-flash`，可用 `--model` 覆寫。
-- `get_client(provider, model)`：用供應商名稱查表建立 client，不認得的名稱就拋出 `ValueError`。之後加入 OpenAI 時，只要新增 `OpenAIClient` 並註冊到表中，其他模組都不用改。
+- `get_client(provider, model)`：用供應商名稱查表建立 client，不認得的名稱就拋出 `ValueError`。之後加入其他供應商時，只要新增對應的 client 並註冊到表中，其他模組都不用改。
 
 #### 11.2.4 CLI
 
