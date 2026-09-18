@@ -1,11 +1,9 @@
 # MCP 介面
 
-| 欄位 | 內容 |
-| :--- | :--- |
-| ID | mcp-server |
-| 狀態 | 待規劃 |
-| 依賴 | 104-job-scraper（抓取）、job-database（職缺資料庫）、job-scoring（評分，含[依分數查詢職缺](job-scoring.md#7-依分數查詢職缺store)與[重跑時不重複付 AI 費用](job-scoring.md#8-重跑時不重複付-ai-費用cache)） |
-| 程式碼 | 尚未實作 |
+- ID：mcp-server
+- 狀態：待規劃
+- 依賴：104-job-scraper（抓取）、job-database（職缺資料庫）、job-scoring（評分，含[依分數查詢職缺](job-scoring.md#7-依分數查詢職缺store)與[重跑時不重複付 AI 費用](job-scoring.md#8-重跑時不重複付-ai-費用cache)）
+- 程式碼：尚未實作
 
 ## 1. 背景與目標
 
@@ -45,12 +43,10 @@
 
 本功能範圍內的使用者故事，細節見各章的「需求」。
 
-| 使用者故事 | slug | 狀態 | 章節 |
-| :--- | :--- | :--- | :--- |
-| 叫 agent 抓職缺 | `search` | 〔規劃中〕 | [§4](#4-叫-agent-抓職缺search) |
-| 叫 agent 評分剛抓到的職缺 | `score` | 〔規劃中〕 | [§5](#5-叫-agent-評分剛抓到的職缺score) |
-| 用條件查詢職缺 | `query` | 〔規劃中〕 | [§6](#6-用條件查詢職缺query) |
-| 看單筆職缺的完整內容與評分理由 | `detail` | 〔規劃中〕 | [§7](#7-看單筆職缺的完整內容與評分理由detail) |
+- [叫 agent 抓職缺](#4-叫-agent-抓職缺search)（`search`）：〔規劃中〕
+- [叫 agent 評分剛抓到的職缺](#5-叫-agent-評分剛抓到的職缺score)（`score`）：〔規劃中〕
+- [用條件查詢職缺](#6-用條件查詢職缺query)（`query`）：〔規劃中〕
+- [看單筆職缺的完整內容與評分理由](#7-看單筆職缺的完整內容與評分理由detail)（`detail`）：〔規劃中〕
 
 [§8 非功能需求](#8-非功能需求)與 [§9 共用設計](#9-共用設計)不是使用者故事。§9 放跨越各章的基礎設施：架構、註冊方式與 stdout 的限制。
 
@@ -68,12 +64,10 @@
 
 **`search_104_jobs`**：抓取並寫入資料庫。
 
-| 參數 | 型態 | 說明 |
-| :--- | :--- | :--- |
-| `keywords` | list[str] | 必填，1–5 個關鍵字 |
-| `area` | str \| null | 縣市名稱，規則同 104-job-scraper CLI 的 `-a`；`null` 代表全台灣 |
-| `pages` | int | 每個關鍵字抓幾頁，1–5，預設 1 |
-| `job_type` | int | `0`／`1`／`2`，意義同 [104-job-scraper 的 CLI](104-job-scraper.md#822-cli)，預設 `0` |
+- `keywords`（list[str]）：必填，1–5 個關鍵字
+- `area`（str | null）：縣市名稱，規則同 104-job-scraper CLI 的 `-a`；`null` 代表全台灣
+- `pages`（int）：每個關鍵字抓幾頁，1–5，預設 1
+- `job_type`（int）：`0`／`1`／`2`，意義同 [104-job-scraper 的 CLI](104-job-scraper.md#822-cli)，預設 `0`
 
 - 回傳：`執行編號`、`職缺數`、`新增`、`更新`、`JSON 檔`。
 - 沒有抓到任何職缺時，回傳 `職缺數` 為 0，`執行編號` 為 `null`，不算錯誤。
@@ -112,11 +106,9 @@
 
 **`score_jobs`**：評分並寫入資料庫。
 
-| 參數 | 型態 | 說明 |
-| :--- | :--- | :--- |
-| `run_id` | int \| null | 評這次執行抓到的職缺 |
-| `job_nos` | list[str] \| null | 評指定的職缺代碼 |
-| `limit` | int | 最多評幾筆，1–50，預設 20 |
+- `run_id`（int | null）：評這次執行抓到的職缺
+- `job_nos`（list[str] | null）：評指定的職缺代碼
+- `limit`（int）：最多評幾筆，1–50，預設 20
 
 - `run_id` 與 `job_nos` 必須剛好給一個，否則回傳 tool error。
 - `run_id` 取自 `search_104_jobs` 的回傳。
@@ -157,13 +149,11 @@
 
 **`query_jobs`**：查詢職缺。
 
-| 參數 | 型態 | 說明 |
-| :--- | :--- | :--- |
-| `min_score` | int \| null | 只回傳 `總分` ≥ 此值的職缺，會排除未評分的職缺 |
-| `since` | str \| null | 只回傳 `首次出現時間` ≥ 此日期（`YYYY-MM-DD`）的職缺 |
-| `keyword` | str \| null | `職缺名稱` 或 `公司名稱` 包含此字串，不分大小寫 |
-| `include_eliminated` | bool | 是否包含被淘汰的職缺，預設 `false` |
-| `limit` | int | 1–100，預設 20 |
+- `min_score`（int | null）：只回傳 `總分` ≥ 此值的職缺，會排除未評分的職缺
+- `since`（str | null）：只回傳 `首次出現時間` ≥ 此日期（`YYYY-MM-DD`）的職缺
+- `keyword`（str | null）：`職缺名稱` 或 `公司名稱` 包含此字串，不分大小寫
+- `include_eliminated`（bool）：是否包含被淘汰的職缺，預設 `false`
+- `limit`（int）：1–100，預設 20
 
 - 排序：`總分` 由高到低，未評分的排在最後；同分時 `首次出現時間` 較新的在前。
 - 回傳：`職缺代碼`、`職缺名稱`、`公司名稱`、`薪資待遇`、`總分`、`評語`、`首次出現時間`、`職缺連結`，以及 `符合筆數`（套用 `limit` 前的總數）。
@@ -175,25 +165,18 @@
 #### AC-query：查詢
 
 - **Given**：資料庫中有以下職缺
-
-  | 職缺 | 總分 | 淘汰 | 首次出現時間 | 職缺名稱 |
-  | :--- | :--- | :--- | :--- | :--- |
-  | a | 85 | 否 | 2026-09-10 | Python 工程師 |
-  | b | 60 | 否 | 2026-09-16 | 資料工程師 |
-  | c | null（淘汰） | 是 | 2026-09-16 | 業務專員 |
-  | d | 未評分 | — | 2026-09-17 | python 後端 |
-
-- **When** → **Then**：
-
-  | 參數 | 回傳的職缺（依序） |
-  | :--- | :--- |
-  | 無 | a、b、d |
-  | `min_score=70` | a |
-  | `since="2026-09-16"` | b、d |
-  | `keyword="python"` | a、d |
-  | `include_eliminated=true` | a、b、d、c（c、d 都沒有總分，d 較新所以在前） |
-  | `limit=1` | a，`符合筆數` 為 3 |
-  | `limit=101` | tool error |
+  - a：`職缺名稱` 為 `Python 工程師`，總分 85，未淘汰，首次出現 2026-09-10
+  - b：`職缺名稱` 為 `資料工程師`，總分 60，未淘汰，首次出現 2026-09-16
+  - c：`職缺名稱` 為 `業務專員`，被淘汰（總分 null），首次出現 2026-09-16
+  - d：`職缺名稱` 為 `python 後端`，未評分，首次出現 2026-09-17
+- **When** → **Then**：每項是「參數 → 依序回傳的職缺」
+  - 無參數 → a、b、d
+  - `min_score=70` → a
+  - `since="2026-09-16"` → b、d
+  - `keyword="python"` → a、d
+  - `include_eliminated=true` → a、b、d、c（c、d 都沒有總分，d 較新所以在前）
+  - `limit=1` → a，`符合筆數` 為 3
+  - `limit=101` → tool error
 
 - **驗證方式**：`uv run pytest tests/test_mcp_server.py -k query_jobs`
 - **通過條件**：全部 passed。
@@ -244,11 +227,9 @@
 
 本章的需求由各章既有的驗收涵蓋，不另外寫測試：
 
-| 需求 | 驗收 |
-| :--- | :--- |
-| NFR-rate | [AC-search](#ac-search抓取)（`keywords`、`pages` 超出範圍時回傳 tool error，且沒有發出請求） |
-| NFR-cost | [AC-score](#ac-score評分)（再呼叫一次時，假 client 只對失敗那筆被呼叫） |
-| NFR-null | [AC-query](#ac-query查詢)（未評分的 d 照常出現）、[AC-detail](#ac-detail單筆職缺)（`d` 的 `評分` 為 `null`） |
+- NFR-rate：[AC-search](#ac-search抓取)（`keywords`、`pages` 超出範圍時回傳 tool error，且沒有發出請求）
+- NFR-cost：[AC-score](#ac-score評分)（再呼叫一次時，假 client 只對失敗那筆被呼叫）
+- NFR-null：[AC-query](#ac-query查詢)（未評分的 d 照常出現）、[AC-detail](#ac-detail單筆職缺)（`d` 的 `評分` 為 `null`）
 
 ## 9. 共用設計
 

@@ -56,7 +56,7 @@ uv run pytest -m network tests/e2e   # 連到真實外部服務的測試
 - **測試資料固定不變**：測試不讀 `profile/`、`output/` 這類會變動的專案資料。離線測試的資料寫在測試碼裡，需要檔案時寫到 `tmp_path`；e2e 的輸入資料放在 `tests/e2e/data/`。範本檔（`*.example.*`）只在驗證範本本身的測試中讀取。
 - `tests/e2e/` 的測試缺少 API key 等前提時，用 `pytest.skip` 說明原因，不要讓測試失敗。
 - 檔案一律寫到 `tmp_path`。會寫入 `output/` 的程式，用 monkeypatch 把輸出目錄改掉，不要污染真實資料。
-- 需要多組輸入時，用 `@pytest.mark.parametrize`。功能文件驗收標準中的「輸入 → 預期」表格，就直接對應到這裡的參數。
+- 需要多組輸入時，用 `@pytest.mark.parametrize`。功能文件驗收標準中逐項列出的「輸入 → 預期」，就直接對應到這裡的參數。
 - 測試函式名稱以被測的函式名稱開頭（例如 `test_parse_keywords_*`），讓驗收標準可以用 `-k <函式名>` 挑出對應的測試。
 - CLI 進入點提供 `main(argv) -> int`，測試直接呼叫並用 `capsys` 檢查輸出；只有訊號處理這類必須在真實行程中驗證的行為，才用 subprocess。
 

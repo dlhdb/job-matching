@@ -1,11 +1,9 @@
 # 104 職缺爬蟲
 
-| 欄位 | 內容 |
-| :--- | :--- |
-| ID | 104-job-scraper |
-| 狀態 | ✅ 已完成 |
-| 依賴 | 無 |
-| 程式碼 | [src/fetch_104_jobs.py](../../src/fetch_104_jobs.py)（單檔自足腳本） |
+- ID：104-job-scraper
+- 狀態：✅ 已完成
+- 依賴：無
+- 程式碼：[src/fetch_104_jobs.py](../../src/fetch_104_jobs.py)（單檔自足腳本）
 
 ## 1. 背景與目標
 
@@ -38,11 +36,9 @@
 
 本功能範圍內的使用者故事，細節見各章的「需求」。
 
-| 使用者故事 | slug | 狀態 | 章節 |
-| :--- | :--- | :--- | :--- |
-| 一次搜尋多個關鍵字與縣市，拿到不重複的職缺 | `search` | ✅ | [§4](#4-一次搜尋多個關鍵字與縣市拿到不重複的職缺search) |
-| 每筆職缺都有完整的工作內容 | `detail` | ✅ | [§5](#5-每筆職缺都有完整的工作內容detail) |
-| 用 Excel 或程式開啟結果 | `output` | ✅ | [§6](#6-用-excel-或程式開啟結果output) |
+- [一次搜尋多個關鍵字與縣市，拿到不重複的職缺](#4-一次搜尋多個關鍵字與縣市拿到不重複的職缺search)（`search`）：✅
+- [每筆職缺都有完整的工作內容](#5-每筆職缺都有完整的工作內容detail)（`detail`）：✅
+- [用 Excel 或程式開啟結果](#6-用-excel-或程式開啟結果output)（`output`）：✅
 
 [§7 非功能需求](#7-非功能需求)與 [§8 共用設計](#8-共用設計)不是使用者故事。§8 放跨越各章的基礎設施：欄位字典與 CLI。
 
@@ -71,10 +67,12 @@
 
 #### 4.2.2 104 API 的限制
 
-| API | URL | 備註 |
-| :--- | :--- | :--- |
-| 搜尋 | `https://www.104.com.tw/jobs/search/api/jobs` | `timeout=10`；回傳的 `description` 只是關鍵字高亮的截斷摘要 |
-| 詳情 | `https://www.104.com.tw/job/ajax/content/{job_id}` | `timeout=5`；`job_id` 是職缺連結中 `/job/` 後面的 base36 代碼（如 `8s12x`） |
+- 搜尋：`https://www.104.com.tw/jobs/search/api/jobs`
+  - `timeout=10`
+  - 回傳的 `description` 只是關鍵字高亮的截斷摘要
+- 詳情：`https://www.104.com.tw/job/ajax/content/{job_id}`
+  - `timeout=5`
+  - `job_id` 是職缺連結中 `/job/` 後面的 base36 代碼（如 `8s12x`）
 
 - 缺少 `User-Agent` 或 `Referer` 時，104 一律回 403，所以兩個標頭都放在 `DEFAULT_HEADERS`，不可移除。搜尋 API 的 Referer 是 `https://www.104.com.tw/jobs/search/`。`Accept-Language` 設為 `zh-TW` 優先，讓回傳內容是繁體中文。
 - 詳情 API 會檢查 Referer 是否為該職缺自己的頁面（`https://www.104.com.tw/job/{job_id}`），沿用搜尋頁的 Referer 會被擋。
@@ -235,26 +233,24 @@ NFR-null 由 [AC-detail](#ac-detail欄位解析與詳情失敗時不回填) 涵�
 
 #### 8.2.1 欄位字典
 
-輸出使用中文鍵名，順序等於 `CSV_FIELDNAMES`。job-scoring 以這份字典作為輸入契約；新增欄位時要同步修改 `parse_jobs()`、`CSV_FIELDNAMES` 與本表。
+輸出使用中文鍵名，順序等於 `CSV_FIELDNAMES`。job-scoring 以這份字典作為輸入契約；新增欄位時要同步修改 `parse_jobs()`、`CSV_FIELDNAMES` 與本字典。
 
-| 欄位 | 來源 | 型態 | 說明 |
-| :--- | :--- | :--- | :--- |
-| `職缺代碼` | `jobNo` | str | 104 的職缺識別碼，用於去重 |
-| `職缺名稱` | `jobName` | str | |
-| `公司名稱` | `custName` | str | |
-| `產業類別` | `coIndustryDesc` | str | 例如 `電腦系統整合服務業` |
-| `地區` | `jobAddrNoDesc` + `jobAddress` | str | 以空白合併縣市行政區與街道地址 |
-| `薪資待遇` | 詳情 API 的 `jobDetail.salary` | str \| null | 原始薪資描述，例如 `月薪60,000~70,000元`、`待遇面議`；詳情失敗時為 `null` |
-| `薪資下限` | `salaryLow` | int \| null | 保留 API 原始值；面議時為 `0` |
-| `薪資上限` | `salaryHigh` | int \| null | 保留 API 原始值；面議時為 `0`，沒有上限（如「月薪50,000元以上」）時為 `9999999`，下游以 ≥ 9999999 判斷 |
-| `更新日期` | `appearDate` | str | 由 `YYYYMMDD` 轉成 `YYYY-MM-DD` |
-| `應徵人數` | `applyCnt` | int | 缺值時為 `0` |
-| `工作內容` | 詳情 API 的 `jobDetail.jobDescription` | str \| null | 完整工作描述；詳情失敗時為 `null` |
-| `電腦專長` | `pcSkills[].description` | str | 以 `, ` 合併，例如 `Python, Git`；沒有時為空字串 |
-| `科系要求` | `major` | str | 以 `, ` 合併；沒有時為空字串 |
-| `特色標籤` | `tags` 的 `desc` | str | 以 `, ` 合併，例如 `週休二日, 距捷運站210公尺` |
-| `職缺連結` | `link.job` | str | 轉成完整的 `https://` URL |
-| `公司連結` | `link.cust` | str | 轉成完整的 `https://` URL |
+- `職缺代碼`（str，來源 `jobNo`）：104 的職缺識別碼，用於去重
+- `職缺名稱`（str，來源 `jobName`）
+- `公司名稱`（str，來源 `custName`）
+- `產業類別`（str，來源 `coIndustryDesc`）：例如 `電腦系統整合服務業`
+- `地區`（str，來源 `jobAddrNoDesc` + `jobAddress`）：以空白合併縣市行政區與街道地址
+- `薪資待遇`（str | null，來源是詳情 API 的 `jobDetail.salary`）：原始薪資描述，例如 `月薪60,000~70,000元`、`待遇面議`；詳情失敗時為 `null`
+- `薪資下限`（int | null，來源 `salaryLow`）：保留 API 原始值；面議時為 `0`
+- `薪資上限`（int | null，來源 `salaryHigh`）：保留 API 原始值；面議時為 `0`，沒有上限（如「月薪50,000元以上」）時為 `9999999`，下游以 ≥ 9999999 判斷
+- `更新日期`（str，來源 `appearDate`）：由 `YYYYMMDD` 轉成 `YYYY-MM-DD`
+- `應徵人數`（int，來源 `applyCnt`）：缺值時為 `0`
+- `工作內容`（str | null，來源是詳情 API 的 `jobDetail.jobDescription`）：完整工作描述；詳情失敗時為 `null`
+- `電腦專長`（str，來源 `pcSkills[].description`）：以 `, ` 合併，例如 `Python, Git`；沒有時為空字串
+- `科系要求`（str，來源 `major`）：以 `, ` 合併；沒有時為空字串
+- `特色標籤`（str，來源 `tags` 的 `desc`）：以 `, ` 合併，例如 `週休二日, 距捷運站210公尺`
+- `職缺連結`（str，來源 `link.job`）：轉成完整的 `https://` URL
+- `公司連結`（str，來源 `link.cust`）：轉成完整的 `https://` URL
 
 #### 8.2.2 CLI
 
@@ -263,12 +259,10 @@ uv run src/fetch_104_jobs.py                                    # 互動模式
 uv run src/fetch_104_jobs.py -k "關鍵字1,關鍵字2" -p 頁數 -a 縣市 -t 性質
 ```
 
-| 參數 | 說明 |
-| :--- | :--- |
-| `-k`, `--keyword` | 搜尋關鍵字，多個用半形或全形逗號分隔；有帶這個參數才會走 CLI 模式 |
-| `-p`, `--pages` | 每個關鍵字抓幾頁，每頁 30 筆，預設 `3` |
-| `-a`, `--area` | 縣市名稱（比對規則見 [§4.2.3](#423-地區與去重)），不填代表全台灣 |
-| `-t`, `--type` | 職缺性質：`0` 全部（預設）、`1` 全職、`2` 兼職／工讀 |
+- `-k`, `--keyword`：搜尋關鍵字，多個用半形或全形逗號分隔；有帶這個參數才會走 CLI 模式
+- `-p`, `--pages`：每個關鍵字抓幾頁，每頁 30 筆，預設 `3`
+- `-a`, `--area`：縣市名稱（比對規則見 [§4.2.3](#423-地區與去重)），不填代表全台灣
+- `-t`, `--type`：職缺性質，`0` 全部（預設）、`1` 全職、`2` 兼職／工讀
 
 寫入職缺資料庫的 `--db`、`--no-db` 見 [job-database 的爬蟲寫入參數](job-database.md#423-爬蟲的寫入參數)。
 

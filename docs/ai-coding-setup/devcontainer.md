@@ -22,11 +22,9 @@
 
 白名單網域分三類：
 
-| 用途 | 網域 |
-| :--- | :--- |
-| Claude Code 本身 | `api.anthropic.com`、`claude.ai`、`claude.com`、`platform.claude.com`、`mcp-proxy.anthropic.com`、`code.claude.com`、`raw.githubusercontent.com`、`registry.npmjs.org` |
-| VS Code 擴充套件 | `marketplace.visualstudio.com`、`vscode.blob.core.windows.net`、`update.code.visualstudio.com` |
-| 本專案需要 | `generativelanguage.googleapis.com`（Gemini API）、`www.104.com.tw`（爬蟲目標）、`pypi.org`、`files.pythonhosted.org` |
+- Claude Code 本身：`api.anthropic.com`、`claude.ai`、`claude.com`、`platform.claude.com`、`mcp-proxy.anthropic.com`、`code.claude.com`、`raw.githubusercontent.com`、`registry.npmjs.org`
+- VS Code 擴充套件：`marketplace.visualstudio.com`、`vscode.blob.core.windows.net`、`update.code.visualstudio.com`
+- 本專案需要：`generativelanguage.googleapis.com`（Gemini API）、`www.104.com.tw`（爬蟲目標）、`pypi.org`、`files.pythonhosted.org`
 
 新增資料來源、外部 API，或換用其他需要連網的 AI coding 工具時，記得把對應網域加進 `init-firewall.sh` 的 `ALLOWED_DOMAINS`，否則容器內的程式碼連不出去。
 

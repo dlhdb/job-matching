@@ -23,21 +23,19 @@ uv add <pkg>                 # 新增依賴
 
 需要下列資訊時，再去讀對應的文件：
 
-| 想知道什麼 | 讀哪份 |
-| :--- | :--- |
-| 產品目標與成功指標、使用者問題、跨功能的使用者旅程、功能清單與現況、名詞定義 | [docs/README.md](docs/README.md) |
-| 單一功能的需求、範圍、設計、驗收標準 | `docs/features/<功能 ID>.md` |
-| 撰寫新功能文件的格式 | [docs/features/feature_template.md](docs/features/feature_template.md) |
-| 專案檔案結構 | [README.md](README.md) 的「專案結構」 |
-| 104 爬蟲的請求標頭與頻率限制、職缺欄位字典、執行方式與輸出位置 | [docs/features/104-job-scraper.md](docs/features/104-job-scraper.md) |
-| 職缺資料庫的資料表、跨次去重與出現時間的寫入規則、匯入既有 JSON 的指令 | [docs/features/job-database.md](docs/features/job-database.md) |
-| 工作評分的維度、淘汰與薪資規則、偏好檔格式、提示詞設計、輸出欄位、LLM 抽象層 | [docs/features/job-scoring.md](docs/features/job-scoring.md) |
-| MCP 介面的 tool 清單與參數、stdout 限制、註冊方式 | [docs/features/mcp-server.md](docs/features/mcp-server.md) |
-| 文件撰寫規範（內容、功能文件結構、FR／AC 命名、決策紀錄、格式、繪圖） | [docs/conventions/documentation.md](docs/conventions/documentation.md) |
-| 程式碼風格、docstring 格式、終端輸出慣例、依賴管理、測試慣例、防禦性設計 | [docs/conventions/development.md](docs/conventions/development.md) |
-| 過去的取捨、考慮過但不採用的做法與原因 | [docs/decisions/](docs/decisions/) |
-| 隔離容器與防火牆白名單設計（所有 AI coding 工具共用） | [docs/ai-coding-setup/devcontainer.md](docs/ai-coding-setup/devcontainer.md) |
-| Claude Code 專屬的權限規則（deny/ask）與設計理由 | [docs/ai-coding-setup/claude-code.md](docs/ai-coding-setup/claude-code.md) |
+- 產品目標與成功指標、使用者問題、跨功能的使用者旅程、功能清單與現況、名詞定義：[docs/README.md](docs/README.md)
+- 單一功能的需求、範圍、設計、驗收標準：`docs/features/<功能 ID>.md`
+- 撰寫新功能文件的格式：[docs/features/feature_template.md](docs/features/feature_template.md)
+- 專案檔案結構：[README.md](README.md) 的「專案結構」
+- 104 爬蟲的請求標頭與頻率限制、職缺欄位字典、執行方式與輸出位置：[docs/features/104-job-scraper.md](docs/features/104-job-scraper.md)
+- 職缺資料庫的資料表、跨次去重與出現時間的寫入規則、匯入既有 JSON 的指令：[docs/features/job-database.md](docs/features/job-database.md)
+- 工作評分的維度、淘汰與薪資規則、偏好檔格式、提示詞設計、輸出欄位、LLM 抽象層：[docs/features/job-scoring.md](docs/features/job-scoring.md)
+- MCP 介面的 tool 清單與參數、stdout 限制、註冊方式：[docs/features/mcp-server.md](docs/features/mcp-server.md)
+- 文件撰寫規範（內容、功能文件結構、FR／AC 命名、決策紀錄、格式、繪圖）：[docs/conventions/documentation.md](docs/conventions/documentation.md)
+- 程式碼風格、docstring 格式、終端輸出慣例、依賴管理、測試慣例、防禦性設計：[docs/conventions/development.md](docs/conventions/development.md)
+- 過去的取捨、考慮過但不採用的做法與原因：[docs/decisions/](docs/decisions/)
+- 隔離容器與防火牆白名單設計（所有 AI coding 工具共用）：[docs/ai-coding-setup/devcontainer.md](docs/ai-coding-setup/devcontainer.md)
+- Claude Code 專屬的權限規則（deny/ask）與設計理由：[docs/ai-coding-setup/claude-code.md](docs/ai-coding-setup/claude-code.md)
 
 所有文件都描述系統的現況：需求、設計或實作改變時，直接更新對應的文件。一個功能的需求、設計與驗收標準都寫在同一份功能文件裡。撰寫或修改任何文件前，先讀 [docs/conventions/documentation.md](docs/conventions/documentation.md)。只改文件時不必讀 development.md。
 

@@ -1,11 +1,9 @@
 # 職缺資料庫
 
-| 欄位 | 內容 |
-| :--- | :--- |
-| ID | job-database |
-| 狀態 | ✅ 已完成 |
-| 依賴 | 104-job-scraper（沿用其[欄位字典](104-job-scraper.md#821-欄位字典)作為資料契約） |
-| 程式碼 | [src/job_db/](../../src/job_db/)、[src/import_jobs.py](../../src/import_jobs.py)、[src/fetch_104_jobs.py](../../src/fetch_104_jobs.py) |
+- ID：job-database
+- 狀態：✅ 已完成
+- 依賴：104-job-scraper（沿用其[欄位字典](104-job-scraper.md#821-欄位字典)作為資料契約）
+- 程式碼：[src/job_db/](../../src/job_db/)、[src/import_jobs.py](../../src/import_jobs.py)、[src/fetch_104_jobs.py](../../src/fetch_104_jobs.py)
 
 ## 1. 背景與目標
 
@@ -44,10 +42,8 @@
 
 本功能範圍內的使用者故事，細節見各章的「需求」。
 
-| 使用者故事 | slug | 狀態 | 章節 |
-| :--- | :--- | :--- | :--- |
-| 累積每次抓到的職缺，看出哪些是新的 | `save` | ✅ | [§4](#4-累積每次抓到的職缺看出哪些是新的save) |
-| 把過去抓好的 JSON 匯進來 | `import` | ✅ | [§5](#5-把過去抓好的-json-匯進來import) |
+- [累積每次抓到的職缺，看出哪些是新的](#4-累積每次抓到的職缺看出哪些是新的save)（`save`）：✅
+- [把過去抓好的 JSON 匯進來](#5-把過去抓好的-json-匯進來import)（`import`）：✅
 
 [§6 非功能需求](#6-非功能需求)與 [§7 共用設計](#7-共用設計)不是使用者故事。§7 放跨越各章的基礎設施：資料庫路徑、模組佈局與資料表。
 
@@ -99,10 +95,8 @@ flowchart TD
 
 爬蟲新增的參數（其餘參數見 [104-job-scraper 的 CLI](104-job-scraper.md#822-cli)）：
 
-| 參數 | 說明 |
-| :--- | :--- |
-| `--db` | 資料庫路徑，預設為專案根目錄的 `data/jobs.db` |
-| `--no-db` | 只輸出 CSV／JSON，不寫入資料庫 |
+- `--db`：資料庫路徑，預設為專案根目錄的 `data/jobs.db`
+- `--no-db`：只輸出 CSV／JSON，不寫入資料庫
 
 - 互動模式一律寫入預設的資料庫。
 - 寫入資料庫失敗時，在 stderr 印出 `[-]`，不中斷程式，因為 CSV／JSON 已經寫出。
@@ -127,15 +121,13 @@ flowchart TD
 
 #### AC-save-keep-detail：null 不覆蓋既有內容
 
-| 資料庫中的值 | 新資料的值 | 寫入後 |
-| :--- | :--- | :--- |
-| 非 null | `null` | 保留舊值 |
-| 非 null | 非 null | 新值 |
-| `null` | 非 null | 新值 |
-
-- **Given**：`工作內容` 與 `薪資待遇` 分別依上表設定
+- **Given**：`工作內容` 與 `薪資待遇` 依下列情況設定資料庫中的值與新資料的值
 - **When**：以較晚的時間寫入新資料
-- **Then**：結果如上表；其他欄位的 `null` 照常覆蓋
+- **Then**：
+  - 資料庫中非 null、新資料為 `null` → 保留舊值
+  - 資料庫中非 null、新資料非 null → 寫入新值
+  - 資料庫中為 `null`、新資料非 null → 寫入新值
+  - 其他欄位的 `null` 照常覆蓋
 - **驗證方式**：`uv run pytest tests/test_job_db.py -k keeps_detail`
 - **通過條件**：全部 passed。
 
@@ -219,10 +211,8 @@ uv run src/import_jobs.py output/104/*.json [--db data/jobs.db]
 
 本章的需求由各章既有的驗收涵蓋，不另外寫測試：
 
-| 需求 | 驗收 |
-| :--- | :--- |
-| NFR-local | [AC-db](#ac-db自動建立資料庫)（`git check-ignore data/jobs.db`） |
-| NFR-null | [AC-save-keep-detail](#ac-save-keep-detailnull-不覆蓋既有內容)（其他欄位的 `null` 照常覆蓋） |
+- NFR-local：[AC-db](#ac-db自動建立資料庫)（`git check-ignore data/jobs.db`）
+- NFR-null：[AC-save-keep-detail](#ac-save-keep-detailnull-不覆蓋既有內容)（其他欄位的 `null` 照常覆蓋）
 
 ## 7. 共用設計
 
@@ -257,28 +247,24 @@ src/
 
 **`jobs`**：每筆職缺一列。
 
-| 欄位 | 型態 | 說明 |
-| :--- | :--- | :--- |
-| 104-job-scraper 欄位字典的全部欄位 | 依字典：str → `TEXT`，int → `INTEGER` | 欄名、順序與字典相同，`職缺代碼` 是主鍵 |
-| `首次出現時間` | TEXT | 這筆職缺第一次被抓到的時間 |
-| `最後出現時間` | TEXT | 這筆職缺最後一次被抓到的時間 |
+- 104-job-scraper 欄位字典的全部欄位：欄名、順序與字典相同，`職缺代碼` 是主鍵。型態依字典轉換，str → `TEXT`，int → `INTEGER`
+- `首次出現時間`（TEXT）：這筆職缺第一次被抓到的時間
+- `最後出現時間`（TEXT）：這筆職缺最後一次被抓到的時間
 
 - 欄名沿用中文，讓 `pandas.read_sql` 讀出來的欄位與 CSV／JSON 一致，job-scoring 不需要做欄名對照。
 - 「最後出現時間」較早，不代表職缺已經下架，可能只是之後的搜尋條件沒有涵蓋它，所以不另外記錄下架狀態。
 
 **`scrape_runs`**：每次抓取或匯入一列。
 
-| 欄位 | 型態 | 說明 |
-| :--- | :--- | :--- |
-| `執行編號` | INTEGER | 主鍵，自動遞增 |
-| `執行時間` | TEXT | 爬蟲寫出 CSV／JSON 時的時間，與檔名中的時間戳相同。匯入時取自檔名（見 [§5.2.1](#521-匯入既有-json)） |
-| `來源` | TEXT | `爬蟲` 或 `匯入` |
-| `關鍵字` | TEXT \| null | 去重後的關鍵字，以 `, ` 合併。匯入時為 `null`，因為檔名中的關鍵字已經過清理與截斷 |
-| `地區` | TEXT \| null | 縣市名稱，全台灣時為 `全台灣`。匯入時為 `null` |
-| `職缺性質` | INTEGER \| null | `0`／`1`／`2`，意義同 [104-job-scraper 的 CLI](104-job-scraper.md#822-cli)。匯入時為 `null` |
-| `頁數` | INTEGER \| null | 每個關鍵字抓幾頁。匯入時為 `null` |
-| `來源檔` | TEXT \| null | 匯入的 JSON 檔名（不含目錄），具唯一性。爬蟲寫入時為 `null` |
-| `職缺數` | INTEGER | 這次寫入的職缺筆數 |
+- `執行編號`（INTEGER）：主鍵，自動遞增
+- `執行時間`（TEXT）：爬蟲寫出 CSV／JSON 時的時間，與檔名中的時間戳相同。匯入時取自檔名（見 [§5.2.1](#521-匯入既有-json)）
+- `來源`（TEXT）：`爬蟲` 或 `匯入`
+- `關鍵字`（TEXT | null）：去重後的關鍵字，以 `, ` 合併。匯入時為 `null`，因為檔名中的關鍵字已經過清理與截斷
+- `地區`（TEXT | null）：縣市名稱，全台灣時為 `全台灣`。匯入時為 `null`
+- `職缺性質`（INTEGER | null）：`0`／`1`／`2`，意義同 [104-job-scraper 的 CLI](104-job-scraper.md#822-cli)。匯入時為 `null`
+- `頁數`（INTEGER | null）：每個關鍵字抓幾頁。匯入時為 `null`
+- `來源檔`（TEXT | null）：匯入的 JSON 檔名（不含目錄），具唯一性。爬蟲寫入時為 `null`
+- `職缺數`（INTEGER）：這次寫入的職缺筆數
 
 **`run_jobs`**：一次執行與其中出現的職缺，主鍵是（`執行編號`, `職缺代碼`），兩欄分別以外鍵指向 `scrape_runs` 與 `jobs`。同一批中重複的職缺代碼只記一列，`scrape_runs.職缺數` 也只算一次。
 

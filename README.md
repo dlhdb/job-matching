@@ -52,10 +52,8 @@ uv run src/fetch_104_jobs.py -k "後端工程師,Backend,Python" -a 新竹
 
 每次執行都會在 `output/104/` 產生同名的兩個檔案：
 
-| 檔案 | 適合用途 |
-| :--- | :--- |
-| `jobs_104_<關鍵字>_<時間>.csv` | 用 Excel 直接開啟篩選，中文不會亂碼 |
-| `jobs_104_<關鍵字>_<時間>.json` | 交給程式或 AI 做後續分析 |
+- `jobs_104_<關鍵字>_<時間>.csv`：用 Excel 直接開啟篩選，中文不會亂碼
+- `jobs_104_<關鍵字>_<時間>.json`：交給程式或 AI 做後續分析
 
 各欄位的意義見 [104-job-scraper §8.2.1 欄位字典](docs/features/104-job-scraper.md#821-欄位字典)，完整參數說明見 [§8.2.2](docs/features/104-job-scraper.md#822-cli)。
 
@@ -134,17 +132,15 @@ docs/           專案總覽、功能文件、決策紀錄與慣例
 
 ## 文件導覽
 
-| 文件 | 內容 |
-| :--- | :--- |
-| [docs/README.md](docs/README.md) | 專案總覽：目標、使用者問題、功能清單與現況 |
-| [docs/features/job-scoring.md](docs/features/job-scoring.md) | 職缺評分：需求、評分規則、提示詞、LLM 抽象層、整批評分與結果檔、驗收標準 |
-| [docs/features/104-job-scraper.md](docs/features/104-job-scraper.md) | 104 爬蟲：需求、API 限制、欄位字典、驗收標準 |
-| [docs/features/job-database.md](docs/features/job-database.md) | 職缺資料庫：需求、資料表、寫入規則、匯入指令、驗收標準 |
-| [docs/features/mcp-server.md](docs/features/mcp-server.md) | MCP 介面：tool 清單與參數、stdout 限制、註冊方式、驗收標準 |
-| [docs/conventions/documentation.md](docs/conventions/documentation.md) | 文件撰寫慣例 |
-| [docs/conventions/development.md](docs/conventions/development.md) | 開發慣例 |
-| [docs/ai-coding-setup/devcontainer.md](docs/ai-coding-setup/devcontainer.md) | 隔離容器與防火牆白名單（所有 AI coding 工具共用） |
-| [docs/ai-coding-setup/claude-code.md](docs/ai-coding-setup/claude-code.md) | Claude Code 專屬的權限規則（deny/ask） |
+- [docs/README.md](docs/README.md)：專案總覽（目標、使用者問題、功能清單與現況）
+- [docs/features/job-scoring.md](docs/features/job-scoring.md)：職缺評分（需求、評分規則、提示詞、LLM 抽象層、整批評分與結果檔、驗收標準）
+- [docs/features/104-job-scraper.md](docs/features/104-job-scraper.md)：104 爬蟲（需求、API 限制、欄位字典、驗收標準）
+- [docs/features/job-database.md](docs/features/job-database.md)：職缺資料庫（需求、資料表、寫入規則、匯入指令、驗收標準）
+- [docs/features/mcp-server.md](docs/features/mcp-server.md)：MCP 介面（tool 清單與參數、stdout 限制、註冊方式、驗收標準）
+- [docs/conventions/documentation.md](docs/conventions/documentation.md)：文件撰寫慣例
+- [docs/conventions/development.md](docs/conventions/development.md)：開發慣例
+- [docs/ai-coding-setup/devcontainer.md](docs/ai-coding-setup/devcontainer.md)：隔離容器與防火牆白名單（所有 AI coding 工具共用）
+- [docs/ai-coding-setup/claude-code.md](docs/ai-coding-setup/claude-code.md)：Claude Code 專屬的權限規則（deny/ask）
 
 ## 使用聲明
 
