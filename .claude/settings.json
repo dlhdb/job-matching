@@ -22,6 +22,6 @@
   },
   "enabledPlugins": {
     "git-helpers@dennistai": true,
-    "tech-docs@dennistai": true
+    "tech-docs@dennistai": false
   }
 }
