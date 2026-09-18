@@ -22,9 +22,6 @@
 
 **範圍外**（實作時不要做）
 
-- 排程定期抓取與評分（目前不規劃，見 [非目標](../README.md#非目標)）
-- HTTP 等遠端傳輸：專案不做對外服務（見 [非目標](../README.md#非目標)）
-- 公司資訊與評價的 tool（屬 company-info）
 - 評分結果入庫與快取的設計（屬 [job-scoring §7](job-scoring.md#7-依分數查詢職缺store)、[§8](job-scoring.md#8-重跑時不重複付-ai-費用cache)）；本功能只呼叫它
 - 修改個人資料檔（`profile/`）的 tool：偏好與經歷由使用者自己編輯
 - 讓 agent 選擇 LLM 供應商或模型：一律使用 job-scoring 的預設值
