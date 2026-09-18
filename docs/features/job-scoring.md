@@ -8,7 +8,7 @@
 ## 1. 背景與目標
 
 爬蟲一次會抓到上百筆職缺，逐筆閱讀並判斷是否適合自己，要花很多時間。
-本功能根據使用者提供的**工作偏好**與**工作經歷**，對一整批職缺逐筆做多維度評分，產出總分與簡短評語，寫成結果檔，讓使用者快速判斷哪些職缺值得細看、原因是什麼（UP-02）。
+本功能根據使用者提供的工作偏好與工作經歷，對一整批職缺逐筆做多維度評分，產出總分與簡短評語，寫成結果檔，讓使用者快速判斷哪些職缺值得細看、原因是什麼（UP-02）。
 
 目前的入口是 CLI，只是為了快速開發；之後會整合進 app。
 
@@ -16,9 +16,9 @@
 
 ## 2. 範圍
 
-**範圍內**：見 [§3 設計總覽](#3-設計總覽)的使用者故事清單，以及 [§10 非功能需求](#10-非功能需求)、[§11 共用設計](#11-共用設計)。
+範圍內：見 [§3 設計總覽](#3-設計總覽)的使用者故事清單，以及 [§10 非功能需求](#10-非功能需求)、[§11 共用設計](#11-共用設計)。
 
-**範圍外**（實作時不要做）
+範圍外（實作時不要做）：
 
 - 結果的排序、篩選與互動式瀏覽介面（只產出檔案，排序與篩選交給讀取結果檔的工具，例如 pandas）
 - OpenAI 或其他供應商的實作（只保留介面）
@@ -30,7 +30,7 @@
 
 ## 3. 設計總覽
 
-**輸入與輸出**
+輸入與輸出：
 
 - 輸入的職缺：104-job-scraper 輸出的 JSON（以 `--jobs` 指定），欄位依 [104-job-scraper §8.2.1](104-job-scraper.md#821-欄位字典)，各維度實際看哪些欄位見 [§4.2.4](#424-評分維度)。
 - 輸入的個人資料：`profile/preferences.yaml` 與 `profile/experience.md`，格式見 [§4.2.1](#421-個人資料檔)。由使用者自己維護，不來自其他功能。
@@ -39,7 +39,7 @@
 - 整批輸出：`output/scores/` 下同名的 JSON 與 CSV，欄位見 [§6.2.2](#622-結果檔)。給使用者用 pandas 或 Excel 排序、篩選，本功能不提供瀏覽介面。
 - 〔規劃中〕整批與單筆的結果都寫入 job-database 資料庫的 `job_scores` 表（見 [§7.2.1](#721-資料表)），供 [mcp-server](mcp-server.md) 查詢。
 
-**使用者故事清單**
+使用者故事清單：
 
 本功能範圍內的使用者故事，細節見各章的「需求」。
 
@@ -60,15 +60,15 @@
 
 ### 4.1 需求
 
-- **FR-score-profile**：從指定目錄讀取 `preferences.yaml` 與 `experience.md`。
+- FR-score-profile：從指定目錄讀取 `preferences.yaml` 與 `experience.md`。
   - `preferences.yaml` 依 [§4.2.2](#422-preferencesyaml-欄位字典) 驗證，缺少欄位、型別錯誤或權重的鍵不符時報錯，不補預設值。
-- **FR-score-salary**：依 [§4.2.6](#426-薪資換算與計分) 換算月薪並計算薪資分數。
+- FR-score-salary：依 [§4.2.6](#426-薪資換算與計分) 換算月薪並計算薪資分數。
   - 面議、時薪、日薪、論件計酬與缺值都視為未知（`null`）。
   - 薪資未知不會因此被淘汰。
-- **FR-score-ai**：由 AI 依 [§4.2.5](#425-ai-維度的錨點描述) 的錨點，為三個 AI 維度各給 1–5 分或 `null`。
+- FR-score-ai：由 AI 依 [§4.2.5](#425-ai-維度的錨點描述) 的錨點，為三個 AI 維度各給 1–5 分或 `null`。
   - 每個維度都附上理由，另外提供總評。
   - AI 回應必須通過 schema 驗證，否則視為失敗。
-- **FR-score-total**：依 [§4.2.7](#427-總分) 計算 0–100 的加權總分。
+- FR-score-total：依 [§4.2.7](#427-總分) 計算 0–100 的加權總分。
   - 分數為 `null` 的維度以 3 分代入，讓所有沒被淘汰的職缺都有可以互相比較的總分。
 
 ### 4.2 設計
@@ -82,7 +82,7 @@
 
 #### 4.2.2 preferences.yaml 欄位字典
 
-所有欄位都是**必填**。缺少欄位或型別錯誤時，印出 `[-]` 訊息並結束，不補預設值。
+所有欄位都是必填。缺少欄位或型別錯誤時，印出 `[-]` 訊息並結束，不補預設值。
 
 - `目標方向`（list[str]）：想做的工作內容、想累積的能力，給 AI 判斷「職涯方向契合度」
 - `產業偏好.喜歡`（list[str]）：偏好的產業或公司類型，可以是空清單
@@ -132,7 +132,7 @@ flowchart TD
 ```
 
 - 圖中的「職缺 dict」是輸入 JSON 中的一筆。
-- ① 的規則見 [§5.2.1](#521-硬性淘汰規則)。被淘汰的職缺在 ① 就停止，**不呼叫 AI**，以節省費用，也不需要 API key。
+- ① 的規則見 [§5.2.1](#521-硬性淘汰規則)。被淘汰的職缺在 ① 就停止，不呼叫 AI，以節省費用，也不需要 API key。
 - ② 和 ③ 各自獨立，任何一個維度都可能是 `null`（未知），由 ④ 統一處理。
 
 #### 4.2.4 評分維度
@@ -160,7 +160,7 @@ flowchart TD
 
 這些描述要原文放進提示詞，讓分數有一致的標準。
 
-**職涯方向契合度**（包含這份工作能否累積目標方向需要的能力）
+職涯方向契合度（包含這份工作能否累積目標方向需要的能力）：
 
 - 5：主要工作內容就是目標方向之一，做了能直接累積目標能力
 - 4：大部分工作內容符合目標方向，少部分無關
@@ -169,7 +169,7 @@ flowchart TD
 - 1：與目標方向無關或背道而馳
 - null：`工作內容` 為 null，且無法只憑職缺名稱判斷
 
-**技能匹配度**（依工作經歷評估現在能否勝任）
+技能匹配度（依工作經歷評估現在能否勝任）：
 
 - 5：要求的核心技能都具備，而且有實際經歷佐證
 - 4：具備大部分核心技能，缺口可以在短期內補上
@@ -182,7 +182,7 @@ flowchart TD
 
 資料是否足以評分由 AI 判斷，程式不設固定條件。例如 `工作內容` 為 null，但職缺名稱已經能看出核心技能（如「資深 iOS 工程師」）時，仍然可以給分，但 `理由` 要說明是依據哪些欄位判斷的。
 
-**產業公司吸引力**（只根據產業類別與公司名稱判斷）
+產業公司吸引力（只根據產業類別與公司名稱判斷）：
 
 - 5：屬於 `產業偏好.喜歡` 中的產業
 - 4：與喜歡的產業高度相關
@@ -193,7 +193,7 @@ flowchart TD
 
 #### 4.2.6 薪資換算與計分
 
-**換算成月薪**——依 `薪資待遇` 的開頭字串判斷薪資類型（以 104 實際資料為準）：
+先換算成月薪，依 `薪資待遇` 的開頭字串判斷薪資類型（以 104 實際資料為準）：
 
 - `月薪`：直接使用。例如 `月薪55,000~65,000元`，下限 55000、上限 65000。
 - `年薪`：下限、上限都除以 `年薪換算月數`，四捨五入到整數（見 [§4.2.7](#427-總分) 的進位規則）。例如 `年薪700,000~1,000,000元`，下限 700000、上限 1000000。
@@ -206,7 +206,7 @@ flowchart TD
 - `薪資上限` ≥ 9999999 代表「以上」、沒有上限，換算後的上限記為「無」（實際資料中的值是 `9999999`）。
 - `薪資上限` 為 null → 上限記為「無」。
 
-**計分**——設換算後的月薪下限為 `low`，上限為 `high`（可能是「無」），依序判斷，第一個符合的條件決定分數：
+再計算分數。設換算後的月薪下限為 `low`，上限為 `high`（可能是「無」），依序判斷，第一個符合的條件決定分數：
 
 1. 薪資未知：`null`
 2. `low` ≥ `期望月薪`：5
@@ -219,7 +219,7 @@ flowchart TD
 
 #### 4.2.7 總分
 
-1. 分數為 `null` 的維度以 **3 分**（中性）代入。所有職缺都用相同的四個維度與權重計算，總分才能互相比較；若只用已知維度計算，等於假設缺少的維度與其他維度表現相同，缺資料的職缺反而可能排在前面。
+1. 分數為 `null` 的維度以 3 分（中性）代入。所有職缺都用相同的四個維度與權重計算，總分才能互相比較；若只用已知維度計算，等於假設缺少的維度與其他維度表現相同，缺資料的職缺反而可能排在前面。
 2. 計算四個維度的加權平均 `avg = Σ(wᵢ·sᵢ) / Σwᵢ`。
 3. 換算成 0–100 分：`總分 = (avg − 1) / 4 × 100`，四捨五入到整數。沒被淘汰的職缺一定有總分。
    - .5 一律進位（62.5 → 63），不用 Python `round()` 的五成雙（62.5 → 62）。
@@ -229,13 +229,13 @@ flowchart TD
 #### 4.2.8 提示詞設計
 
 - 模板放在 `prompts/scoring.md`，和程式碼分開，方便反覆調整。
-- **system**：評分者角色、[§4.2.5](#425-ai-維度的錨點描述) 的錨點描述，以及以下規則：
+- system：評分者角色、[§4.2.5](#425-ai-維度的錨點描述) 的錨點描述，以及以下規則：
   - 只根據提供的資料判斷
   - 資訊不足時給 `null` 並在理由中說明，不准猜分數
   - 理由要具體引用職缺內容
   - 使用繁體中文
-- **user**：`目標方向`、`產業偏好`、experience.md 全文，以及職缺欄位（職缺名稱、公司名稱、產業類別、工作內容、電腦專長、科系要求）。欄位為 null 或空字串時，明確寫出「（無資料）」。
-- **不把薪資與淘汰條件交給 AI**，避免重複判斷，也避免 AI 的判斷和規則衝突。
+- user：`目標方向`、`產業偏好`、experience.md 全文，以及職缺欄位（職缺名稱、公司名稱、產業類別、工作內容、電腦專長、科系要求）。欄位為 null 或空字串時，明確寫出「（無資料）」。
+- 不把薪資與淘汰條件交給 AI，避免重複判斷，也避免 AI 的判斷和規則衝突。
 - 不設定溫度等取樣參數：Gemini 3.8 Flash 已不支援 `temperature`、`top_p`、`top_k`（[官方說明](https://ai.google.dev/gemini-api/docs/latest-model)）。
 
 #### 4.2.9 AI 輸出 schema
@@ -257,17 +257,17 @@ LLM 必須輸出以下 JSON（Pydantic 模型 `AIAssessment`）。欄位使用�
 
 #### AC-score-profile：個人資料檔驗證與版控
 
-- **Given**：(a) `preferences.yaml` 缺少 `權重`；(b) `權重` 多了一個不存在的維度；(c) `底線月薪` 大於 `期望月薪`；(d) `淘汰條件.職稱關鍵字` 含空字串
-- **When**：以 `--dry-run` 對 `ok` 職缺呼叫 CLI 的 `main`（同時指定 `--job-no`）
+- Given：(a) `preferences.yaml` 缺少 `權重`；(b) `權重` 多了一個不存在的維度；(c) `底線月薪` 大於 `期望月薪`；(d) `淘汰條件.職稱關鍵字` 含空字串
+- When：以 `--dry-run` 對 `ok` 職缺呼叫 CLI 的 `main`（同時指定 `--job-no`）
   - 〔規劃中〕實作 dry-run 試跑後 `--dry-run` 會呼叫 AI，改為已禁止建立 client、不使用 `--dry-run`
-- **Then**：四種情況都回傳 1，stderr 含 `[-]`；以 `git check-ignore` 檢查時，`profile/preferences.yaml`、`profile/experience.md`、`.env` 被忽略，對應的範本檔沒有被忽略；兩個範本檔都能成功載入
-- **驗證方式**：`uv run pytest tests/test_job_scoring_profile.py`
-- **通過條件**：全部 passed。
+- Then：四種情況都回傳 1，stderr 含 `[-]`；以 `git check-ignore` 檢查時，`profile/preferences.yaml`、`profile/experience.md`、`.env` 被忽略，對應的範本檔沒有被忽略；兩個範本檔都能成功載入
+- 驗證方式：`uv run pytest tests/test_job_scoring_profile.py`
+- 通過條件：全部 passed。
 
 #### AC-score-salary：薪資計分
 
-- **Given**：共用的測試偏好（期望 70,000、底線 55,000、年薪 ÷14）
-- **When**：以下列職缺呼叫 `score_salary`、`check_hard_filters`（以 `parametrize` 實作）。每項是「`薪資待遇`（`薪資下限` / `薪資上限`）→ 薪資分數」：
+- Given：共用的測試偏好（期望 70,000、底線 55,000、年薪 ÷14）
+- When：以下列職缺呼叫 `score_salary`、`check_hard_filters`（以 `parametrize` 實作）。每項是「`薪資待遇`（`薪資下限` / `薪資上限`）→ 薪資分數」：
   - `月薪70,000~90,000元`（70000 / 90000）→ 5
   - `月薪60,000~80,000元`（60000 / 80000）→ 4
   - `月薪56,000~60,000元`（56000 / 60000）→ 2
@@ -278,15 +278,15 @@ LLM 必須輸出以下 JSON（Pydantic 模型 `AIAssessment`）。欄位使用�
   - `時薪500元以上`（500 / 9999999）→ `None`
   - `論件計酬3,000~15,000元`（3000 / 15000）→ `None`
   - `None`（`None` / `None`）→ `None`
-- **Then**：薪資分數符合上列結果與 [§4.2.6](#426-薪資換算與計分)，而且都不會被淘汰
+- Then：薪資分數符合上列結果與 [§4.2.6](#426-薪資換算與計分)，而且都不會被淘汰
 
-- **驗證方式**：`uv run pytest tests/test_job_scoring_rules.py -k score_salary`
-- **通過條件**：全部 passed。
+- 驗證方式：`uv run pytest tests/test_job_scoring_rules.py -k score_salary`
+- 通過條件：全部 passed。
 
 #### AC-score-total：總分計算
 
-- **Given**：權重 0.4 / 0.25 / 0.15 / 0.2
-- **When**：以下列分數組合呼叫 `compute_total`（以 `parametrize` 實作）。每項是「職涯方向 / 技能 / 產業公司 / 薪資 → 總分」：
+- Given：權重 0.4 / 0.25 / 0.15 / 0.2
+- When：以下列分數組合呼叫 `compute_total`（以 `parametrize` 實作）。每項是「職涯方向 / 技能 / 產業公司 / 薪資 → 總分」：
   - 5 / 5 / 5 / 5 → 100
   - 1 / 1 / 1 / 1 → 0
   - 4 / 4 / 5 / 4 → 79
@@ -294,34 +294,34 @@ LLM 必須輸出以下 JSON（Pydantic 模型 `AIAssessment`）。欄位使用�
   - 5 / 1 / 3 / 3 → 58，原始值 57.5，不受浮點誤差影響
   - 5 / 3 / `None` / `None` → 70，未知維度以 3 分代入
   - `None` / `None` / `None` / `None` → 50，全部未知，等同全部 3 分
-- **Then**：結果符合上列總分與 [§4.2.7](#427-總分) 的公式
+- Then：結果符合上列總分與 [§4.2.7](#427-總分) 的公式
 
-- **驗證方式**：`uv run pytest tests/test_job_scoring_scorer.py -k compute_total`
-- **通過條件**：全部 passed。
+- 驗證方式：`uv run pytest tests/test_job_scoring_scorer.py -k compute_total`
+- 通過條件：全部 passed。
 
 #### AC-score-flow：評分流程與 AI 回應處理
 
-- **Given**：假的 LLM client，回傳 `career_fit` 5 分、`skill_match` 為 `null`、`industry_fit` 3 分、總評為 `總評`；另有一份 `career_fit` 與 `skill_match` 都是 `null` 的回應，以及一份 `career_fit` 為 6 分的回應
-- **When**：分別對 `out` 與 `ok` 職缺呼叫 `score_job`，並驗證超出範圍的回應
-- **Then**：
+- Given：假的 LLM client，回傳 `career_fit` 5 分、`skill_match` 為 `null`、`industry_fit` 3 分、總評為 `總評`；另有一份 `career_fit` 與 `skill_match` 都是 `null` 的回應，以及一份 `career_fit` 為 6 分的回應
+- When：分別對 `out` 與 `ok` 職缺呼叫 `score_job`，並驗證超出範圍的回應
+- Then：
   - `out`：client 沒有被呼叫；結果為 `淘汰` true，`維度` 與 `總分` 都是 `None`
   - `ok`：client 被呼叫 1 次；`model_dump(by_alias=True)` 的鍵依序是四個中文維度名稱；`技能匹配度` 的分數為 `None`、`薪資水準` 為 4；`總分` 75；`未知維度` 為 `[技能匹配度]`；`評語` 為 `總評`
   - 兩個維度都是 `null` 的回應：`總分` 為 55；`未知維度` 為 `[職涯方向契合度, 技能匹配度]`；`評語` 維持 `總評`，不加任何前綴
   - 6 分的回應會讓 `AIAssessment.model_validate` 拋出 `ValidationError`
-- **驗證方式**：`uv run pytest tests/test_job_scoring_scorer.py -k score_job`
-- **通過條件**：全部 passed。
+- 驗證方式：`uv run pytest tests/test_job_scoring_scorer.py -k score_job`
+- 通過條件：全部 passed。
 
 #### AC-score-real：真實評分 〔需網路〕
 
-- **Given**：已在 `.env` 設定 `GEMINI_API_KEY`，沒有設定時測試顯示 skipped 並說明原因；個人資料與職缺使用 `tests/e2e/data/` 的固定測試資料
-- **When**：以 `tests/e2e/data/profile/` 為個人資料，對 `tests/e2e/data/104/jobs.json` 中第一筆有工作內容、而且沒被淘汰的職缺呼叫 `main`
-- **Then**：
+- Given：已在 `.env` 設定 `GEMINI_API_KEY`，沒有設定時測試顯示 skipped 並說明原因；個人資料與職缺使用 `tests/e2e/data/` 的固定測試資料
+- When：以 `tests/e2e/data/profile/` 為個人資料，對 `tests/e2e/data/104/jobs.json` 中第一筆有工作內容、而且沒被淘汰的職缺呼叫 `main`
+- Then：
   - 輸出符合 [§11.2.2](#1122-jobscore-輸出格式)，四個維度依序出現
   - 每個維度都有非空的理由，分數是 1–5 或 `None`
   - 總分在 0–100 之間
   - 測試會印出完整結果（用 `-s` 顯示）
-- **驗證方式**：`uv run pytest -m network -s tests/e2e/test_job_scoring.py -k real_scoring`
-- **通過條件**：passed；使用者閱讀印出的理由，確認內容確實引用了職缺內容，而且與自己的判斷大致相符。
+- 驗證方式：`uv run pytest -m network -s tests/e2e/test_job_scoring.py -k real_scoring`
+- 通過條件：passed；使用者閱讀印出的理由，確認內容確實引用了職缺內容，而且與自己的判斷大致相符。
 
 ## 5. 明顯不合的職缺直接淘汰（filter）
 
@@ -329,7 +329,7 @@ LLM 必須輸出以下 JSON（Pydantic 模型 `AIAssessment`）。欄位使用�
 
 ### 5.1 需求
 
-- **FR-filter**：依 [§5.2.1](#521-硬性淘汰規則) 檢查硬性淘汰條件。
+- FR-filter：依 [§5.2.1](#521-硬性淘汰規則) 檢查硬性淘汰條件。
   - 收集所有成立的淘汰原因。
   - 被淘汰的職缺不呼叫 AI。
 
@@ -337,7 +337,7 @@ LLM 必須輸出以下 JSON（Pydantic 模型 `AIAssessment`）。欄位使用�
 
 #### 5.2.1 硬性淘汰規則
 
-依序檢查以下條件，**收集所有符合的原因**（不在第一條就停止），只要有任何一條就淘汰：
+依序檢查以下條件，收集所有符合的原因（不在第一條就停止），只要有任何一條就淘汰：
 
 1. `公司名稱` 在 `淘汰條件.公司` 中 → 原因 `公司在排除名單：<公司名稱>`
 2. `職缺名稱` 含 `淘汰條件.職稱關鍵字` 中的任一字串 → 原因 `職稱含排除關鍵字：<關鍵字>`
@@ -351,23 +351,23 @@ LLM 必須輸出以下 JSON（Pydantic 模型 `AIAssessment`）。欄位使用�
 
 #### AC-filter-rules：硬性淘汰
 
-- **Given**：共用的測試偏好（底線 55,000、年薪 ÷14、排除「乙公司」與「業務」）
-- **When**：以下列職缺呼叫 `check_hard_filters`。每項是「`薪資待遇`（`薪資下限` / `薪資上限`）→ 淘汰原因」：
+- Given：共用的測試偏好（底線 55,000、年薪 ÷14、排除「乙公司」與「業務」）
+- When：以下列職缺呼叫 `check_hard_filters`。每項是「`薪資待遇`（`薪資下限` / `薪資上限`）→ 淘汰原因」：
   - `月薪40,000~50,000元`（40000 / 50000）→ 1 條，含「底線」
   - `年薪560,000~700,000元`（560000 / 700000）→ 1 條，含「底線」，換算上限為 50,000
   - `月薪40,000~50,000元`（40000 / 50000），職稱 `業務專員`，公司 `乙公司` → 3 條（收集所有原因）
-- **Then**：淘汰原因符合上列結果與 [§5.2.1](#521-硬性淘汰規則)；職稱關鍵字不分大小寫（關鍵字 `sales` 會淘汰 `Senior SALES Manager`）
+- Then：淘汰原因符合上列結果與 [§5.2.1](#521-硬性淘汰規則)；職稱關鍵字不分大小寫（關鍵字 `sales` 會淘汰 `Senior SALES Manager`）
 
-- **驗證方式**：`uv run pytest tests/test_job_scoring_rules.py -k check_hard_filters`
-- **通過條件**：全部 passed。
+- 驗證方式：`uv run pytest tests/test_job_scoring_rules.py -k check_hard_filters`
+- 通過條件：全部 passed。
 
 #### AC-filter-no-key：被淘汰的職缺不需要 API key
 
-- **Given**：已禁止建立 client
-- **When**：不使用 dry-run，對 `out` 職缺呼叫 `main`
-- **Then**：回傳 0；stdout 是 `淘汰` 為 true、`淘汰原因` 不為空的 JSON
-- **驗證方式**：`uv run pytest tests/test_score_job_cli.py -k eliminated`
-- **通過條件**：passed。
+- Given：已禁止建立 client
+- When：不使用 dry-run，對 `out` 職缺呼叫 `main`
+- Then：回傳 0；stdout 是 `淘汰` 為 true、`淘汰原因` 不為空的 JSON
+- 驗證方式：`uv run pytest tests/test_score_job_cli.py -k eliminated`
+- 通過條件：passed。
 
 ## 6. 一次評完整批並拿到結果檔（batch）
 
@@ -375,12 +375,12 @@ LLM 必須輸出以下 JSON（Pydantic 模型 `AIAssessment`）。欄位使用�
 
 ### 6.1 需求
 
-- **FR-batch-order**：整批評分時，依輸入順序逐筆套用 [§4.2.3](#423-評分流程) 的流程。
-- **FR-batch-failure**：單筆評分失敗（LLM 呼叫失敗或回應驗證失敗）時，記下失敗原因並繼續下一筆，不中斷整批。
+- FR-batch-order：整批評分時，依輸入順序逐筆套用 [§4.2.3](#423-評分流程) 的流程。
+- FR-batch-failure：單筆評分失敗（LLM 呼叫失敗或回應驗證失敗）時，記下失敗原因並繼續下一筆，不中斷整批。
   - 這樣整批已經花掉的時間與 AI 費用不會白費。
-- **FR-batch-output**：整批結果寫成 JSON 與 CSV 兩個檔案，位置與格式依 [§6.2.2](#622-結果檔)。
+- FR-batch-output：整批結果寫成 JSON 與 CSV 兩個檔案，位置與格式依 [§6.2.2](#622-結果檔)。
   - CSV 使用 `utf-8-sig`，讓 Excel 能正常顯示中文。
-- **FR-batch-summary**：整批評分結束時印出摘要：總筆數、成功、淘汰、失敗筆數，以及兩個結果檔的路徑。
+- FR-batch-summary：整批評分結束時印出摘要：總筆數、成功、淘汰、失敗筆數，以及兩個結果檔的路徑。
 
 ### 6.2 設計
 
@@ -414,8 +414,8 @@ flowchart TD
 - `淘汰`、`淘汰原因`、`維度`、`總分`、`未知維度`、`評語`（同 [§11.2.2](#1122-jobscore-輸出格式)）：評分失敗時 `淘汰` 為 false，清單為空，其餘為 `null`
 - `失敗原因`（str | null）：評分失敗時的例外訊息；其他情況為 `null`
 
-- **JSON**：UTF-8、`ensure_ascii=False`、縮排 2，內容是依輸入順序排列的陣列（不排序），每個元素的鍵依上列順序排列。
-- **CSV**：`utf-8-sig`，每筆一列，欄位順序如下：
+- JSON：UTF-8、`ensure_ascii=False`、縮排 2，內容是依輸入順序排列的陣列（不排序），每個元素的鍵依上列順序排列。
+- CSV：`utf-8-sig`，每筆一列，欄位順序如下：
   - `職缺代碼`、`職缺名稱`、`公司名稱`、`薪資待遇`
   - `總分`，以及四個維度的分數（欄名就是維度名稱，依 [§4.2.4](#424-評分維度) 的順序；未知時留空）
   - `未知維度`、`淘汰原因`（清單以 `, ` 合併）
@@ -441,60 +441,60 @@ flowchart TD
 
 #### AC-batch-order：整批評分
 
-- **Given**：五筆職缺，依序為：正常、會被淘汰、正常、會評分失敗、正常；整批用的假 LLM client
-- **When**：呼叫整批評分函式
-- **Then**：
+- Given：五筆職缺，依序為：正常、會被淘汰、正常、會評分失敗、正常；整批用的假 LLM client
+- When：呼叫整批評分函式
+- Then：
   - 結果有 5 筆，職缺代碼的順序與輸入相同
   - 假 client 被呼叫 4 次，被淘汰的職缺沒有呼叫
   - 被淘汰的那筆 `淘汰` 為 true、`失敗原因` 為 `None`；成功的三筆 `失敗原因` 為 `None`
-- **驗證方式**：`uv run pytest tests/test_job_scoring_batch.py -k batch_scoring`
-- **通過條件**：全部 passed。
+- 驗證方式：`uv run pytest tests/test_job_scoring_batch.py -k batch_scoring`
+- 通過條件：全部 passed。
 
 #### AC-batch-failure：單筆失敗不中斷整批
 
-- **Given**：三筆職缺，假 client 對第一筆拋出 `LLMError`、對第二筆回傳 6 分，第三筆正常
-- **When**：呼叫整批評分函式
-- **Then**：
+- Given：三筆職缺，假 client 對第一筆拋出 `LLMError`、對第二筆回傳 6 分，第三筆正常
+- When：呼叫整批評分函式
+- Then：
   - 前兩筆的 `失敗原因` 不為空，`總分`、`維度`、`評語` 為 `None`，`淘汰` 為 false
   - 第三筆有總分
   - 沒有拋出例外
-- **驗證方式**：`uv run pytest tests/test_job_scoring_batch.py -k failure`
-- **通過條件**：全部 passed。
+- 驗證方式：`uv run pytest tests/test_job_scoring_batch.py -k failure`
+- 通過條件：全部 passed。
 
 #### AC-batch-output：結果檔
 
-- **Given**：AC-batch-order 的結果，輸出目錄指到 `tmp_path`，輸入檔名為 `jobs_104_測試_20260101_000000.json`
-- **When**：寫出結果檔
-- **Then**：
+- Given：AC-batch-order 的結果，輸出目錄指到 `tmp_path`，輸入檔名為 `jobs_104_測試_20260101_000000.json`
+- When：寫出結果檔
+- Then：
   - 產生 `jobs_104_測試_20260101_000000_scored.json` 與 `_scored.csv`
   - JSON 可解析，每個元素的鍵與順序符合 [§6.2.2](#622-結果檔) 的表
   - CSV 以 `utf-8-sig` 讀取時，表頭符合 [§6.2.2](#622-結果檔) 的欄位順序、列的順序與 JSON 相同，未知維度的分數欄是空字串，被淘汰那列的 `淘汰原因` 以 `, ` 合併
-- **驗證方式**：`uv run pytest tests/test_job_scoring_batch.py -k output`
-- **通過條件**：全部 passed。
+- 驗證方式：`uv run pytest tests/test_job_scoring_batch.py -k output`
+- 通過條件：全部 passed。
 
 #### AC-batch-cli：整批 CLI 與摘要
 
-- **Given**：共用的測試資料，輸出目錄指到 `tmp_path`
-- **When**：
+- Given：共用的測試資料，輸出目錄指到 `tmp_path`
+- When：
   - (a) 以假 client 取代 `get_client`，不指定 `--job-no` 呼叫 `main`
   - (b) 使用 `--dry-run` 但不指定 `--job-no`。〔規劃中〕實作 dry-run 試跑後刪除此項，整批試跑改由 AC-dry-run 驗證
   - (c) 已禁止建立 client，職缺檔只有 `out`，不指定 `--job-no`
   - (d) `GEMINI_API_KEY` 設為空字串，不指定 `--job-no`
-- **Then**：
+- Then：
   - (a) 回傳 0；stdout 為空；stderr 含 `共 2 筆，成功 1、淘汰 1、失敗 0` 與兩個結果檔的路徑
   - (b) 回傳 1，stderr 含 `[-]`，沒有產生結果檔。〔規劃中〕實作 dry-run 試跑後刪除此項
   - (c) 回傳 0，結果檔中該筆 `淘汰` 為 true
   - (d) 回傳 1，stderr 含 `[-]` 與 `GEMINI_API_KEY`，沒有產生結果檔
-- **驗證方式**：`uv run pytest tests/test_score_job_cli.py -k batch`
-- **通過條件**：全部 passed。
+- 驗證方式：`uv run pytest tests/test_score_job_cli.py -k batch`
+- 通過條件：全部 passed。
 
 #### AC-batch-real：真實整批評分 〔需網路〕
 
-- **Given**：與 AC-score-real 相同
-- **When**：以 `tests/e2e/data/profile/` 為個人資料，對 `tests/e2e/data/104/jobs.json`（5 筆，其中 1 筆會被淘汰）不指定 `--job-no` 呼叫 `main`，輸出目錄指到 `tmp_path`
-- **Then**：回傳 0；結果檔有 5 筆；測試印出摘要與前幾名的評語（用 `-s` 顯示）
-- **驗證方式**：`uv run pytest -m network -s tests/e2e/test_job_scoring.py -k real_batch`
-- **通過條件**：passed；使用者抽查前幾名的評分理由是否合理。
+- Given：與 AC-score-real 相同
+- When：以 `tests/e2e/data/profile/` 為個人資料，對 `tests/e2e/data/104/jobs.json`（5 筆，其中 1 筆會被淘汰）不指定 `--job-no` 呼叫 `main`，輸出目錄指到 `tmp_path`
+- Then：回傳 0；結果檔有 5 筆；測試印出摘要與前幾名的評語（用 `-s` 顯示）
+- 驗證方式：`uv run pytest -m network -s tests/e2e/test_job_scoring.py -k real_batch`
+- 通過條件：passed；使用者抽查前幾名的評分理由是否合理。
 
 ## 7. 依分數查詢職缺（store）
 
@@ -504,10 +504,10 @@ flowchart TD
 
 ### 7.1 需求
 
-- **FR-store-write**：單筆與整批評分的結果都寫入 `job_scores` 表，格式依 [§7.2.1](#721-資料表)。
+- FR-store-write：單筆與整批評分的結果都寫入 `job_scores` 表，格式依 [§7.2.1](#721-資料表)。
   - 每筆職缺只保留最新一次的結果。
   - 評分失敗的職缺不寫入，保留原本的列。
-- **FR-store-db-path**：CLI 以 `--db` 指定資料庫路徑，預設為 `data/jobs.db`（與 [job-database §7.1](job-database.md#71-需求) 的預設路徑相同）。
+- FR-store-db-path：CLI 以 `--db` 指定資料庫路徑，預設為 `data/jobs.db`（與 [job-database §7.1](job-database.md#71-需求) 的預設路徑相同）。
   - 評分結果都會寫入資料庫，只有試跑例外（見 [§9](#9-換設定試跑而不影響正式分數dry-run)）。
 
 ### 7.2 設計
@@ -520,7 +520,7 @@ flowchart TD
 - 職缺內容更新不代表要重新呼叫 AI，是否重問由 [§8.2.1](#821-快取鍵) 的快取鍵決定。
 - 要整批重評時，清空 `job_scores` 即可，不影響職缺資料。
 
-**`job_scores`**：每筆職缺最多一列，只保留最新一次的評分結果。
+`job_scores`：每筆職缺最多一列，只保留最新一次的評分結果。
 
 - `職缺代碼`（TEXT）：主鍵
 - `評分時間`（TEXT）：這列最後一次寫入的時間；本地時間，ISO 8601，精確到秒
@@ -566,22 +566,22 @@ flowchart TD
 
 #### AC-store-write：評分結果入庫
 
-- **Given**：`tmp_path` 的資料庫中，已有「會評分失敗」那筆職缺的舊列；三筆職缺，依序為會評分成功、會被淘汰、會評分失敗；整批用的假 LLM client
-- **When**：呼叫整批評分函式
-- **Then**：
+- Given：`tmp_path` 的資料庫中，已有「會評分失敗」那筆職缺的舊列；三筆職缺，依序為會評分成功、會被淘汰、會評分失敗；整批用的假 LLM client
+- When：呼叫整批評分函式
+- Then：
   - 成功與淘汰的兩筆寫入 `job_scores`，`評分結果` 解析後符合 [§11.2.2](#1122-jobscore-輸出格式)，`淘汰`、`總分`、`評語` 與其中的值一致
   - 淘汰那列的 `總分`、`快取鍵` 為 `null`
   - 評分失敗那筆的舊列內容不變
-- **驗證方式**：`uv run pytest tests/test_job_scoring_batch.py -k store`
-- **通過條件**：全部 passed。
+- 驗證方式：`uv run pytest tests/test_job_scoring_batch.py -k store`
+- 通過條件：全部 passed。
 
 #### AC-store-db-path：資料庫路徑
 
-- **Given**：`tmp_path` 中有一個只含 job-database 三張表與一筆職缺的資料庫；已禁止建立 client
-- **When**：以 `--db` 指定該資料庫，對 `out` 職缺呼叫 `main`
-- **Then**：回傳 0；該資料庫多了 `job_scores` 表，其中有 `out` 的列；原本的職缺資料不變
-- **驗證方式**：`uv run pytest tests/test_score_job_cli.py -k db_path`
-- **通過條件**：passed。
+- Given：`tmp_path` 中有一個只含 job-database 三張表與一筆職缺的資料庫；已禁止建立 client
+- When：以 `--db` 指定該資料庫，對 `out` 職缺呼叫 `main`
+- Then：回傳 0；該資料庫多了 `job_scores` 表，其中有 `out` 的列；原本的職缺資料不變
+- 驗證方式：`uv run pytest tests/test_score_job_cli.py -k db_path`
+- 通過條件：passed。
 
 ## 8. 重跑時不重複付 AI 費用（cache）
 
@@ -591,16 +591,16 @@ flowchart TD
 
 ### 8.1 需求
 
-- **FR-cache-reuse**：沒被淘汰的職缺，評分前依 [§8.2.1](#821-快取鍵) 計算快取鍵。
+- FR-cache-reuse：沒被淘汰的職缺，評分前依 [§8.2.1](#821-快取鍵) 計算快取鍵。
   - `job_scores` 中同一筆職缺的快取鍵相同時，沿用該列的 AI 維度與評語，不呼叫 AI。
   - 硬性淘汰、薪資分數與加權總分照常重算。
-- **FR-cache-summary**：整批評分的摘要中，成功筆數裡沿用上次 AI 評分的筆數另外列出，格式見 [§6.2.3](#623-摘要)。
+- FR-cache-summary：整批評分的摘要中，成功筆數裡沿用上次 AI 評分的筆數另外列出，格式見 [§6.2.3](#623-摘要)。
 
 ### 8.2 設計
 
 #### 8.2.1 快取鍵
 
-快取的對象只有 **AI 的三個維度與評語**：AI 的輸出完全由送出去的東西決定，所以快取鍵是以下四個字串組成 JSON 陣列後的 SHA-256（十六進位）。為什麼不把整份偏好檔放進快取鍵，見 [ADR 0002](../decisions/0002-score-cache-ai-only.md)。
+快取的對象只有 AI 的三個維度與評語：AI 的輸出完全由送出去的東西決定，所以快取鍵是以下四個字串組成 JSON 陣列後的 SHA-256（十六進位）。為什麼不把整份偏好檔放進快取鍵，見 [ADR 0002](../decisions/0002-score-cache-ai-only.md)。
 
 1. 供應商名稱
 2. 模型名稱
@@ -608,7 +608,7 @@ flowchart TD
 4. user 提示詞
 
 - system 提示詞包含模板全文，user 提示詞包含 `experience.md` 全文、`目標方向`、`產業偏好` 與職缺的六個欄位（見 [§4.2.8](#428-提示詞設計)）。所以經歷、提示詞模板、這三項偏好、職缺的這六個欄位與模型任一項改變，快取鍵就會不同，不必另外維護提示詞版本號。
-- 程式端的計算（硬性淘汰、薪資分數、加權總分）**每次都重算**，不吃快取，所以以下都不進快取鍵：
+- 程式端的計算（硬性淘汰、薪資分數、加權總分）每次都重算，不吃快取，所以以下都不進快取鍵：
   - `薪資待遇`、`薪資下限`、`薪資上限`：不會送進 AI（見 [§4.2.8](#428-提示詞設計)）。職缺改了薪資後，重跑會得到新的薪資分數與總分，但不必重新呼叫 AI。
   - `權重`、`薪資` 門檻、`淘汰條件`：只影響程式端，改了會重算總分，也不必重新呼叫 AI。
 - 快取鍵不包含程式碼。修改 [§5.2.1](#521-硬性淘汰規則)、[§4.2.6](#426-薪資換算與計分)、[§4.2.7](#427-總分) 的計算規則會直接生效（因為每次重算），但修改 AI 回應的解析方式後，要清空 `job_scores` 才會重跑。
@@ -631,8 +631,8 @@ flowchart TD
 
 #### AC-cache：沿用上次的 AI 評分
 
-- **Given**：`tmp_path` 的資料庫；共用的測試資料；以會記錄呼叫次數的假 client 取代 `get_client`
-- **When**：
+- Given：`tmp_path` 的資料庫；共用的測試資料；以會記錄呼叫次數的假 client 取代 `get_client`
+- When：
   - (a) 不指定 `--job-no` 呼叫 `main` 兩次
   - (b)～(f) 各自從 (a) 結束時的資料庫開始：
     - (b) 分別修改 `experience.md`、`--model` 後再呼叫
@@ -640,15 +640,15 @@ flowchart TD
     - (d) 修改 `preferences.yaml` 的 `權重` 後再呼叫
     - (e) 改為禁止建立 client，再呼叫一次
     - (f) 以 `--job-no` 指定 `ok` 呼叫
-- **Then**：
+- Then：
   - (a) 第一次假 client 被呼叫 1 次，第二次 0 次；第二次的 stderr 含 `沿用上次的 AI 評分：1 筆` 與 `成功 1`；`job_scores` 中 `ok` 的三個 AI 維度與 `評語` 沒有改變；兩次的結果檔內容相同
   - (b) 每一種修改都讓假 client 再被呼叫 1 次
   - (c) 假 client 沒有被呼叫；`ok` 的 `薪資水準` 分數與 `總分` 都變高，並寫回 `job_scores`
   - (d) 假 client 沒有被呼叫；`ok` 的 `總分` 依新權重改變
   - (e) 回傳 0，沒有建立 client
   - (f) 回傳 0，假 client 沒有被呼叫，stdout 與 (a) 結果檔中 `ok` 的評分欄位相同，stderr 含 `沿用`
-- **驗證方式**：`uv run pytest tests/test_score_job_cli.py -k cache`
-- **通過條件**：全部 passed。
+- 驗證方式：`uv run pytest tests/test_score_job_cli.py -k cache`
+- 通過條件：全部 passed。
 
 ## 9. 換設定試跑而不影響正式分數（dry-run）
 
@@ -658,7 +658,7 @@ flowchart TD
 
 ### 9.1 需求
 
-- **FR-dry-run**：指定 `--dry-run` 時照常完整評分（會呼叫 AI），但不讀寫資料庫，也不沿用上次的 AI 評分。
+- FR-dry-run：指定 `--dry-run` 時照常完整評分（會呼叫 AI），但不讀寫資料庫，也不沿用上次的 AI 評分。
   - 單筆與整批都可使用：單筆照常印到 stdout，整批照常寫出結果檔。
   - 取代現行「只印出提示詞、不建立 LLM client」的 `--dry-run`（見 [§11.1](#111-需求)），不再提供只印出提示詞的功能。
 
@@ -671,29 +671,29 @@ flowchart TD
 
 #### AC-dry-run：dry-run 試跑
 
-- **Given**：以會記錄呼叫次數與收到的提示詞的假 client 取代 `get_client`；`--db` 指到 `tmp_path`，其中 `ok` 已有一列評分結果
-- **When**：
+- Given：以會記錄呼叫次數與收到的提示詞的假 client 取代 `get_client`；`--db` 指到 `tmp_path`，其中 `ok` 已有一列評分結果
+- When：
   - (a) 以 `--dry-run` 對 `ok` 職缺呼叫 `main` 兩次
   - (b) 以 `--dry-run` 評整批，輸出目錄指到 `tmp_path`
   - (c) 以 `--dry-run` 並以 `--db` 指定 `tmp_path` 中不存在的路徑，對 `ok` 呼叫
-- **Then**：
+- Then：
   - (a) 兩次都回傳 0，stdout 是評分結果的 JSON；假 client 被呼叫 2 次（不沿用上次的 AI 評分）；收到的 user 提示詞包含 `目標標記-AAA`、`經歷標記-BBB`、`工作標記-CCC` 與 `（無資料）`；資料庫中 `ok` 的列沒有改變
   - (b) 回傳 0，結果檔照常產生，資料庫沒有改變
   - (c) 回傳 0，資料庫檔沒有被建立
-- **驗證方式**：`uv run pytest tests/test_score_job_cli.py -k dry_run`
-- **通過條件**：全部 passed。
+- 驗證方式：`uv run pytest tests/test_score_job_cli.py -k dry_run`
+- 通過條件：全部 passed。
 
 ## 10. 非功能需求
 
 ### 10.1 需求
 
-- **NFR-cost**：只有真的需要 AI 判斷時才呼叫 AI。
+- NFR-cost：只有真的需要 AI 判斷時才呼叫 AI。
   - 被淘汰的職缺不呼叫 AI（見 [§5](#5-明顯不合的職缺直接淘汰filter)）。
   - 〔規劃中〕送給 AI 的內容沒變的職缺，沿用上次的 AI 評分（見 [§8](#8-重跑時不重複付-ai-費用cache)）。
-- **NFR-privacy**：真實的個人資料檔與 API key 不進版控，版控中只提供範本。
+- NFR-privacy：真實的個人資料檔與 API key 不進版控，版控中只提供範本。
   - `profile/preferences.yaml`、`profile/experience.md` 的範本是 `.example` 檔（見 [§4.2.1](#421-個人資料檔)）。
   - `.env` 的範本是 `.env.example`（見 [§11.2.3](#1123-llm-供應商抽象層)）。
-- **NFR-null**：資訊不足時分數為 `null`，不猜分數、不回填預設值（依 [development.md](../conventions/development.md#防禦性設計)）。
+- NFR-null：資訊不足時分數為 `null`，不猜分數、不回填預設值（依 [development.md](../conventions/development.md#防禦性設計)）。
   - AI 資訊不足時給 `null`（[§4.2.8](#428-提示詞設計)），薪資無法換算時為 `null`（[§4.2.6](#426-薪資換算與計分)）。
   - 總分計算時才以 3 分代入，並把這些維度列入 `未知維度`（[§4.2.7](#427-總分)）。
 
@@ -716,10 +716,10 @@ flowchart TD
 
 ### 11.1 需求
 
-- **FR-cli**：提供 `src/score_job.py` CLI，參數與結束碼依 [§11.2.4](#1124-cli)。
+- FR-cli：提供 `src/score_job.py` CLI，參數與結束碼依 [§11.2.4](#1124-cli)。
   - 指定 `--job-no` 時評單筆並印出結果，省略時評整批。
   - `--dry-run` 只印出提示詞、不建立 LLM client，必須搭配 `--job-no`。
-- **FR-llm**：LLM 呼叫透過 `LLMClient` 介面與 `get_client(provider, model)` 工廠函式，預設使用 Gemini。
+- FR-llm：LLM 呼叫透過 `LLMClient` 介面與 `get_client(provider, model)` 工廠函式，預設使用 Gemini。
   - API key 讀取環境變數 `GEMINI_API_KEY`。
   - CLI 啟動時從專案根目錄的 `.env` 載入，但不覆寫已存在的環境變數。
   - 只有 `llm.py` 可以依賴特定供應商的 SDK。
@@ -811,7 +811,7 @@ class LLMClient(Protocol):
   - `response_format` 裡 schema 的鍵名要寫 `schema_`（SDK 的 TypedDict 鍵名），送出時才會序列化成 API 的 `schema`。
   - `store=False`：提示詞含個人經歷，不在伺服器端保存互動紀錄。
   - SDK 的錯誤類別（HTTP、連線、逾時）沒有公開匯出，因此 `interactions.create` 拋出的任何例外都轉成 `LLMError`；`output_text` 為空時也是 `LLMError`。
-- API key 從環境變數 `GEMINI_API_KEY` 讀取，由 `GeminiClient` 建構時檢查，**沒有設定或是空字串**就拋出例外。CLI 只在「沒被淘汰、也不是 `--dry-run`」時才建立 client，所以只有真的要呼叫 AI 時才需要 key。〔規劃中〕沿用上次 AI 評分的職缺也不建立 client（見 [§8.2.2](#822-沿用時的行為)）。
+- API key 從環境變數 `GEMINI_API_KEY` 讀取，由 `GeminiClient` 建構時檢查，沒有設定或是空字串就拋出例外。CLI 只在「沒被淘汰、也不是 `--dry-run`」時才建立 client，所以只有真的要呼叫 AI 時才需要 key。〔規劃中〕沿用上次 AI 評分的職缺也不建立 client（見 [§8.2.2](#822-沿用時的行為)）。
 - API key 放在專案根目錄的 `.env`（不進版控，範本是 `.env.example`）。`score_job.py` 啟動時用 `python-dotenv` 的 `load_dotenv(專案根目錄 / ".env")` 載入。`load_dotenv` 預設**不覆寫已經存在的環境變數**（[python-dotenv](https://github.com/theskumar/python-dotenv)），所以 shell 設定的值優先；測試時用 `GEMINI_API_KEY=` 設成空字串，就能模擬沒有 key 的情況，不受 `.env` 影響。
 - 預設模型：`gemini-3.8-flash`，可用 `--model` 覆寫。
 - `get_client(provider, model)`：用供應商名稱查表建立 client，不認得的名稱就拋出 `ValueError`。之後加入其他供應商時，只要新增對應的 client 並註冊到表中，其他模組都不用改。
@@ -828,7 +828,7 @@ uv run src/score_job.py --jobs output/104/<檔名>.json [--job-no <職缺代碼>
 - `--profile-dir`：放 `preferences.yaml` 與 `experience.md` 的目錄，預設為專案根目錄下的 `profile/`（以腳本位置為基準，不受工作目錄影響）
 - `--provider`：LLM 供應商，預設 `gemini`
 - `--model`：模型名稱，預設 `gemini-3.8-flash`
-- `--dry-run`：先執行硬性淘汰與薪資計分，再印出完整的 system 與 user 提示詞，**不建立 LLM client、不發出網路請求**。必須搭配 `--job-no`，否則印出 `[-]` 並結束。〔規劃中〕改為試跑（見 [§9](#9-換設定試跑而不影響正式分數dry-run)）：完整評分（會呼叫 AI），但不讀寫資料庫、不沿用上次的 AI 評分，不影響已存的正式分數。單筆照常印到 stdout，整批照常寫出結果檔。用於換一份偏好檔、經歷或模型，實際看 AI 會給幾分、理由是什麼
+- `--dry-run`：先執行硬性淘汰與薪資計分，再印出完整的 system 與 user 提示詞，不建立 LLM client、不發出網路請求。必須搭配 `--job-no`，否則印出 `[-]` 並結束。〔規劃中〕改為試跑（見 [§9](#9-換設定試跑而不影響正式分數dry-run)）：完整評分（會呼叫 AI），但不讀寫資料庫、不沿用上次的 AI 評分，不影響已存的正式分數。單筆照常印到 stdout，整批照常寫出結果檔。用於換一份偏好檔、經歷或模型，實際看 AI 會給幾分、理由是什麼
 - `--db`：〔規劃中〕評分結果寫入的資料庫，預設為專案根目錄的 `data/jobs.db`（見 [§7](#7-依分數查詢職缺store)）
 
 單筆評分的結果以 JSON 印到 stdout（`ensure_ascii=False`，縮排 2）；整批評分的結果寫成檔案，stdout 不輸出。進度、摘要與錯誤訊息都印到 stderr，方便把 stdout 導向檔案。
@@ -853,20 +853,20 @@ uv run src/score_job.py --jobs output/104/<檔名>.json [--job-no <職缺代碼>
 
 放在 `tests/conftest.py` 的 fixture，各測試檔共用：
 
-- **偏好檔**：完整的測試偏好寫在 conftest 裡，由測試寫到 `tmp_path`，不讀取範本：
+- 偏好檔：完整的測試偏好寫在 conftest 裡，由測試寫到 `tmp_path`，不讀取範本：
   - `目標方向: [目標標記-AAA]`
   - `產業偏好: {喜歡: [軟體及網路相關業, 金融科技], 不喜歡: [博弈]}`
   - `薪資: {期望月薪: 70000, 底線月薪: 55000, 年薪換算月數: 14}`
   - `淘汰條件: {公司: [乙公司], 職稱關鍵字: [業務]}`
   - `權重: {職涯方向契合度: 0.4, 技能匹配度: 0.25, 產業公司吸引力: 0.15, 薪資水準: 0.2}`
-- **經歷檔**：內容為 `經歷標記-BBB`
-- **職缺檔**：兩筆職缺，共用欄位為 甲公司、軟體及網路相關業、`月薪60,000~80,000元`（60000 / 80000）、工作內容 `工作標記-CCC`，`電腦專長` 與 `科系要求` 為空字串
+- 經歷檔：內容為 `經歷標記-BBB`
+- 職缺檔：兩筆職缺，共用欄位為 甲公司、軟體及網路相關業、`月薪60,000~80,000元`（60000 / 80000）、工作內容 `工作標記-CCC`，`電腦專長` 與 `科系要求` 為空字串
   - `ok`：職缺名稱 `Python 工程師`，不會被淘汰
   - `out`：職缺名稱 `業務專員`，會被淘汰
-- **假的 LLM client**：不連網，回傳固定的 `AIAssessment`，並記錄被呼叫的次數
-- **整批用的假 LLM client**：依職缺名稱回傳不同分數，或對指定職缺拋出 `LLMError`／回傳超出範圍的分數；整批測試的職缺清單在各測試內建立
-- **禁止建立 client**：用 monkeypatch 把 `score_job.get_client` 換成一呼叫就讓測試失敗的函式，並把 `GEMINI_API_KEY` 設為空字串
-- **資料庫**〔規劃中〕：所有測試（含 AC-score-real、AC-batch-real）都以 `--db` 或連線參數指到 `tmp_path` 的資料庫，不寫入 `data/jobs.db`
+- 假的 LLM client：不連網，回傳固定的 `AIAssessment`，並記錄被呼叫的次數
+- 整批用的假 LLM client：依職缺名稱回傳不同分數，或對指定職缺拋出 `LLMError`／回傳超出範圍的分數；整批測試的職缺清單在各測試內建立
+- 禁止建立 client：用 monkeypatch 把 `score_job.get_client` 換成一呼叫就讓測試失敗的函式，並把 `GEMINI_API_KEY` 設為空字串
+- 資料庫〔規劃中〕：所有測試（含 AC-score-real、AC-batch-real）都以 `--db` 或連線參數指到 `tmp_path` 的資料庫，不寫入 `data/jobs.db`
 
 一次跑完所有離線驗收：
 
@@ -878,37 +878,37 @@ uv run pytest tests/test_job_scoring_*.py tests/test_score_job_cli.py
 
 #### AC-mypy：型別檢查
 
-- **Given**：實作完成
-- **When**：執行 mypy
-- **Then**：沒有錯誤
-- **驗證方式**：`uv run mypy src/`
-- **通過條件**：輸出 `Success: no issues found`。
+- Given：實作完成
+- When：執行 mypy
+- Then：沒有錯誤
+- 驗證方式：`uv run mypy src/`
+- 通過條件：輸出 `Success: no issues found`。
 
 #### AC-cli-dry-run：dry-run 印出提示詞且不建立 client
 
 〔規劃中〕實作 dry-run 試跑後由 AC-dry-run 取代。
 
-- **Given**：已禁止建立 client
-- **When**：以 `--dry-run` 對 `ok` 職缺呼叫 `main`
-- **Then**：回傳 0；stdout 包含 `目標標記-AAA`、`經歷標記-BBB`、`工作標記-CCC` 與 `（無資料）`；禁止建立 client 的函式沒有被呼叫
-- **驗證方式**：`uv run pytest tests/test_score_job_cli.py -k dry_run_prints_prompt`
-- **通過條件**：passed。
+- Given：已禁止建立 client
+- When：以 `--dry-run` 對 `ok` 職缺呼叫 `main`
+- Then：回傳 0；stdout 包含 `目標標記-AAA`、`經歷標記-BBB`、`工作標記-CCC` 與 `（無資料）`；禁止建立 client 的函式沒有被呼叫
+- 驗證方式：`uv run pytest tests/test_score_job_cli.py -k dry_run_prints_prompt`
+- 通過條件：passed。
 
 #### AC-cli-error：錯誤處理與供應商隔離
 
-- **Given**：`GEMINI_API_KEY` 設為空字串（`.env` 不會覆寫已存在的變數）
-- **When**：
+- Given：`GEMINI_API_KEY` 設為空字串（`.env` 不會覆寫已存在的變數）
+- When：
   - (a) 不使用 dry-run，對 `ok` 職缺呼叫 `main`
   - (b) 指定不存在的職缺代碼
   - (c) 以不存在的供應商呼叫 `get_client`
   - (d) 用 `ast` 掃描 `src/job_scoring/` 與 `src/score_job.py` 的 import
-- **Then**：
+- Then：
   - (a) 回傳 1，stderr 含 `[-]` 與 `GEMINI_API_KEY`
   - (b) 回傳 1，stderr 含 `[-]`
   - (c) 拋出 `ValueError`
   - (d) 只有 `llm.py` import `google` 開頭的模組
-- **驗證方式**：`uv run pytest tests/test_score_job_cli.py -k error`
-- **通過條件**：全部 passed。
+- 驗證方式：`uv run pytest tests/test_score_job_cli.py -k error`
+- 通過條件：全部 passed。
 
 ## 12. 待決問題
 

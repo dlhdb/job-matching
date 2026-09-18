@@ -100,14 +100,14 @@ uv run src/import_jobs.py output/104/*.json
 [.devcontainer/](.devcontainer/) 提供一個 Docker 容器，讓 AI coding agent（目前設定的是 Claude Code）可以不經逐步確認直接執行：容器內的指令不會碰到主機，對外連線也只允許必要的網域。設計細節見 [docs/ai-coding-setup/devcontainer.md](docs/ai-coding-setup/devcontainer.md)。
 
 1. 安裝 Docker Desktop 與 VS Code 的 [Dev Containers 擴充套件](https://marketplace.visualstudio.com/items?itemName=ms-vscode-remote.remote-containers)，並啟動 Docker Desktop。
-2. 在 VS Code 執行 **Dev Containers: Reopen in Container**。第一次建置會安裝 Python 3.14 與 Claude Code，並執行 `scripts/setup-dev-env.sh`。
+2. 在 VS Code 執行 「Dev Containers: Reopen in Container」。第一次建置會安裝 Python 3.14 與 Claude Code，並執行 `scripts/setup-dev-env.sh`。
 3. 在容器的終端機執行：
 
    ```bash
    claude --dangerously-skip-permissions
    ```
 
-   也可以使用 Claude Code 擴充套件，在模式選單選 **Bypass permissions**。
+   也可以使用 Claude Code 擴充套件，在模式選單選 「Bypass permissions」。
 
 注意事項：
 

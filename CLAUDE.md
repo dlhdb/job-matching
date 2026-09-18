@@ -6,7 +6,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## 常用指令
 
-專案由 **uv** 管理，Python 3.14。
+專案由 uv 管理，Python 3.14。
 
 ```bash
 scripts/setup-dev-env.sh     # 建立開發環境：uv sync + 設定 nbstripout git filter（可重複執行）

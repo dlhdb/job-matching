@@ -12,9 +12,9 @@
 
 ## 2. 範圍
 
-**範圍內**：見 [§3 設計總覽](#3-設計總覽)的使用者故事清單，以及 [§7 非功能需求](#7-非功能需求)、[§8 共用設計](#8-共用設計)。
+範圍內：見 [§3 設計總覽](#3-設計總覽)的使用者故事清單，以及 [§7 非功能需求](#7-非功能需求)、[§8 共用設計](#8-共用設計)。
 
-**範圍外**（實作時不要做）
+範圍外（實作時不要做）：
 
 - 其他求職平台（另開一個功能）
 - 資料庫儲存（屬 job-database）
@@ -22,7 +22,7 @@
 
 ## 3. 設計總覽
 
-**輸入與輸出**
+輸入與輸出：
 
 - 輸入：使用者給的搜尋條件（關鍵字、縣市、頁數、職缺性質，見 [§8.2.2](#822-cli)），以及 104 的搜尋與詳情 API（見 [§4.2.2](#422-104-api-的限制)）。沒有上游功能。
 - 輸出：`output/104/` 下同名的 CSV 與 JSON（見 [§6.2.1](#621-輸出檔)），欄位依 [§8.2.1](#821-欄位字典) 的欄位字典。
@@ -30,7 +30,7 @@
   - CSV 供人用 Excel 瀏覽。
 - 抓完後預設由 job-database 把同一批職缺寫進 `data/jobs.db`（見 [job-database 的爬蟲寫入參數](job-database.md#423-爬蟲的寫入參數)）。
 
-**使用者故事清單**
+使用者故事清單：
 
 本功能範圍內的使用者故事，細節見各章的「需求」。
 
@@ -46,12 +46,12 @@
 
 ### 4.1 需求
 
-- **FR-search-keyword**：多個關鍵字可用半形或全形逗號分隔，逐一搜尋。
+- FR-search-keyword：多個關鍵字可用半形或全形逗號分隔，逐一搜尋。
   - 重複的關鍵字只搜尋一次，保留首次出現的順序。
-- **FR-search-area**：縣市名稱可精準或模糊比對（如 `台北`）到 104 地區代碼。
+- FR-search-area：縣市名稱可精準或模糊比對（如 `台北`）到 104 地區代碼。
   - 無法辨識或未填時搜尋全台灣。
-- **FR-search-dedup**：單次執行內，以 `職缺代碼` 去重，輸出中每筆職缺唯一。
-- **FR-search-request**：請求須帶 `User-Agent` 與 `Referer` 標頭並設 `timeout`。
+- FR-search-dedup：單次執行內，以 `職缺代碼` 去重，輸出中每筆職缺唯一。
+- FR-search-request：請求須帶 `User-Agent` 與 `Referer` 標頭並設 `timeout`。
   - 請求之間的延遲見 [§7](#7-非功能需求)。
 
 ### 4.2 設計
@@ -88,43 +88,43 @@
 
 #### AC-search-keyword：關鍵字拆分
 
-- **Given**：關鍵字字串混用半形、全形逗號與空白，或含重複的關鍵字
-- **When**：呼叫 `parse_keywords`
-- **Then**：得到去除空白、不重複且保留原順序的關鍵字列表
-- **驗證方式**：`uv run pytest tests/test_fetch_104_jobs.py -k parse_keywords`
-- **通過條件**：全部 passed。
+- Given：關鍵字字串混用半形、全形逗號與空白，或含重複的關鍵字
+- When：呼叫 `parse_keywords`
+- Then：得到去除空白、不重複且保留原順序的關鍵字列表
+- 驗證方式：`uv run pytest tests/test_fetch_104_jobs.py -k parse_keywords`
+- 通過條件：全部 passed。
 
 #### AC-search-area：地區解析
 
-- **Given**：輸入精準名稱、模糊名稱、無法辨識的名稱與空值
-- **When**：呼叫 `resolve_area`
-- **Then**：前兩者得到正確代碼（`新竹` 對應新竹市），後兩者得到 `(None, "全台灣")`
-- **驗證方式**：`uv run pytest tests/test_fetch_104_jobs.py -k resolve_area`
-- **通過條件**：全部 passed。
+- Given：輸入精準名稱、模糊名稱、無法辨識的名稱與空值
+- When：呼叫 `resolve_area`
+- Then：前兩者得到正確代碼（`新竹` 對應新竹市），後兩者得到 `(None, "全台灣")`
+- 驗證方式：`uv run pytest tests/test_fetch_104_jobs.py -k resolve_area`
+- 通過條件：全部 passed。
 
 #### AC-search-dedup：去重與分頁
 
-- **Given**：以假資料取代搜尋 API，兩個關鍵字的結果有重疊
-- **When**：呼叫 `execute_scraping`
-- **Then**：輸出中每筆職缺唯一；到達最後一頁或遇到空頁時停止
-- **驗證方式**：`uv run pytest tests/test_fetch_104_jobs.py -k "dedups or stops_on_empty_page or respects_page_limit or accepts_single_string"`
-- **通過條件**：全部 passed。
+- Given：以假資料取代搜尋 API，兩個關鍵字的結果有重疊
+- When：呼叫 `execute_scraping`
+- Then：輸出中每筆職缺唯一；到達最後一頁或遇到空頁時停止
+- 驗證方式：`uv run pytest tests/test_fetch_104_jobs.py -k "dedups or stops_on_empty_page or respects_page_limit or accepts_single_string"`
+- 通過條件：全部 passed。
 
 #### AC-search-request：請求標頭、逾時與錯誤處理
 
-- **Given**：以假函式取代 `requests.get`，並記錄呼叫參數
-- **When**：呼叫 `fetch_jobs`、`fetch_job_detail`
-- **Then**：每個請求都帶 `User-Agent`、`Referer` 與 `timeout`；詳情請求的 Referer 是職缺自己的頁面；HTTP 錯誤或網路例外時回傳空結果，不會讓程式中斷
-- **驗證方式**：`uv run pytest tests/test_fetch_104_jobs.py -k fetch_job`
-- **通過條件**：全部 passed。
+- Given：以假函式取代 `requests.get`，並記錄呼叫參數
+- When：呼叫 `fetch_jobs`、`fetch_job_detail`
+- Then：每個請求都帶 `User-Agent`、`Referer` 與 `timeout`；詳情請求的 Referer 是職缺自己的頁面；HTTP 錯誤或網路例外時回傳空結果，不會讓程式中斷
+- 驗證方式：`uv run pytest tests/test_fetch_104_jobs.py -k fetch_job`
+- 通過條件：全部 passed。
 
 #### AC-search-real：實際抓取與輸出 〔需網路〕
 
-- **Given**：可以連線到 104
-- **When**：以兩個搜尋結果會重疊的關鍵字（`Python`、`Python工程師`）、1 頁、台北市執行抓取，輸出寫到暫存目錄
-- **Then**：職缺代碼不重複，而且少於兩個關鍵字抓到的原始筆數（代表跨關鍵字去重有生效）；CSV 以 BOM 開頭且表頭一致；至少一筆有完整的工作內容
-- **驗證方式**：`uv run pytest -m network tests/e2e/test_fetch_104_jobs.py`
-- **通過條件**：passed。
+- Given：可以連線到 104
+- When：以兩個搜尋結果會重疊的關鍵字（`Python`、`Python工程師`）、1 頁、台北市執行抓取，輸出寫到暫存目錄
+- Then：職缺代碼不重複，而且少於兩個關鍵字抓到的原始筆數（代表跨關鍵字去重有生效）；CSV 以 BOM 開頭且表頭一致；至少一筆有完整的工作內容
+- 驗證方式：`uv run pytest -m network tests/e2e/test_fetch_104_jobs.py`
+- 通過條件：passed。
 
 ## 5. 每筆職缺都有完整的工作內容（detail）
 
@@ -132,7 +132,7 @@
 
 ### 5.1 需求
 
-- **FR-detail**：對每筆職缺呼叫詳情 API 取得完整「工作內容」與「薪資待遇」。
+- FR-detail：對每筆職缺呼叫詳情 API 取得完整「工作內容」與「薪資待遇」。
   - 詳情失敗時兩欄為 `null`，不以搜尋摘要回填。
 
 ### 5.2 設計
@@ -144,11 +144,11 @@
 
 #### AC-detail：欄位解析與詳情失敗時不回填
 
-- **Given**：含搜尋摘要的原始職缺；詳情 API 分別成功、失敗（回傳 `None`），以及職缺連結中沒有 job id
-- **When**：呼叫 `parse_jobs`
-- **Then**：詳情成功時填入完整的工作內容與薪資待遇；失敗時兩欄為 `None`，不以搜尋摘要回填；欄位順序等於 `CSV_FIELDNAMES`
-- **驗證方式**：`uv run pytest tests/test_fetch_104_jobs.py -k "parse_jobs or extract"`
-- **通過條件**：全部 passed。
+- Given：含搜尋摘要的原始職缺；詳情 API 分別成功、失敗（回傳 `None`），以及職缺連結中沒有 job id
+- When：呼叫 `parse_jobs`
+- Then：詳情成功時填入完整的工作內容與薪資待遇；失敗時兩欄為 `None`，不以搜尋摘要回填；欄位順序等於 `CSV_FIELDNAMES`
+- 驗證方式：`uv run pytest tests/test_fetch_104_jobs.py -k "parse_jobs or extract"`
+- 通過條件：全部 passed。
 
 ## 6. 用 Excel 或程式開啟結果（output）
 
@@ -156,9 +156,9 @@
 
 ### 6.1 需求
 
-- **FR-output-files**：輸出 CSV（`utf-8-sig` 編碼）與 JSON（UTF-8）到 `output/104/`。
+- FR-output-files：輸出 CSV（`utf-8-sig` 編碼）與 JSON（UTF-8）到 `output/104/`。
   - 欄位順序固定為 `CSV_FIELDNAMES`（見 [§8.2.1](#821-欄位字典)）。
-- **FR-output-format**：欄位格式正規化：
+- FR-output-format：欄位格式正規化：
   - 日期欄位由 `YYYYMMDD` 轉為 `YYYY-MM-DD`。
   - 職缺與公司連結轉為完整 `https://` URL。
 
@@ -176,29 +176,29 @@
 
 #### AC-output-files：輸出檔
 
-- **Given**：以假資料取代搜尋 API
-- **When**：呼叫 `save_to_csv`、`save_to_json` 與 `execute_scraping`
-- **Then**：產生同名的 CSV（以 BOM 開頭、表頭等於 `CSV_FIELDNAMES`）與 JSON；檔名依 [§6.2.1](#621-輸出檔) 的規則產生；沒有抓到職缺時不寫檔
-- **驗證方式**：`uv run pytest tests/test_fetch_104_jobs.py -k "save or execute_scraping_filename or execute_scraping_no_jobs"`
-- **通過條件**：全部 passed。
+- Given：以假資料取代搜尋 API
+- When：呼叫 `save_to_csv`、`save_to_json` 與 `execute_scraping`
+- Then：產生同名的 CSV（以 BOM 開頭、表頭等於 `CSV_FIELDNAMES`）與 JSON；檔名依 [§6.2.1](#621-輸出檔) 的規則產生；沒有抓到職缺時不寫檔
+- 驗證方式：`uv run pytest tests/test_fetch_104_jobs.py -k "save or execute_scraping_filename or execute_scraping_no_jobs"`
+- 通過條件：全部 passed。
 
 #### AC-output-format：欄位格式正規化
 
-- **Given**：`YYYYMMDD` 格式的日期、以 `//` 開頭的連結，以及空值
-- **When**：呼叫 `format_date`、`normalize_url`
-- **Then**：日期轉成 `YYYY-MM-DD`，連結轉成完整的 `https://` URL，空值轉成空字串
-- **驗證方式**：`uv run pytest tests/test_fetch_104_jobs.py -k "format_date or normalize_url"`
-- **通過條件**：全部 passed。
+- Given：`YYYYMMDD` 格式的日期、以 `//` 開頭的連結，以及空值
+- When：呼叫 `format_date`、`normalize_url`
+- Then：日期轉成 `YYYY-MM-DD`，連結轉成完整的 `https://` URL，空值轉成空字串
+- 驗證方式：`uv run pytest tests/test_fetch_104_jobs.py -k "format_date or normalize_url"`
+- 通過條件：全部 passed。
 
 ## 7. 非功能需求
 
 ### 7.1 需求
 
-- **NFR-rate**：請求之間要延遲，避免對 104 造成負擔（見 [非目標](../README.md#非目標)）：
+- NFR-rate：請求之間要延遲，避免對 104 造成負擔（見 [非目標](../README.md#非目標)）：
   - 分頁間 1.0–2.0 秒。
   - 關鍵字間 2.0–3.5 秒。
   - 詳情請求前 0.1–0.3 秒。
-- **NFR-null**：詳情 API 失敗時缺值為 `null`，不以其他來源回填（依 [development.md](../conventions/development.md#防禦性設計)，見 [§5](#5-每筆職缺都有完整的工作內容detail)）。
+- NFR-null：詳情 API 失敗時缺值為 `null`，不以其他來源回填（依 [development.md](../conventions/development.md#防禦性設計)，見 [§5](#5-每筆職缺都有完整的工作內容detail)）。
 
 ### 7.2 設計
 
@@ -209,11 +209,11 @@
 
 #### AC-nfr-rate：請求頻率限制
 
-- **Given**：以假函式取代 `requests.get` 與 `time.sleep`，並記錄呼叫參數
-- **When**：呼叫 `parse_jobs`、`execute_scraping`
-- **Then**：分頁間、關鍵字間、詳情請求前的延遲都在規定範圍內
-- **驗證方式**：`uv run pytest tests/test_fetch_104_jobs.py -k "dedups or parse_jobs_with_detail"`
-- **通過條件**：全部 passed。
+- Given：以假函式取代 `requests.get` 與 `time.sleep`，並記錄呼叫參數
+- When：呼叫 `parse_jobs`、`execute_scraping`
+- Then：分頁間、關鍵字間、詳情請求前的延遲都在規定範圍內
+- 驗證方式：`uv run pytest tests/test_fetch_104_jobs.py -k "dedups or parse_jobs_with_detail"`
+- 通過條件：全部 passed。
 
 NFR-null 由 [AC-detail](#ac-detail欄位解析與詳情失敗時不回填) 涵蓋（詳情失敗時兩欄為 `None`），不另外寫測試。
 
@@ -223,7 +223,7 @@ NFR-null 由 [AC-detail](#ac-detail欄位解析與詳情失敗時不回填) 涵�
 
 ### 8.1 需求
 
-- **FR-cli**：支援以 `-k/--keyword`、`-p/--pages`、`-a/--area`、`-t/--type` 參數執行，參數依 [§8.2.2](#822-cli)。
+- FR-cli：支援以 `-k/--keyword`、`-p/--pages`、`-a/--area`、`-t/--type` 參數執行，參數依 [§8.2.2](#822-cli)。
   - 未帶 `--keyword` 時進入互動引導模式。
   - 使用者按下 Ctrl+C 時印出取消訊息並以結束碼 0 退出。
 
@@ -276,19 +276,19 @@ uv run pytest tests/test_fetch_104_jobs.py
 
 #### AC-cli：CLI 與互動模式
 
-- **Given**：以假函式取代 `execute_scraping` 與輸入
-- **When**：用不同參數呼叫 `main` 和 `run_interactive`
-- **Then**：有帶 `--keyword` 時使用 CLI 模式，沒帶時進入互動模式；參數的預設值符合 [§8.2.2](#822-cli)
-- **驗證方式**：`uv run pytest tests/test_fetch_104_jobs.py -k "main_cli or main_without_keyword or run_interactive"`
-- **通過條件**：全部 passed。
+- Given：以假函式取代 `execute_scraping` 與輸入
+- When：用不同參數呼叫 `main` 和 `run_interactive`
+- Then：有帶 `--keyword` 時使用 CLI 模式，沒帶時進入互動模式；參數的預設值符合 [§8.2.2](#822-cli)
+- 驗證方式：`uv run pytest tests/test_fetch_104_jobs.py -k "main_cli or main_without_keyword or run_interactive"`
+- 通過條件：全部 passed。
 
 #### AC-cli-interrupt：Ctrl+C 優雅退出
 
-- **Given**：程式處於互動模式等待輸入
-- **When**：送出 SIGINT
-- **Then**：印出取消訊息，結束碼為 0
-- **驗證方式**：`uv run pytest tests/test_fetch_104_jobs.py -k ctrl_c`
-- **通過條件**：passed。
+- Given：程式處於互動模式等待輸入
+- When：送出 SIGINT
+- Then：印出取消訊息，結束碼為 0
+- 驗證方式：`uv run pytest tests/test_fetch_104_jobs.py -k ctrl_c`
+- 通過條件：passed。
 
 ## 9. 待決問題
 

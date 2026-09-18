@@ -17,9 +17,9 @@
 
 ## 2. 範圍
 
-**範圍內**：見 [§3 設計總覽](#3-設計總覽)的使用者故事清單，以及 [§6 非功能需求](#6-非功能需求)、[§7 共用設計](#7-共用設計)。
+範圍內：見 [§3 設計總覽](#3-設計總覽)的使用者故事清單，以及 [§6 非功能需求](#6-非功能需求)、[§7 共用設計](#7-共用設計)。
 
-**範圍外**（實作時不要做）
+範圍外（實作時不要做）：
 
 - 評分結果存入資料庫、評分結果快取（屬 [job-scoring §7](job-scoring.md#7-依分數查詢職缺store)、[§8](job-scoring.md#8-重跑時不重複付-ai-費用cache)；本功能只提供資料庫與 schema）
 - job-scoring 改從資料庫讀取職缺（見 [TODO.md](../../TODO.md#職缺評分範圍外)）
@@ -30,14 +30,14 @@
 
 ## 3. 設計總覽
 
-**輸入與輸出**
+輸入與輸出：
 
 - 輸入：104-job-scraper 產出的職缺清單，可以是爬蟲執行中的記憶體資料，或 `output/104/` 的 JSON。欄位依 [104-job-scraper 的欄位字典](104-job-scraper.md#821-欄位字典)。
 - 輸出：`data/jobs.db`，資料表見 [§7.2.2](#722-資料表)。
   - job-scoring、trend-analysis、mcp-server 需要一份以職缺代碼為主鍵、欄位固定的資料表，以便直接用 pandas 或 SQL 查詢。
   - job-scoring 的評分結果也寫進同一個資料庫（`job_scores`，見 [job-scoring §7.2.1](job-scoring.md#721-資料表)）。
 
-**使用者故事清單**
+使用者故事清單：
 
 本功能範圍內的使用者故事，細節見各章的「需求」。
 
@@ -52,16 +52,16 @@
 
 ### 4.1 需求
 
-- **FR-save-dedup**：以 `職缺代碼` 為主鍵寫入 `jobs` 表。
+- FR-save-dedup：以 `職缺代碼` 為主鍵寫入 `jobs` 表。
   - 首次出現時間、最後出現時間，以及更新欄位的時機依 [§4.2.1](#421-寫入規則)。
-- **FR-save-keep-detail**：新資料的 `工作內容` 或 `薪資待遇` 為 `null`，而資料庫中已有非 null 的值時，保留舊值。
-- **FR-save-run**：每次抓取或匯入都在 `scrape_runs` 記一筆紀錄。
+- FR-save-keep-detail：新資料的 `工作內容` 或 `薪資待遇` 為 `null`，而資料庫中已有非 null 的值時，保留舊值。
+- FR-save-run：每次抓取或匯入都在 `scrape_runs` 記一筆紀錄。
   - 同一次執行中出現的每筆職缺記到 `run_jobs`。
-- **FR-save-auto**：`fetch_104_jobs.py` 寫出 CSV／JSON 後，預設把結果寫進資料庫。
+- FR-save-auto：`fetch_104_jobs.py` 寫出 CSV／JSON 後，預設把結果寫進資料庫。
   - `--db` 指定資料庫路徑。
   - `--no-db` 略過寫入。
-- **FR-save-summary**：每次寫入後，在 stderr 印出新增筆數、更新筆數與資料庫路徑。
-- **FR-save-transaction**：一次抓取或一個匯入檔的寫入包在同一個 transaction 中，中途失敗就整批 rollback，不留下只寫一半的資料。
+- FR-save-summary：每次寫入後，在 stderr 印出新增筆數、更新筆數與資料庫路徑。
+- FR-save-transaction：一次抓取或一個匯入檔的寫入包在同一個 transaction 中，中途失敗就整批 rollback，不留下只寫一半的資料。
 
 ### 4.2 設計
 
@@ -112,39 +112,39 @@ flowchart TD
 
 #### AC-save-dedup：跨次去重與出現時間
 
-- **Given**：兩批職缺有部分重疊，分別以時間 t1 < t2 寫入；另一組測試以 t2、t1 的順序寫入
-- **When**：寫入兩批
-- **Then**：每個職缺代碼只有一列；重疊的職缺首次出現時間為 t1、最後出現時間為 t2，欄位內容為 t2 那批的值；兩種寫入順序的 `jobs` 內容相同；回傳並印出的新增、更新筆數正確
-- **驗證方式**：`uv run pytest tests/test_job_db.py -k save_run`
-- **通過條件**：全部 passed。
+- Given：兩批職缺有部分重疊，分別以時間 t1 < t2 寫入；另一組測試以 t2、t1 的順序寫入
+- When：寫入兩批
+- Then：每個職缺代碼只有一列；重疊的職缺首次出現時間為 t1、最後出現時間為 t2，欄位內容為 t2 那批的值；兩種寫入順序的 `jobs` 內容相同；回傳並印出的新增、更新筆數正確
+- 驗證方式：`uv run pytest tests/test_job_db.py -k save_run`
+- 通過條件：全部 passed。
 
 #### AC-save-keep-detail：null 不覆蓋既有內容
 
-- **Given**：`工作內容` 與 `薪資待遇` 依下列情況設定資料庫中的值與新資料的值
-- **When**：以較晚的時間寫入新資料
-- **Then**：
+- Given：`工作內容` 與 `薪資待遇` 依下列情況設定資料庫中的值與新資料的值
+- When：以較晚的時間寫入新資料
+- Then：
   - 資料庫中非 null、新資料為 `null` → 保留舊值
   - 資料庫中非 null、新資料非 null → 寫入新值
   - 資料庫中為 `null`、新資料非 null → 寫入新值
   - 其他欄位的 `null` 照常覆蓋
-- **驗證方式**：`uv run pytest tests/test_job_db.py -k keeps_detail`
-- **通過條件**：全部 passed。
+- 驗證方式：`uv run pytest tests/test_job_db.py -k keeps_detail`
+- 通過條件：全部 passed。
 
 #### AC-save-run：執行紀錄與 transaction
 
-- **Given**：一批職缺與抓取條件；另一批職缺中有一筆在寫入時會拋出例外
-- **When**：分別寫入
-- **Then**：第一批在 `scrape_runs` 多一列，條件與職缺數正確，`run_jobs` 有每筆職缺；第二批寫入失敗後，三個表都沒有任何改變
-- **驗證方式**：`uv run pytest tests/test_job_db.py -k "save_run and (records or rollback)"`
-- **通過條件**：全部 passed。
+- Given：一批職缺與抓取條件；另一批職缺中有一筆在寫入時會拋出例外
+- When：分別寫入
+- Then：第一批在 `scrape_runs` 多一列，條件與職缺數正確，`run_jobs` 有每筆職缺；第二批寫入失敗後，三個表都沒有任何改變
+- 驗證方式：`uv run pytest tests/test_job_db.py -k "save_run and (records or rollback)"`
+- 通過條件：全部 passed。
 
 #### AC-save-auto：爬蟲寫入資料庫
 
-- **Given**：以假函式取代 `requests.get` 與 `time.sleep`
-- **When**：分別以 `--db <tmp>`、`--db <tmp> --no-db` 呼叫爬蟲的 `main`
-- **Then**：前者的資料庫中有這次抓到的職缺，並有一筆 `來源` 為 `爬蟲` 的紀錄；後者不建立資料庫檔；兩者都照常產生 CSV／JSON
-- **驗證方式**：`uv run pytest tests/test_fetch_104_jobs.py -k db`
-- **通過條件**：全部 passed。
+- Given：以假函式取代 `requests.get` 與 `time.sleep`
+- When：分別以 `--db <tmp>`、`--db <tmp> --no-db` 呼叫爬蟲的 `main`
+- Then：前者的資料庫中有這次抓到的職缺，並有一筆 `來源` 為 `爬蟲` 的紀錄；後者不建立資料庫檔；兩者都照常產生 CSV／JSON
+- 驗證方式：`uv run pytest tests/test_fetch_104_jobs.py -k db`
+- 通過條件：全部 passed。
 
 ## 5. 把過去抓好的 JSON 匯進來（import）
 
@@ -152,7 +152,7 @@ flowchart TD
 
 ### 5.1 需求
 
-- **FR-import**：提供 `src/import_jobs.py`，可一次匯入一或多個爬蟲 JSON。
+- FR-import：提供 `src/import_jobs.py`，可一次匯入一或多個爬蟲 JSON。
   - 同一個檔案重複匯入時略過，資料庫內容不變。
 
 ### 5.2 設計
@@ -185,21 +185,21 @@ uv run src/import_jobs.py output/104/*.json [--db data/jobs.db]
 
 #### AC-import：匯入既有 JSON
 
-- **Given**：`tmp_path` 中有兩個檔名符合命名規則的 JSON、一個檔名沒有時間的 JSON，以及一個內容格式錯誤的 JSON
-- **When**：以 `main` 匯入全部檔案，再匯入一次
-- **Then**：
+- Given：`tmp_path` 中有兩個檔名符合命名規則的 JSON、一個檔名沒有時間的 JSON，以及一個內容格式錯誤的 JSON
+- When：以 `main` 匯入全部檔案，再匯入一次
+- Then：
   - 第一次：兩個合法檔案寫入，首次與最後出現時間取自檔名；另兩個檔案印出 `[!]` 並略過；結束碼為 0
   - 第二次：兩個合法檔案印出 `[i]` 並略過，另兩個檔案仍印出 `[!]`；資料庫內容與第一次相同；結束碼為 0
   - 只指定錯誤的檔案或沒有指定檔案時，結束碼為 1
-- **驗證方式**：`uv run pytest tests/test_import_jobs.py`
-- **通過條件**：全部 passed。
+- 驗證方式：`uv run pytest tests/test_import_jobs.py`
+- 通過條件：全部 passed。
 
 ## 6. 非功能需求
 
 ### 6.1 需求
 
-- **NFR-local**：資料庫只存在本機，`data/` 列入 `.gitignore`，不進版控。
-- **NFR-null**：欄位缺值時存成 SQL `NULL`，不回填（依 [development.md](../conventions/development.md#防禦性設計)）。
+- NFR-local：資料庫只存在本機，`data/` 列入 `.gitignore`，不進版控。
+- NFR-null：欄位缺值時存成 SQL `NULL`，不回填（依 [development.md](../conventions/development.md#防禦性設計)）。
   - 唯一的例外是 `工作內容`、`薪資待遇` 不被 `null` 覆蓋，理由見 [§4.2.2](#422-詳情欄位不被-null-覆蓋)。
 
 ### 6.2 設計
@@ -219,7 +219,7 @@ uv run src/import_jobs.py output/104/*.json [--db data/jobs.db]
 
 ### 7.1 需求
 
-- **FR-db**：資料庫預設為專案根目錄的 `data/jobs.db`（以腳本位置推算，不受工作目錄影響）。
+- FR-db：資料庫預設為專案根目錄的 `data/jobs.db`（以腳本位置推算，不受工作目錄影響）。
   - 檔案或目錄不存在時自動建立並初始化 schema。
 
 ### 7.2 設計
@@ -244,7 +244,7 @@ src/
 
 所有時間都是本地時間，格式為 ISO 8601，精確到秒，例如 `2026-09-17T10:15:00`。
 
-**`jobs`**：每筆職缺一列。
+`jobs`：每筆職缺一列。
 
 - 104-job-scraper 欄位字典的全部欄位：欄名、順序與字典相同，`職缺代碼` 是主鍵。型態依字典轉換，str → `TEXT`，int → `INTEGER`
 - `首次出現時間`（TEXT）：這筆職缺第一次被抓到的時間
@@ -253,7 +253,7 @@ src/
 - 欄名沿用中文，讓 `pandas.read_sql` 讀出來的欄位與 CSV／JSON 一致，job-scoring 不需要做欄名對照。
 - 「最後出現時間」較早，不代表職缺已經下架，可能只是之後的搜尋條件沒有涵蓋它，所以不另外記錄下架狀態。
 
-**`scrape_runs`**：每次抓取或匯入一列。
+`scrape_runs`：每次抓取或匯入一列。
 
 - `執行編號`（INTEGER）：主鍵，自動遞增
 - `執行時間`（TEXT）：爬蟲寫出 CSV／JSON 時的時間，與檔名中的時間戳相同。匯入時取自檔名（見 [§5.2.1](#521-匯入既有-json)）
@@ -265,22 +265,22 @@ src/
 - `來源檔`（TEXT | null）：匯入的 JSON 檔名（不含目錄），具唯一性。爬蟲寫入時為 `null`
 - `職缺數`（INTEGER）：這次寫入的職缺筆數
 
-**`run_jobs`**：一次執行與其中出現的職缺，主鍵是（`執行編號`, `職缺代碼`），兩欄分別以外鍵指向 `scrape_runs` 與 `jobs`。同一批中重複的職缺代碼只記一列，`scrape_runs.職缺數` 也只算一次。
+`run_jobs`：一次執行與其中出現的職缺，主鍵是（`執行編號`, `職缺代碼`），兩欄分別以外鍵指向 `scrape_runs` 與 `jobs`。同一批中重複的職缺代碼只記一列，`scrape_runs.職缺數` 也只算一次。
 
 ### 7.3 驗收
 
 #### AC-mypy：型別檢查
 
-- **驗證方式**：`uv run mypy src/`
-- **通過條件**：沒有錯誤。
+- 驗證方式：`uv run mypy src/`
+- 通過條件：沒有錯誤。
 
 #### AC-db：自動建立資料庫
 
-- **Given**：指定的資料庫路徑與上層目錄都不存在
-- **When**：開啟資料庫
-- **Then**：目錄與檔案被建立，`jobs`、`scrape_runs`、`run_jobs` 三個表存在，`jobs` 的欄位依序是 104-job-scraper 欄位字典的欄位，接著是 `首次出現時間`、`最後出現時間`；`data/` 被 `.gitignore` 排除
-- **驗證方式**：`uv run pytest tests/test_job_db.py -k open_db`，以及 `git check-ignore data/jobs.db`
-- **通過條件**：pytest 全部 passed，`git check-ignore` 印出路徑。
+- Given：指定的資料庫路徑與上層目錄都不存在
+- When：開啟資料庫
+- Then：目錄與檔案被建立，`jobs`、`scrape_runs`、`run_jobs` 三個表存在，`jobs` 的欄位依序是 104-job-scraper 欄位字典的欄位，接著是 `首次出現時間`、`最後出現時間`；`data/` 被 `.gitignore` 排除
+- 驗證方式：`uv run pytest tests/test_job_db.py -k open_db`，以及 `git check-ignore data/jobs.db`
+- 通過條件：pytest 全部 passed，`git check-ignore` 印出路徑。
 
 ## 8. 待決問題
 
