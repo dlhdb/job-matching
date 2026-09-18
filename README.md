@@ -161,6 +161,7 @@ docs/           專案總覽、功能文件、決策紀錄與慣例
 ## 文件導覽
 
 - [docs/README.md](docs/README.md)：專案總覽（目標、使用者問題、功能清單與現況）
+- [docs/architecture.md](docs/architecture.md)：系統架構（模組依賴、資料存放、技術選型）
 - [docs/features/job-scoring.md](docs/features/job-scoring.md)：職缺評分（需求、評分規則、提示詞、LLM 抽象層、整批評分與結果檔、驗收標準）
 - [docs/features/104-job-scraper.md](docs/features/104-job-scraper.md)：104 爬蟲（需求、API 限制、欄位字典、驗收標準）
 - [docs/features/job-database.md](docs/features/job-database.md)：職缺資料庫（需求、資料表、寫入規則、匯入指令、驗收標準）

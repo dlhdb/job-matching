@@ -24,6 +24,7 @@ uv add <pkg>                 # 新增依賴
 需要下列資訊時，再去讀對應的文件：
 
 - 產品目標與成功指標、使用者問題、跨功能的使用者旅程、功能清單與現況、名詞定義：[docs/README.md](docs/README.md)
+- 跨功能的模組依賴、資料存放位置與各資料表的負責功能、技術選型總覽：[docs/architecture.md](docs/architecture.md)
 - 單一功能的需求、範圍、設計、驗收標準：`docs/features/<功能 ID>.md`
 - 撰寫新功能文件的格式：[docs/features/feature_template.md](docs/features/feature_template.md)
 - 專案檔案結構：[README.md](README.md) 的「專案結構」

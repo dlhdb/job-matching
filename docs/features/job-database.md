@@ -283,6 +283,7 @@ src/
 └── fetch_104_jobs.py  # 新增 --db、--no-db，寫完檔案後呼叫 job_db
 ```
 
+- 資料庫用 SQLite，理由見 [決策紀錄 0005](../decisions/0005-database-selection.md)。
 - 使用標準函式庫 `sqlite3`，不新增依賴。
 - `job_db` 另外定義一份 `jobs` 的欄名與型態，不 import 爬蟲的 `CSV_FIELDNAMES`：
   - 原因：爬蟲會 import `job_db`，反向 import 會形成循環。

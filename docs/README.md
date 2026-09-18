@@ -5,6 +5,7 @@
 所有文件都描述系統的現況，需求或實作改變時就直接更新：
 
 - 本文件：產品目標與成功指標、使用者問題、使用者旅程、功能清單與現況、名詞定義
+- [architecture.md](architecture.md)：跨功能的技術總覽，包括模組依賴、資料存放與技術選型
 - [features/](features/)：單一功能的需求、設計與驗收標準，一個功能一份
 - [conventions/documentation.md](conventions/documentation.md)：文件撰寫慣例
 - [conventions/development.md](conventions/development.md)：開發慣例
