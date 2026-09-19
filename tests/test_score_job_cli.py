@@ -1,4 +1,4 @@
-"""工作評分 CLI（score_job.py）的測試：dry-run、被淘汰職缺、資料庫路徑、錯誤處理與供應商隔離。"""
+"""工作評分 CLI（score_job.py）的測試：dry-run、被淘汰職缺、資料庫路徑、錯誤處理、沿用上次的 AI 評分與供應商隔離。"""
 
 import ast
 import json
@@ -12,6 +12,7 @@ import score_job
 from job_db import open_db, save_run
 from job_scoring.llm import get_client
 from job_scoring.models import AIAssessment
+from job_scoring.scorer import compute_total
 
 SRC = Path(__file__).resolve().parents[1] / "src"
 
@@ -216,3 +217,132 @@ def test_error_provider_sdk_isolated_to_llm():
     }
 
     assert importing_google == {"llm.py"}
+
+
+# 單筆評分結果的鍵，用來從整批結果檔取出評分欄位
+JOB_SCORE_KEYS = ["職缺代碼", "淘汰", "淘汰原因", "維度", "總分", "未知維度", "評語"]
+
+
+@pytest.fixture
+def counted_client(fake_client, monkeypatch):
+    """
+    讓 CLI 使用假的 LLM client
+
+    :return: FakeLLMClient, 以 len(client.calls) 取得呼叫次數
+    """
+    monkeypatch.setattr(score_job, "get_client", lambda provider, model: fake_client)
+    return fake_client
+
+
+def _stored_result(db, job_no):
+    """
+    取出資料庫中某筆職缺的總分與完整評分結果
+
+    :return: tuple (int or None, dict)
+    """
+    with closing(open_db(db)) as conn:
+        total, result = conn.execute(
+            'SELECT "總分", "評分結果" FROM job_scores WHERE "職缺代碼" = ?', (job_no,)).fetchone()
+    return total, json.loads(result)
+
+
+def _ai_part(result):
+    """
+    取出評分結果中 AI 產生的部分：三個 AI 維度與評語
+
+    :return: dict
+    """
+    return {"維度": {name: result["維度"][name] for name in list(result["維度"])[:3]}, "評語": result["評語"]}
+
+
+def test_main_cache_reuses_on_rerun(jobs_file, profile_dir, counted_client, scores_dir, isolate_db, capsys):
+    json_path, csv_path = scores_dir / "jobs_scored.json", scores_dir / "jobs_scored.csv"
+
+    assert _run(jobs_file, profile_dir) == 0
+    capsys.readouterr()
+    first_files = json_path.read_bytes(), csv_path.read_bytes()
+    _, first_stored = _stored_result(isolate_db, "ok")
+    assert len(counted_client.calls) == 1
+
+    assert _run(jobs_file, profile_dir) == 0
+    err = capsys.readouterr().err
+    _, second_stored = _stored_result(isolate_db, "ok")
+
+    assert len(counted_client.calls) == 1
+    assert "沿用上次的 AI 評分：1 筆" in err
+    assert "成功 1" in err
+    assert _ai_part(second_stored) == _ai_part(first_stored)
+    assert (json_path.read_bytes(), csv_path.read_bytes()) == first_files
+
+
+@pytest.mark.parametrize("change", ["experience", "model"])
+def test_main_cache_miss_on_ai_input_change(change, jobs_file, profile_dir, counted_client, scores_dir):
+    assert _run(jobs_file, profile_dir) == 0
+    extra = []
+    if change == "experience":
+        (profile_dir / "experience.md").write_text("另一份經歷", encoding="utf-8")
+    else:
+        extra = ["--model", "另一個模型"]
+
+    assert _run(jobs_file, profile_dir, *extra) == 0
+
+    assert len(counted_client.calls) == 2
+
+
+def test_main_cache_salary_change_rescored(jobs_file, profile_dir, counted_client, scores_dir, isolate_db,
+                                           make_job, out_job):
+    assert _run(jobs_file, profile_dir) == 0
+    old_total, old_result = _stored_result(isolate_db, "ok")
+    higher = make_job(**{"薪資待遇": "月薪80,000~90,000元", "薪資下限": 80000, "薪資上限": 90000})
+    jobs_file.write_text(json.dumps([higher, out_job], ensure_ascii=False), encoding="utf-8")
+
+    assert _run(jobs_file, profile_dir) == 0
+    new_total, new_result = _stored_result(isolate_db, "ok")
+
+    assert len(counted_client.calls) == 1
+    assert new_result["維度"]["薪資水準"]["分數"] > old_result["維度"]["薪資水準"]["分數"]
+    assert new_total > old_total
+    assert new_result["總分"] == new_total
+
+
+def test_main_cache_weight_change(jobs_file, profile_dir, counted_client, scores_dir, isolate_db,
+                                  write_profile, preferences_data):
+    assert _run(jobs_file, profile_dir) == 0
+    old_total, _ = _stored_result(isolate_db, "ok")
+    weights = {"職涯方向契合度": 0.1, "技能匹配度": 0.1, "產業公司吸引力": 0.1, "薪資水準": 0.7}
+    write_profile({**preferences_data, "權重": weights})
+
+    assert _run(jobs_file, profile_dir) == 0
+    new_total, new_result = _stored_result(isolate_db, "ok")
+
+    assert len(counted_client.calls) == 1
+    scores = {name: d["分數"] for name, d in new_result["維度"].items()}
+    assert new_total == compute_total(scores, weights)
+    assert new_total != old_total
+
+
+def test_main_cache_no_api_key(jobs_file, profile_dir, counted_client, scores_dir, monkeypatch):
+    assert _run(jobs_file, profile_dir) == 0
+
+    def _forbidden(*args, **kwargs):
+        pytest.fail("沿用時不應建立 LLM client")
+
+    monkeypatch.setattr(score_job, "get_client", _forbidden)
+    monkeypatch.setenv("GEMINI_API_KEY", "")
+
+    assert _run(jobs_file, profile_dir) == 0
+
+
+def test_main_cache_single_job(jobs_file, profile_dir, counted_client, scores_dir, capsys):
+    assert _run(jobs_file, profile_dir) == 0
+    record = next(r for r in json.loads((scores_dir / "jobs_scored.json").read_text(encoding="utf-8"))
+                  if r["職缺代碼"] == "ok")
+    capsys.readouterr()
+
+    code = _run(jobs_file, profile_dir, "--job-no", "ok")
+    captured = capsys.readouterr()
+
+    assert code == 0
+    assert len(counted_client.calls) == 1
+    assert json.loads(captured.out) == {key: record[key] for key in JOB_SCORE_KEYS}
+    assert "沿用上次的 AI 評分結果" in captured.err

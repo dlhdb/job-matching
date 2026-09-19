@@ -10,8 +10,7 @@ from pydantic import ValidationError
 
 from job_scoring.llm import LLMClient, LLMError
 from job_scoring.models import DIMENSIONS, BatchResult, Preferences
-from job_scoring.rules import check_hard_filters
-from job_scoring.scorer import NeverCalledClient, score_and_save
+from job_scoring.scorer import score_and_save
 
 # CSV 欄位順序；四個維度欄只放分數，理由要查 JSON
 CSV_FIELDNAMES = [
@@ -51,41 +50,46 @@ def score_batch(
 ) -> list[BatchResult]:
     """
     依輸入順序逐筆評分，每筆評完就寫入 job_scores；LLM 呼叫失敗或回應驗證失敗時記下原因並繼續下一筆（不寫入）。
+    送給 AI 的內容與上次相同的職缺沿用上次的 AI 評分，不呼叫 AI。
 
     :param jobs: list[dict], 爬蟲輸出的職缺
     :param prefs: Preferences, 偏好設定
     :param experience: str, experience.md 全文
-    :param client_factory: callable, 建立 LLM client；第一次需要呼叫 AI 時才呼叫
+    :param client_factory: callable, 建立 LLM client；第一次需要呼叫 AI 時才呼叫，整批都被淘汰或都沿用時不呼叫
     :param progress: callable, 接收每筆開始前的進度訊息
     :param conn: sqlite3.Connection, open_db 開啟的連線，評分結果寫入其中的 job_scores
     :param provider: str, client_factory 使用的 LLM 供應商
     :param model: str, client_factory 使用的模型名稱
-    :return: list[BatchResult], 與輸入順序相同，每筆職缺一筆結果
+    :return: list[BatchResult], 與輸入順序相同，每筆職缺一筆結果；reused 標示是否沿用上次的 AI 評分
     :raises ValueError: client_factory 不認得供應商
     :raises LLMError: client_factory 建立 client 失敗（例如缺少 API key）
     :raises sqlite3.Error: 寫入資料庫失敗；已寫入的職缺留在資料庫中
     """
     client: LLMClient | None = None
+
+    def get_client() -> LLMClient:
+        """第一次需要呼叫 AI 時才建立 client，之後重複使用"""
+        nonlocal client
+        if client is None:
+            client = client_factory()
+        return client
+
     results = []
     for i, job in enumerate(jobs, start=1):
         progress(f"⏳ [i] ({i}/{len(jobs)}) {job.get('職缺名稱')} - {job.get('公司名稱')}")
         fields = _job_fields(job)
-
-        if check_hard_filters(job, prefs):
-            # 被淘汰的職缺不呼叫 AI，也就不需要建立 client
-            score = score_and_save(job, prefs, experience, NeverCalledClient(), conn, provider, model)
-        else:
-            if client is None:
-                # 建立失敗時每一筆都會失敗，因此不在單筆的 try 中處理，直接往外拋
-                client = client_factory()
-            try:
-                score = score_and_save(job, prefs, experience, client, conn, provider, model)
-            except (LLMError, ValidationError) as e:
-                results.append(BatchResult(
-                    **fields, eliminated=False, elimination_reasons=[], dimensions=None,
-                    total=None, unknown_dimensions=[], comment=None, failure=str(e),
-                ))
-                continue
+        try:
+            score, reused = score_and_save(job, prefs, experience, get_client, conn, provider, model)
+        except (LLMError, ValidationError) as e:
+            # assess 只會在 client 建好之後呼叫，client 還沒建立就拋出 LLMError，代表是建立 client 失敗
+            # （例如缺少 API key）；這時每一筆都會失敗，因此不算單筆失敗，直接往外拋
+            if isinstance(e, LLMError) and client is None:
+                raise
+            results.append(BatchResult(
+                **fields, eliminated=False, elimination_reasons=[], dimensions=None,
+                total=None, unknown_dimensions=[], comment=None, failure=str(e), reused=False,
+            ))
+            continue
 
         results.append(BatchResult(
             **fields,
@@ -96,6 +100,7 @@ def score_batch(
             unknown_dimensions=score.unknown_dimensions,
             comment=score.comment,
             failure=None,
+            reused=reused,
         ))
     return results
 

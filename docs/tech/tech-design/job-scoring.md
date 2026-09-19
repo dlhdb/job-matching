@@ -49,15 +49,17 @@ import 路徑：
 
 ### 2.1 單筆評分
 
-實現 FR-score-*、FR-filter、FR-store-write。業務規則見[功能文件的評分流程](../../product/features/job-scoring.md#423-評分流程)。
+實現 FR-score-*、FR-filter、FR-store-write、FR-cache-reuse。業務規則見[功能文件的評分流程](../../product/features/job-scoring.md#423-評分流程)。
 
-1. `score_job.py` 先檢查硬性淘汰：
-   - 會被淘汰：傳入 `NeverCalledClient`，它一被呼叫就拋出 `AssertionError`，確保淘汰的職缺不會呼叫 AI。
-   - 不會被淘汰：以 `get_client` 建立 client。這樣只有真的要呼叫 AI 時才需要 API key。
-2. `scorer.score_and_save` 評分並寫入資料庫，單筆 CLI 與[整批評分](#22-整批評分)共用這一步：
-   - 評分由 `scorer.py` 呼叫 `rules.py`、`prompt.py` 與 client 完成，步驟同功能文件的評分流程。
-   - 沒被淘汰時另外計算快取鍵（[§3.3](#33-快取鍵)），連同評分結果交給 `job_db/scores.py` 寫入一列。
-3. 評分失敗時例外往外拋，不寫入，資料庫中原本的列不變。
+`scorer.score_and_save` 評分並寫入資料庫，單筆 CLI 與[整批評分](#22-整批評分)共用這一步：
+
+1. `rules.py` 檢查硬性淘汰，被淘汰的職缺直接寫入，不查快取、不建立 client。
+2. 沒被淘汰時，`prompt.py` 組出提示詞並計算快取鍵（[§3.3](#33-快取鍵)），再以 `職缺代碼` + `快取鍵` 查 `job_scores`：
+   - 查到：從上次的評分結果還原 AI 的三個維度與評語，不呼叫 AI。
+   - 查不到：呼叫呼叫端傳入的 `client_factory` 取得 client 再呼叫 AI。只有這時才需要 API key。
+3. `rules.py` 重算薪資分數，`scorer.py` 重算總分，連同快取鍵交給 `job_db/scores.py` 覆寫一列。
+4. 回傳評分結果與是否沿用，供單筆印出沿用訊息、整批統計摘要。
+5. 評分失敗時例外往外拋，不寫入，資料庫中原本的列不變。
 
 總分與年薪換算共用 `rules.round_half_up`：以 `Fraction` 精確計算再 .5 進位，避免浮點誤差，也不用 Python `round()` 的五成雙。
 
@@ -66,7 +68,8 @@ import 路徑：
 實現 FR-batch-*。`batch.score_batch` 是整批評分的共用進入點，不綁定 CLI，其他入口也呼叫同一個函式：
 
 - 資料庫連線、供應商與模型由參數傳入，呼叫端各自開啟連線。
-- client 以 `client_factory` 傳入，第一次遇到沒被淘汰的職缺時才建立，整批都被淘汰時就不需要 API key。
+- client 以 `client_factory` 傳入，第一次快取沒命中時才建立，之後整批共用；整批都被淘汰或都沿用時就不需要 API key。
+- 每筆結果帶有是否沿用的標記，只供摘要統計與其他入口使用，不寫進結果檔。
 - 每筆都經過 `scorer.score_and_save`，哪些錯誤算單筆失敗見 [§5](#5-cli-與錯誤處理)。
 - `batch.write_results` 依結果寫出 JSON 與 CSV，格式見[功能文件的結果檔](../../product/features/job-scoring.md#622-結果檔)。
 
@@ -129,7 +132,9 @@ profile/
 哪些改動會讓快取鍵改變，見[功能文件的快取鍵](../../product/features/job-scoring.md#821-快取鍵)。
 
 - 計算方式：`[供應商, 模型, system 提示詞, user 提示詞]` 以 `json.dumps(ensure_ascii=False)` 序列化後取 SHA-256，存成 64 字元的十六進位字串。
-- 目前每次評分都會計算並寫入 `快取鍵` 欄，但還沒有用它查詢。
+- 每次評分都會計算並寫入 `快取鍵` 欄。查詢條件是 `職缺代碼` 與 `快取鍵` 都相同；被淘汰的列 `快取鍵` 是 NULL，不會命中。
+- 命中時從該列的 `評分結果`（中文鍵）取出三個 AI 維度與評語，以 `AIAssessment` 重新驗證後使用。不符合 schema 時算評分失敗，與 AI 回應不通過驗證的處理相同。
+- 供應商與模型包含在快取鍵中，所以沿用時寫回的供應商、模型必然與上次相同。
 
 ## 4. 外部系統整合
 
@@ -194,7 +199,8 @@ AI 必須輸出以下 JSON（Pydantic 模型 `AIAssessment`）：
 - 單筆評分：評分或寫入資料庫失敗都印出 `[-]` 並回傳 1。
 - 整批評分：
   - 單筆的 `LLMError` 與 `ValidationError` 算單筆失敗，失敗原因記錄例外訊息，繼續下一筆。
-  - client 建立失敗（`ValueError` 不支援的供應商、`LLMError` 缺少 API key）時每一筆都會失敗，所以不在單筆的 `try` 裡處理，直接往外拋，由 CLI 回傳 1。
+  - client 建立失敗（`ValueError` 不支援的供應商、`LLMError` 缺少 API key）時每一筆都會失敗，所以直接往外拋，由 CLI 回傳 1。
+    - client 在單筆評分的途中才建立，所以和單筆失敗在同一個 `try` 裡；client 還沒建立就拋出 `LLMError`，代表是建立失敗，不算單筆失敗。
   - `sqlite3.Error` 讓整批中止，行為見 [§3.2](#32-job_scores-資料表) 的寫入。
 - 其他例外代表程式錯誤，直接讓程式中止。
 
@@ -262,6 +268,10 @@ uv run pytest tests/test_job_scoring_*.py tests/test_score_job_cli.py
 - [AC-store-write](../../product/features/job-scoring.md#ac-store-write評分結果入庫)：`uv run pytest tests/test_job_scoring_batch.py -k store`
 - [AC-store-db-path](../../product/features/job-scoring.md#ac-store-db-path資料庫路徑)：`uv run pytest tests/test_score_job_cli.py -k db_path`
 - [AC-store-real](../../product/features/job-scoring.md#ac-store-real真實評分結果入庫-需網路)〔需網路〕：`uv run pytest -m network -s tests/e2e/test_job_scoring.py -k real`
+
+### cache
+
+- [AC-cache](../../product/features/job-scoring.md#ac-cache沿用上次的-ai-評分)：`uv run pytest tests/test_score_job_cli.py -k cache`
 
 ### 共用規則
 

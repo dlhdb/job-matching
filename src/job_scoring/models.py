@@ -143,3 +143,5 @@ class BatchResult(BaseModel):
     unknown_dimensions: list[str] = Field(serialization_alias="未知維度")
     comment: str | None = Field(serialization_alias="評語")
     failure: str | None = Field(serialization_alias="失敗原因")
+    # 是否沿用上次的 AI 評分，只供摘要統計，不輸出到結果檔
+    reused: bool = Field(exclude=True)

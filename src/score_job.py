@@ -6,6 +6,7 @@
 - 單筆：把 JobScore JSON 印到 stdout。
 - 整批：結果寫成 output/scores/ 下的 JSON 與 CSV，stdout 不輸出。
 單筆與整批的結果都寫入資料庫（預設 data/jobs.db）的 job_scores，每筆職缺只留最新一次。
+送給 AI 的內容與上次相同的職缺，沿用資料庫中上次的 AI 評分，不再呼叫 AI。
 進度、摘要與錯誤訊息印到 stderr，可以把 stdout 直接導向檔案。
 
 使用說明：
@@ -34,7 +35,7 @@ from job_scoring.models import Preferences
 from job_scoring.profile import ProfileError, load_experience, load_preferences
 from job_scoring.prompt import build_prompt
 from job_scoring.rules import check_hard_filters, score_salary
-from job_scoring.scorer import NeverCalledClient, score_and_save
+from job_scoring.scorer import score_and_save
 
 # 以腳本位置為基準，不受執行時的工作目錄影響
 PROJECT_ROOT = Path(__file__).resolve().parents[1]
@@ -106,16 +107,16 @@ def run_single(args: argparse.Namespace, job: dict[str, Any], prefs: Preferences
     :param conn: sqlite3.Connection, 評分結果寫入的資料庫連線
     :return: int, 結束碼
     """
+    def client_factory() -> LLMClient:
+        # 被淘汰或沿用上次的 AI 評分時不會呼叫，也就不需要 API key
+        client = get_client(args.provider, args.model)
+        log(f"⏳ 正在以 {args.provider}/{args.model} 評分職缺 {job.get('職缺代碼')}：{job.get('職缺名稱')}")
+        return client
+
     try:
-        if check_hard_filters(job, prefs):
-            # 被淘汰的職缺不會呼叫 AI，不需要建立 client（也就不需要 API key）
-            client: LLMClient = NeverCalledClient()
-        else:
-            client = get_client(args.provider, args.model)
-            log(f"⏳ 正在以 {args.provider}/{args.model} 評分職缺 {job.get('職缺代碼')}：{job.get('職缺名稱')}")
-        result = score_and_save(job, prefs, experience, client, conn, args.provider, args.model)
+        result, reused = score_and_save(job, prefs, experience, client_factory, conn, args.provider, args.model)
     except sqlite3.Error as e:
-        log(f"[-] 寫入資料庫失敗：{e}")
+        log(f"[-] 讀寫資料庫失敗：{e}")
         return 1
     except ValidationError as e:
         # ValidationError 是 ValueError 的子類別，必須先攔截
@@ -126,6 +127,8 @@ def run_single(args: argparse.Namespace, job: dict[str, Any], prefs: Preferences
         return 1
 
     print(json.dumps(result.model_dump(by_alias=True), ensure_ascii=False, indent=2))
+    if reused:
+        log("[i] 沿用上次的 AI 評分結果，未呼叫 AI")
     if result.eliminated:
         log(f"[i] 職缺已淘汰：{'；'.join(result.elimination_reasons)}")
     else:
@@ -152,7 +155,7 @@ def run_batch(args: argparse.Namespace, jobs: list[dict[str, Any]], prefs: Prefe
                               conn=conn, provider=args.provider, model=args.model)
     except sqlite3.Error as e:
         # 已評完的職缺各自寫入，留在資料庫中；結果檔不完整，因此不寫出
-        log(f"[-] 寫入資料庫失敗，已中止評分：{e}")
+        log(f"[-] 讀寫資料庫失敗，已中止評分：{e}")
         return 1
     except (LLMError, ValueError) as e:
         log(f"[-] {e}")
@@ -163,6 +166,10 @@ def run_batch(args: argparse.Namespace, jobs: list[dict[str, Any]], prefs: Prefe
     failed = [r for r in results if r.failure is not None]
     succeeded = len(results) - eliminated - len(failed)
     log(f"🎉 [+] 評分完成：共 {len(results)} 筆，成功 {succeeded}、淘汰 {eliminated}、失敗 {len(failed)}")
+    reused = sum(r.reused for r in results)
+    if reused:
+        # 沿用的筆數算在成功裡
+        log(f"[i] 沿用上次的 AI 評分：{reused} 筆")
     for r in failed:
         log(f"[!] {r.job_no} {r.job_name}：{r.failure}")
     log(f"[i] JSON：{json_path}")

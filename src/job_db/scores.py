@@ -1,4 +1,4 @@
-"""寫入評分結果（job_scores）。"""
+"""讀寫評分結果（job_scores）。"""
 
 import json
 import sqlite3
@@ -53,3 +53,18 @@ def save_score(
                 model,
             ),
         )
+
+
+def load_cached_result(conn: sqlite3.Connection, job_no: str, cache_key: str) -> dict[str, Any] | None:
+    """
+    取出快取鍵相同的上次評分結果；被淘汰的列沒有快取鍵，不會被取出。
+
+    :param conn: sqlite3.Connection, open_db 開啟的連線
+    :param job_no: str, 職缺代碼
+    :param cache_key: str, 這次評分的快取鍵
+    :return: dict or None, 中文鍵名的完整評分結果；沒有評過或快取鍵不同時為 None
+    """
+    row = conn.execute(
+        'SELECT "評分結果" FROM job_scores WHERE "職缺代碼" = ? AND "快取鍵" = ?', (job_no, cache_key),
+    ).fetchone()
+    return None if row is None else json.loads(row[0])
