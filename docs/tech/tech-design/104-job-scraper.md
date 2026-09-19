@@ -1,7 +1,7 @@
 # 104 職缺爬蟲：技術設計
 
-- 功能文件：[104-job-scraper.md](../features/104-job-scraper.md)
-- 程式碼：[src/fetch_104_jobs.py](../../src/fetch_104_jobs.py)
+- 功能文件：[104-job-scraper.md](../../product/features/104-job-scraper.md)
+- 程式碼：[src/fetch_104_jobs.py](../../../src/fetch_104_jobs.py)
 
 ## 1. 總覽
 
@@ -20,7 +20,7 @@ flowchart LR
 
 ## 2. 流程
 
-實現 FR-search-*、FR-detail、FR-output-*。業務規則見[功能文件的流程](../features/104-job-scraper.md#421-流程)。
+實現 FR-search-*、FR-detail、FR-output-*。業務規則見[功能文件的流程](../../product/features/104-job-scraper.md#421-流程)。
 
 1. `main` 解析參數，沒有 `--keyword` 時改由 `run_interactive` 詢問搜尋條件。兩者都呼叫 `execute_scraping`。
 2. 逐一關鍵字、逐頁呼叫搜尋 API，以 `職缺代碼` 去重後累積成原始職缺清單。
@@ -54,7 +54,7 @@ flowchart LR
   - `公司連結` ← `link.cust`
 - 新增欄位時要同步修改：
   - `parse_jobs()` 與 `CSV_FIELDNAMES`
-  - 功能文件的[欄位字典](../features/104-job-scraper.md#821-欄位字典)
+  - 功能文件的[欄位字典](../../product/features/104-job-scraper.md#821-欄位字典)
   - `job_db` 的 `JOB_COLUMNS`：`job_db` 不 import 爬蟲，另外定義一份欄名與型態，由測試檢查兩份一致（見 [job-database 技術設計](job-database.md#1-總覽)）
 
 ## 4. 外部系統整合
@@ -79,7 +79,7 @@ flowchart LR
 
 頻率：
 
-- 詳情請求不加延遲會被 104 拒絕，延遲的區間見[功能文件的非功能需求](../features/104-job-scraper.md#7-非功能需求)。
+- 詳情請求不加延遲會被 104 拒絕，延遲的區間見[功能文件的非功能需求](../../product/features/104-job-scraper.md#7-非功能需求)。
 
 ## 5. 錯誤處理與結束碼
 
@@ -102,30 +102,33 @@ flowchart LR
 uv run pytest tests/test_fetch_104_jobs.py
 ```
 
-型別檢查：`uv run mypy src/`，通過條件為沒有錯誤。
+不屬於任何 AC 的檢查：
+
+- 型別檢查：`uv run mypy src/`，通過條件為沒有錯誤。
+- 請求標頭（見 [§4](#4-外部系統整合)）：`uv run pytest tests/test_fetch_104_jobs.py -k "sends_headers or uses_job_referer"`，檢查每個請求都帶 `User-Agent`、`Referer` 與 `timeout`，詳情 API 的 `Referer` 是該職缺自己的頁面。
 
 ### search
 
-- [AC-search-keyword](../features/104-job-scraper.md#ac-search-keyword關鍵字拆分)：`uv run pytest tests/test_fetch_104_jobs.py -k parse_keywords`
-- [AC-search-area](../features/104-job-scraper.md#ac-search-area地區解析)：`uv run pytest tests/test_fetch_104_jobs.py -k resolve_area`
-- [AC-search-dedup](../features/104-job-scraper.md#ac-search-dedup去重與分頁)：`uv run pytest tests/test_fetch_104_jobs.py -k "dedups or stops_on_empty_page or respects_page_limit or accepts_single_string"`
-- [AC-search-request](../features/104-job-scraper.md#ac-search-request請求與錯誤處理)：`uv run pytest tests/test_fetch_104_jobs.py -k fetch_job`
-- [AC-search-real](../features/104-job-scraper.md#ac-search-real實際抓取與輸出-需網路)〔需網路〕：`uv run pytest -m network tests/e2e/test_fetch_104_jobs.py`
+- [AC-search-keyword](../../product/features/104-job-scraper.md#ac-search-keyword關鍵字拆分)：`uv run pytest tests/test_fetch_104_jobs.py -k parse_keywords`
+- [AC-search-area](../../product/features/104-job-scraper.md#ac-search-area地區解析)：`uv run pytest tests/test_fetch_104_jobs.py -k resolve_area`
+- [AC-search-dedup](../../product/features/104-job-scraper.md#ac-search-dedup去重與分頁)：`uv run pytest tests/test_fetch_104_jobs.py -k "dedups or stops_on_empty_page or respects_page_limit or accepts_single_string"`
+- [AC-search-request](../../product/features/104-job-scraper.md#ac-search-request請求與錯誤處理)：`uv run pytest tests/test_fetch_104_jobs.py -k fetch_job`
+- [AC-search-real](../../product/features/104-job-scraper.md#ac-search-real實際抓取與輸出-需網路)〔需網路〕：`uv run pytest -m network tests/e2e/test_fetch_104_jobs.py`
 
 ### detail
 
-- [AC-detail](../features/104-job-scraper.md#ac-detail欄位解析與取不到內容時不回填)：`uv run pytest tests/test_fetch_104_jobs.py -k "parse_jobs or extract"`
+- [AC-detail](../../product/features/104-job-scraper.md#ac-detail欄位解析與取不到內容時不回填)：`uv run pytest tests/test_fetch_104_jobs.py -k "parse_jobs or extract"`
 
 ### output
 
-- [AC-output-files](../features/104-job-scraper.md#ac-output-files輸出檔)：`uv run pytest tests/test_fetch_104_jobs.py -k "save or execute_scraping_filename or execute_scraping_no_jobs"`
-- [AC-output-format](../features/104-job-scraper.md#ac-output-format欄位格式正規化)：`uv run pytest tests/test_fetch_104_jobs.py -k "format_date or normalize_url"`
+- [AC-output-files](../../product/features/104-job-scraper.md#ac-output-files輸出檔)：`uv run pytest tests/test_fetch_104_jobs.py -k "save or execute_scraping_filename or execute_scraping_no_jobs"`
+- [AC-output-format](../../product/features/104-job-scraper.md#ac-output-format欄位格式正規化)：`uv run pytest tests/test_fetch_104_jobs.py -k "format_date or normalize_url"`
 
 ### 非功能需求
 
-- [AC-nfr-rate](../features/104-job-scraper.md#ac-nfr-rate請求頻率限制)：`uv run pytest tests/test_fetch_104_jobs.py -k "dedups or parse_jobs_with_detail"`
+- [AC-nfr-rate](../../product/features/104-job-scraper.md#ac-nfr-rate請求頻率限制)：`uv run pytest tests/test_fetch_104_jobs.py -k "dedups or parse_jobs_with_detail"`
 
 ### 共用規則
 
-- [AC-cli](../features/104-job-scraper.md#ac-clicli-與互動模式)：`uv run pytest tests/test_fetch_104_jobs.py -k "main_cli or main_without_keyword or run_interactive"`
-- [AC-cli-interrupt](../features/104-job-scraper.md#ac-cli-interruptctrlc-優雅退出)：`uv run pytest tests/test_fetch_104_jobs.py -k ctrl_c`
+- [AC-cli](../../product/features/104-job-scraper.md#ac-clicli-與互動模式)：`uv run pytest tests/test_fetch_104_jobs.py -k "main_cli or main_without_keyword or run_interactive"`
+- [AC-cli-interrupt](../../product/features/104-job-scraper.md#ac-cli-interruptctrlc-優雅退出)：`uv run pytest tests/test_fetch_104_jobs.py -k ctrl_c`

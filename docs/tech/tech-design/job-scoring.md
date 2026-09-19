@@ -1,7 +1,7 @@
 # 職缺評分：技術設計
 
-- 功能文件：[job-scoring.md](../features/job-scoring.md)
-- 程式碼：[src/score_job.py](../../src/score_job.py)（CLI）、[src/job_scoring/](../../src/job_scoring/)、[src/job_db/scores.py](../../src/job_db/scores.py)
+- 功能文件：[job-scoring.md](../../product/features/job-scoring.md)
+- 程式碼：[src/score_job.py](../../../src/score_job.py)（CLI）、[src/job_scoring/](../../../src/job_scoring/)、[src/job_db/scores.py](../../../src/job_db/scores.py)
 
 ## 1. 總覽
 
@@ -37,7 +37,7 @@ flowchart LR
 
 依賴限制：
 
-- 只有 `llm.py` 可以 import 特定供應商的 SDK（`google` 開頭的模組），實現 FR-llm，由 [AC-cli-error](../features/job-scoring.md#ac-cli-error錯誤處理與供應商隔離) 的 (d) 以 `ast` 掃描 import 驗證。
+- 只有 `llm.py` 可以 import 特定供應商的 SDK（`google` 開頭的模組）：換供應商或新增供應商時，評分規則的程式都不必改（見 [§4.1](#41-llm-供應商抽象層)）。由[驗收對照](#6-驗收對照)的「供應商隔離」以 `ast` 掃描 import 檢查。
 - `job_db` 不 import 專案內的其他模組（原因見 [job-database 的技術設計](job-database.md#1-總覽)），所以 `job_db/scores.py` 的參數都用基本型別，由 `scorer.py` 把評分結果轉好再傳入。
 
 import 路徑：
@@ -49,7 +49,7 @@ import 路徑：
 
 ### 2.1 單筆評分
 
-實現 FR-score-*、FR-filter、FR-store-write。業務規則見[功能文件的評分流程](../features/job-scoring.md#423-評分流程)。
+實現 FR-score-*、FR-filter、FR-store-write。業務規則見[功能文件的評分流程](../../product/features/job-scoring.md#423-評分流程)。
 
 1. `score_job.py` 先檢查硬性淘汰：
    - 會被淘汰：傳入 `NeverCalledClient`，它一被呼叫就拋出 `AssertionError`，確保淘汰的職缺不會呼叫 AI。
@@ -68,7 +68,7 @@ import 路徑：
 - 資料庫連線、供應商與模型由參數傳入，呼叫端各自開啟連線。
 - client 以 `client_factory` 傳入，第一次遇到沒被淘汰的職缺時才建立，整批都被淘汰時就不需要 API key。
 - 每筆都經過 `scorer.score_and_save`，哪些錯誤算單筆失敗見 [§5](#5-cli-與錯誤處理)。
-- `batch.write_results` 依結果寫出 JSON 與 CSV，格式見[功能文件的結果檔](../features/job-scoring.md#622-結果檔)。
+- `batch.write_results` 依結果寫出 JSON 與 CSV，格式見[功能文件的結果檔](../../product/features/job-scoring.md#622-結果檔)。
 
 ## 3. 資料與儲存
 
@@ -93,7 +93,7 @@ profile/
 
 ### 3.2 job_scores 資料表
 
-實現 FR-store-write。所有欄位的業務意義見[功能文件的儲存的評分資訊](../features/job-scoring.md#721-儲存的評分資訊)。
+實現 FR-store-write。所有欄位的業務意義見[功能文件的儲存的評分資訊](../../product/features/job-scoring.md#721-儲存的評分資訊)。
 
 `job_scores`：每筆職缺最多一列，只保留最新一次成功的評分結果。
 
@@ -111,7 +111,7 @@ profile/
 設計理由：
 
 - 和 `jobs` 表分開存放，查詢時以 `職缺代碼` JOIN：
-  - 爬蟲更新 `jobs` 時會覆寫整列（見 [job-database 的寫入規則](../features/job-database.md#421-寫入規則)），分數放在同一張表就得另外避開。
+  - 爬蟲更新 `jobs` 時會覆寫整列（見 [job-database 的寫入規則](../../product/features/job-database.md#421-寫入規則)），分數放在同一張表就得另外避開。
   - 職缺內容更新不代表要重新呼叫 AI，是否重問由快取鍵決定。
   - 要整批重評時，清空 `job_scores` 即可，不影響職缺資料。
 - `淘汰`、`總分`、`評語` 與 `評分結果` 中的值重複：另外成欄是為了讓 SQL 可以直接篩選與排序。
@@ -126,7 +126,7 @@ profile/
 
 ### 3.3 快取鍵
 
-哪些改動會讓快取鍵改變，見[功能文件的快取鍵](../features/job-scoring.md#821-快取鍵)。
+哪些改動會讓快取鍵改變，見[功能文件的快取鍵](../../product/features/job-scoring.md#821-快取鍵)。
 
 - 計算方式：`[供應商, 模型, system 提示詞, user 提示詞]` 以 `json.dumps(ensure_ascii=False)` 序列化後取 SHA-256，存成 64 字元的十六進位字串。
 - 目前每次評分都會計算並寫入 `快取鍵` 欄，但還沒有用它查詢。
@@ -171,7 +171,7 @@ AI 必須輸出以下 JSON（Pydantic 模型 `AIAssessment`）：
 
 - 欄位使用英文名稱，讓 schema 對各家模型都比較穩定。
 - 由 `scorer.py` 轉成評分結果（`JobScore`）的中文鍵名。
-  - `JobScore` 以 alias 定義中文鍵名，`model_dump(by_alias=True)` 的結果就是[功能文件的評分結果格式](../features/job-scoring.md#1121-評分結果格式)。
+  - `JobScore` 以 alias 定義中文鍵名，`model_dump(by_alias=True)` 的結果就是[功能文件的評分結果格式](../../product/features/job-scoring.md#1121-評分結果格式)。
 - 不通過驗證時拋出 `ValidationError`，視為評分失敗，不自行修正分數。
 
 ## 5. CLI 與錯誤處理
@@ -208,7 +208,7 @@ AI 必須輸出以下 JSON（Pydantic 模型 `AIAssessment`）：
 
 - `0`：成功，包括被淘汰
   - 整批評分時，即使有職缺評分失敗也回傳 0
-- `1`：印出 `[-]` 並結束，情況見[功能文件的 CLI](../features/job-scoring.md#1122-cli)
+- `1`：印出 `[-]` 並結束，情況見[功能文件的 CLI](../../product/features/job-scoring.md#1122-cli)
 
 ## 6. 驗收對照
 
@@ -231,36 +231,39 @@ AI 必須輸出以下 JSON（Pydantic 模型 `AIAssessment`）：
 uv run pytest tests/test_job_scoring_*.py tests/test_score_job_cli.py
 ```
 
-型別檢查：`uv run mypy src/`，通過條件為 `Success: no issues found`。
+不屬於任何 AC 的檢查：
+
+- 型別檢查：`uv run mypy src/`，通過條件為 `Success: no issues found`。
+- 供應商隔離：`uv run pytest tests/test_score_job_cli.py -k provider_sdk_isolated`，通過條件為只有 `llm.py` import `google` 開頭的模組。
 
 ### score
 
-- [AC-score-profile](../features/job-scoring.md#ac-score-profile個人資料檔驗證與版控)：`uv run pytest tests/test_job_scoring_profile.py`
-- [AC-score-salary](../features/job-scoring.md#ac-score-salary薪資計分)：`uv run pytest tests/test_job_scoring_rules.py -k score_salary`
-- [AC-score-total](../features/job-scoring.md#ac-score-total總分計算)：`uv run pytest tests/test_job_scoring_scorer.py -k compute_total`
-- [AC-score-flow](../features/job-scoring.md#ac-score-flow評分流程與-ai-回應處理)：`uv run pytest tests/test_job_scoring_scorer.py -k score_job`
-- [AC-score-real](../features/job-scoring.md#ac-score-real真實評分-需網路)〔需網路〕：`uv run pytest -m network -s tests/e2e/test_job_scoring.py -k real_scoring`
+- [AC-score-profile](../../product/features/job-scoring.md#ac-score-profile個人資料檔驗證與版控)：`uv run pytest tests/test_job_scoring_profile.py`
+- [AC-score-salary](../../product/features/job-scoring.md#ac-score-salary薪資計分)：`uv run pytest tests/test_job_scoring_rules.py -k score_salary`
+- [AC-score-total](../../product/features/job-scoring.md#ac-score-total總分計算)：`uv run pytest tests/test_job_scoring_scorer.py -k compute_total`
+- [AC-score-flow](../../product/features/job-scoring.md#ac-score-flow評分流程與-ai-回應處理)：`uv run pytest tests/test_job_scoring_scorer.py -k score_job`
+- [AC-score-real](../../product/features/job-scoring.md#ac-score-real真實評分-需網路)〔需網路〕：`uv run pytest -m network -s tests/e2e/test_job_scoring.py -k real_scoring`
 
 ### filter
 
-- [AC-filter-rules](../features/job-scoring.md#ac-filter-rules硬性淘汰)：`uv run pytest tests/test_job_scoring_rules.py -k check_hard_filters`
-- [AC-filter-no-key](../features/job-scoring.md#ac-filter-no-key被淘汰的職缺不需要-api-key)：`uv run pytest tests/test_score_job_cli.py -k eliminated`
+- [AC-filter-rules](../../product/features/job-scoring.md#ac-filter-rules硬性淘汰)：`uv run pytest tests/test_job_scoring_rules.py -k check_hard_filters`
+- [AC-filter-no-key](../../product/features/job-scoring.md#ac-filter-no-key被淘汰的職缺不需要-api-key)：`uv run pytest tests/test_score_job_cli.py -k eliminated`
 
 ### batch
 
-- [AC-batch-order](../features/job-scoring.md#ac-batch-order整批評分)：`uv run pytest tests/test_job_scoring_batch.py -k batch_scoring`
-- [AC-batch-failure](../features/job-scoring.md#ac-batch-failure單筆失敗不中斷整批)：`uv run pytest tests/test_job_scoring_batch.py -k failure`
-- [AC-batch-output](../features/job-scoring.md#ac-batch-output結果檔)：`uv run pytest tests/test_job_scoring_batch.py -k output`
-- [AC-batch-cli](../features/job-scoring.md#ac-batch-cli整批-cli-與摘要)：`uv run pytest tests/test_score_job_cli.py -k batch`
-- [AC-batch-real](../features/job-scoring.md#ac-batch-real真實整批評分-需網路)〔需網路〕：`uv run pytest -m network -s tests/e2e/test_job_scoring.py -k real_batch`
+- [AC-batch-order](../../product/features/job-scoring.md#ac-batch-order整批評分)：`uv run pytest tests/test_job_scoring_batch.py -k batch_scoring`
+- [AC-batch-failure](../../product/features/job-scoring.md#ac-batch-failure單筆失敗不中斷整批)：`uv run pytest tests/test_job_scoring_batch.py -k failure`
+- [AC-batch-output](../../product/features/job-scoring.md#ac-batch-output結果檔)：`uv run pytest tests/test_job_scoring_batch.py -k output`
+- [AC-batch-cli](../../product/features/job-scoring.md#ac-batch-cli整批-cli-與摘要)：`uv run pytest tests/test_score_job_cli.py -k batch`
+- [AC-batch-real](../../product/features/job-scoring.md#ac-batch-real真實整批評分-需網路)〔需網路〕：`uv run pytest -m network -s tests/e2e/test_job_scoring.py -k real_batch`
 
 ### store
 
-- [AC-store-write](../features/job-scoring.md#ac-store-write評分結果入庫)：`uv run pytest tests/test_job_scoring_batch.py -k store`
-- [AC-store-db-path](../features/job-scoring.md#ac-store-db-path資料庫路徑)：`uv run pytest tests/test_score_job_cli.py -k db_path`
-- [AC-store-real](../features/job-scoring.md#ac-store-real真實評分結果入庫-需網路)〔需網路〕：`uv run pytest -m network -s tests/e2e/test_job_scoring.py -k real`
+- [AC-store-write](../../product/features/job-scoring.md#ac-store-write評分結果入庫)：`uv run pytest tests/test_job_scoring_batch.py -k store`
+- [AC-store-db-path](../../product/features/job-scoring.md#ac-store-db-path資料庫路徑)：`uv run pytest tests/test_score_job_cli.py -k db_path`
+- [AC-store-real](../../product/features/job-scoring.md#ac-store-real真實評分結果入庫-需網路)〔需網路〕：`uv run pytest -m network -s tests/e2e/test_job_scoring.py -k real`
 
 ### 共用規則
 
-- [AC-cli-dry-run](../features/job-scoring.md#ac-cli-dry-rundry-run-印出提示詞且不呼叫-ai)：`uv run pytest tests/test_score_job_cli.py -k dry_run_prints_prompt`
-- [AC-cli-error](../features/job-scoring.md#ac-cli-error錯誤處理與供應商隔離)：`uv run pytest tests/test_score_job_cli.py -k error`
+- [AC-cli-dry-run](../../product/features/job-scoring.md#ac-cli-dry-rundry-run-印出提示詞且不呼叫-ai)：`uv run pytest tests/test_score_job_cli.py -k dry_run_prints_prompt`
+- [AC-cli-error](../../product/features/job-scoring.md#ac-cli-error錯誤處理)：`uv run pytest tests/test_score_job_cli.py -k "error and not provider_sdk"`

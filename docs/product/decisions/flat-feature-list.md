@@ -1,4 +1,4 @@
-# 0003 功能不再分組，ID 用英文簡稱
+# 功能不再分組，ID 用英文簡稱
 
 ## 決策背景與問題
 
@@ -27,9 +27,9 @@
 ## 最終決策
 
 - 功能是系統中一個獨立且可交付的大型功能模組，不再歸屬於任何分組。
-  - 功能的定義、解決的使用者問題與現況，直接寫在 [專案總覽的功能清單](../README.md#功能清單)。
+  - 功能的定義、解決的使用者問題與現況，直接寫在 [專案總覽的功能清單](../overview.md#功能清單)。
 - 功能 ID 比照 FR／AC，用英文簡短描述（kebab-case，例如 `job-scoring`）。
   - 功能 ID 也是功能文件的檔名 `<功能 ID>.md`。
-  - 規則見 [documentation.md「功能文件的結構」](../conventions/documentation.md#功能文件的結構)。
+  - 規則見 [documentation.md「功能文件的結構」](../../conventions/documentation.md#功能文件的結構)。
 - 104 爬蟲與職缺資料庫仍是兩個獨立功能，因為各自可以單獨交付。
-- 影響的文件：[docs/README.md](../README.md)、[feature_template.md](../features/feature_template.md)、所有功能文件的檔名與表頭，以及引用功能 ID 的 [CLAUDE.md](../../CLAUDE.md)、[README.md](../../README.md)、[TODO.md](../../TODO.md)。
+- 影響的文件：[docs/product/overview.md](../overview.md)、[feature_template.md](../features/feature_template.md)、所有功能文件的檔名與表頭，以及引用功能 ID 的 [CLAUDE.md](../../../CLAUDE.md)、[README.md](../../../README.md)、[TODO.md](../../../TODO.md)。

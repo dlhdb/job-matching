@@ -1,4 +1,4 @@
-# 0001 功能文件以使用者故事分章
+# 功能文件以使用者故事分章
 
 ## 決策背景與問題
 
@@ -27,6 +27,6 @@
 - 一章一個使用者故事，每個故事是一個可以單獨交付的價值切片，章名寫使用者能做到的事。
 - 附帶條件的小故事寫成所屬故事的 FR。
 - 業務規則放在最先用到它的故事，後面的故事用連結引用。
-- 實作方式不寫在功能文件，另外寫成依元件分章的技術設計，見 [決策紀錄 0006](0006-separate-tech-design.md)。
-- 規則見 [documentation.md「功能文件的結構」](../conventions/documentation.md#功能文件的結構)，骨架見 [feature_template.md](../features/feature_template.md)。
+- 實作方式不寫在功能文件，另外寫成依元件分章的技術設計，見 [決策紀錄：功能文件與技術設計分開維護](separate-tech-design.md)。
+- 規則見 [documentation.md「功能文件的結構」](../documentation.md#功能文件的結構)，骨架見 [feature_template.md](../../product/features/feature_template.md)。
 - 所有功能文件都採用這個結構。

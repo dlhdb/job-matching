@@ -1,4 +1,4 @@
-# 0006 功能文件與技術設計分開維護
+# 功能文件與技術設計分開維護
 
 ## 決策背景與問題
 
@@ -25,7 +25,7 @@
 - 技術設計依使用者故事分章，與功能文件一章對一章：
   - 容易檢查每個故事是否都有設計，但同一個元件（資料表、LLM 抽象層）會散在多章，看不出整體。
   - 核對故事是否完成的需求，改由依故事分組的「驗收對照」滿足。
-- 技術設計併進 [architecture.md](../architecture.md)：
+- 技術設計併進 [architecture.md](../../tech/architecture.md)：
   - architecture.md 是跨功能的總覽，加入各功能的細節後會過長。
   - 修改單一功能時要在大檔案中找對應的段落。
 - 功能文件在標頭與相關段落連到技術設計，方便跳轉：
@@ -35,10 +35,11 @@
 ## 最終決策
 
 - 一個功能兩份文件，檔名都是 `<功能 ID>.md`：
-  - 功能文件 `docs/features/`：為什麼做、做什麼，讀者是 PM、設計師、架構師與工程師。
-  - 技術設計 `docs/tech-design/`：怎麼做，讀者是工程師。
+  - 功能文件 `docs/product/features/`：為什麼做、做什麼，讀者是 PM、設計師、架構師與工程師。
+  - 技術設計 `docs/tech/tech-design/`：怎麼做，讀者是工程師。
 - 分界判準：「改掉這段，PM 或設計師需要知道嗎？」需要就寫功能文件。
 - 依賴只有單向：技術設計引用功能文件，功能文件不引用技術設計，也不寫實作方式。
+- 兩者所在的目錄分區見[決策紀錄：產品文件與技術文件分目錄](product-tech-directories.md)。
 - 功能文件的故事章節改為需求／規則／驗收，「共用設計」改為「共用規則」。
 - 技術設計：
   - 依元件分章，每章列出實現的 FR ID。
@@ -48,7 +49,7 @@
   - 功能文件寫業務語言的 Given／When／Then 與通過條件。
   - 技術設計的「驗收對照」依故事分組，寫出驗證指令。
 - 影響的文件：
-  - [documentation.md](../conventions/documentation.md#內容)
-  - [feature_template.md](../features/feature_template.md)、[tech_design_template.md](../tech-design/tech_design_template.md)
-  - [docs/README.md](../README.md#撰寫與使用流程)、CLAUDE.md 的功能開發流程
-  - [決策紀錄 0001](0001-feature-docs-by-user-story.md)
+  - [documentation.md](../documentation.md#內容)
+  - [feature_template.md](../../product/features/feature_template.md)、[tech_design_template.md](../../tech/tech-design/tech_design_template.md)
+  - [docs/README.md](../../README.md#撰寫與使用流程)、CLAUDE.md 的功能開發流程
+  - [決策紀錄：功能文件以使用者故事分章](feature-docs-by-user-story.md)

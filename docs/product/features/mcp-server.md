@@ -9,8 +9,8 @@
 目前的問題：
 
 - 抓取、評分都要在終端機下指令。
-- 結果散在 `output/` 的檔案與 `data/jobs.db`。
-- 想問「這週新出現、分數高的職缺有哪些」時，得自己寫 SQL 或開 notebook。
+- 結果散在 `output/` 的檔案與職缺資料庫。
+- 想問「這週新出現、分數高的職缺有哪些」時，得自己寫查詢或開 notebook。
 
 本功能提供一個本機的 MCP server，讓 Claude Code 這類 agent 以 tool 的形式抓取、評分與查詢職缺：
 
@@ -34,7 +34,7 @@
 
 ### 3.1 輸入與輸出
 
-- 職缺資料庫：預設為 `data/jobs.db`
+- 職缺資料庫：
   - 職缺與每次執行的紀錄見 [job-database 的保存的資訊](job-database.md#721-保存的資訊)。
   - 評分結果見 [job-scoring 的儲存的評分資訊](job-scoring.md#721-儲存的評分資訊)，每筆職缺只有最新一次的結果。
 - 抓取：沿用 104-job-scraper，請求頻率與輸出檔見 [104-job-scraper 的非功能需求](104-job-scraper.md#7-非功能需求)、[輸出檔](104-job-scraper.md#621-輸出檔)。
@@ -52,7 +52,7 @@
 - [用條件查詢職缺](#6-用條件查詢職缺query)（`query`）：〔規劃中〕
 - [看單筆職缺的完整內容與評分理由](#7-看單筆職缺的完整內容與評分理由detail)（`detail`）：〔規劃中〕
 
-[§8 非功能需求](#8-非功能需求)與 [§9 共用規則](#9-共用規則)不是使用者故事。§9 放跨越各章的規則：啟動與註冊方式、stdout 的限制、錯誤處理，以及暫留的架構。
+[§8 非功能需求](#8-非功能需求)與 [§9 共用規則](#9-共用規則)不是使用者故事。§9 放跨越各章的規則：啟動與註冊方式、進度訊息的輸出、錯誤處理。
 
 ## 4. 叫 agent 抓職缺（search）
 
@@ -88,7 +88,7 @@
 - When：呼叫 `search_104_jobs`
 - Then：
   - 回傳的 `新增`、`更新` 與資料庫內容一致，並多一筆執行紀錄
-  - 呼叫期間 stdout 沒有任何輸出
+  - 抓取的進度訊息沒有混進給 agent 的回應
   - `keywords` 為空或超過 5 個、`pages` 不在 1–5 時，回傳 tool error，且沒有向 104 發出請求
 - 通過條件：全部符合。
 
@@ -130,7 +130,7 @@
   - 不含各維度理由，要看時用 `get_job_detail`。
 - 整批評分可能跑好幾分鐘，超過 client 的 tool 逾時。因應方式：
   - 用 `limit` 控制每次的筆數。
-  - 每筆開始時送出 MCP progress 通知（client 有提供 progress token 時）。
+  - 每筆開始時向 agent 回報進度（agent 支援時）。
 - 缺少 API key、不支援的供應商時回傳 tool error，同 [job-scoring §6.2.1](job-scoring.md#621-流程)。
 
 ### 5.3 驗收
@@ -154,7 +154,7 @@
 
 ## 6. 用條件查詢職缺（query）
 
-身為求職者，我想要問「最近一週新出現、70 分以上的職缺」，以便不必自己寫 SQL（UP-02）。
+身為求職者，我想要問「最近一週新出現、70 分以上的職缺」，以便不必自己寫查詢（UP-02）。
 
 ### 6.1 需求
 
@@ -236,11 +236,11 @@
 ### 8.1 需求
 
 - NFR-rate：`search_104_jobs` 的 `keywords` 最多 5 個、`pages` 最多 5 頁。
-  - 避免 agent 一次發出大量請求，違反 [非目標](../README.md#非目標) 的頻率限制。
+  - 避免 agent 一次發出大量請求，違反 [非目標](../overview.md#非目標) 的頻率限制。
   - 請求之間的延遲沿用 104-job-scraper（見 [104-job-scraper 的非功能需求](104-job-scraper.md#7-非功能需求)）。
 - NFR-cost：評分由專案內的評分功能執行，不讓 agent 自己打分。
   - 這樣才能用上 job-scoring 的評分快取：送給 AI 的內容沒變的職缺，不重複呼叫 AI（見 [job-scoring §8.2.1](job-scoring.md#821-快取鍵)）。
-- NFR-null：缺值時回傳 `null`，不回填（依 [development.md](../conventions/development.md#防禦性設計)）。
+- NFR-null：缺值時回傳 `null`，不回填（依 [development.md](../../conventions/development.md#防禦性設計)）。
   - 職缺欄位與評分欄位缺值時為 `null`。
   - 尚未評分的職缺，評分相關欄位都是 `null`。
 
@@ -261,15 +261,14 @@
 
 ## 9. 共用規則
 
-跨越各章的規則：啟動與註冊方式、stdout 的限制、錯誤處理。§9.2.1 與 §9.2.3 是暫留的實作方式。
+跨越各章的規則：啟動與註冊方式、進度訊息的輸出、錯誤處理。
 
 ### 9.1 需求
 
-- FR-server：`uv run src/mcp_server.py` 以 stdio 啟動 MCP server。
+- FR-server：`uv run src/mcp_server.py` 啟動 MCP server，供本機的 agent 連線。
   - `--db` 可指定資料庫路徑，預設為 `data/jobs.db`（同 [job-database 的資料庫預設路徑](job-database.md#71-需求)）。
-  - 專案根目錄的 `.mcp.json` 註冊這個 server，設定見 [§9.2.2](#922-註冊)。
-- FR-stdout：tool 執行期間，stdout 只輸出 MCP 協定內容（見 [§9.2.3](#923-stdout-只留給協定)）。
-  - 進度與訊息一律寫到 stderr。
+  - 專案根目錄的 `.mcp.json` 註冊這個 server，設定見 [§9.2.1](#921-註冊)。
+- FR-output：tool 執行期間，抓取與評分的進度訊息不會混進給 agent 的回應，避免 agent 無法解析回應。
 - FR-error：下列情況以 tool error 回傳訊息，server 繼續執行：
   - 參數錯誤
   - 找不到職缺
@@ -280,33 +279,7 @@
 
 - 每個 tool 的行為與對應的 CLI 一致：抓取同 104-job-scraper，評分同 job-scoring。
 
-#### 9.2.1 架構
-
-本節是實作方式，功能實作完成、寫出技術設計後移過去。
-
-```mermaid
-flowchart LR
-    A["Agent（Claude Code 等）"] <-->|"stdio"| S["src/mcp_server.py"]
-    S --> F["fetch_104_jobs"]
-    S --> B["job_scoring（score_batch）"]
-    S --> D[("data/jobs.db")]
-    F --> D
-    B --> D
-```
-
-- 每個 tool 只做參數檢查與格式轉換，邏輯都呼叫既有模組：
-  - CLI 與 MCP 的行為才會一致。
-  - 之後若加上 Web 介面，也呼叫同一組函式。
-- 評分由專案內的 scorer 執行，不讓 agent 自己打分（理由見 [§8](#8-非功能需求)）。
-- `score_jobs` 從 `jobs` 表讀取職缺，順序依 `run_jobs`；評分結果寫入同一個資料庫的 `job_scores`。
-- `query_jobs` 以 `jobs` LEFT JOIN `job_scores`（`職缺代碼`）取分數，沒有對應列的職缺視為未評分。
-  - 排除淘汰時，未評分職缺的 `淘汰` 是 NULL，條件要寫成 `IFNULL(淘汰, 0) = 0`，才不會連未評分的職缺一起排除。
-- `get_job_detail` 的 `評分` 是 `job_scores.評分結果` 解析後的物件。
-- tool 函式可以不經過 MCP 直接呼叫，離線測試就是這樣測。
-- 使用官方的 `mcp` Python SDK。
-- 驗收對照預計的測試檔是 `tests/test_mcp_server.py` 與 `tests/e2e/test_mcp_server.py`，另外要跑型別檢查 `uv run mypy src/`。
-
-#### 9.2.2 註冊
+#### 9.2.1 註冊
 
 專案根目錄的 `.mcp.json` 讓 Claude Code 在這個專案中自動載入 server：
 
@@ -321,14 +294,6 @@ flowchart LR
 }
 ```
 
-#### 9.2.3 stdout 只留給協定
-
-本節是實作方式，功能實作完成、寫出技術設計後移過去。
-
-- 限制：stdio 傳輸以 stdout 傳送協定訊息，任何其他輸出都會讓 client 解析失敗。
-- 問題：104-job-scraper 的 `execute_scraping` 會把進度與預覽表格 `print` 到 stdout。
-- 做法：tool 執行期間把 stdout 導向 stderr（`contextlib.redirect_stdout`），不必修改爬蟲 CLI 的輸出。
-
 ### 9.3 驗收
 
 #### AC-server：啟動、tool 清單與錯誤不中斷
@@ -341,7 +306,7 @@ flowchart LR
 - Then：
   - 列出的 tool 剛好是 §4–§7 的四個
   - `get_job_detail` 回傳 tool error，之後的 `query_jobs` 仍正常回傳空清單
-  - client 沒有出現協定解析錯誤
+  - agent 端沒有出現無法解析回應的錯誤
 - 通過條件：全部符合。
 
 #### AC-agent-real：在 Claude Code 中實際使用 〔需網路〕

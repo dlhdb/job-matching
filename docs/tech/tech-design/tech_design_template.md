@@ -6,7 +6,7 @@
      判斷一段內容要不要寫：它幫工程師更快看懂全貌，或寫出讀程式碼推不出來的事嗎？兩者都不是就刪。
      以下章節沒有內容時整章省略，元件較多時可以依元件再分章。 -->
 
-- 功能文件：[<功能 ID>.md](../features/feature_template.md)
+- 功能文件：[<功能 ID>.md](../../product/features/feature_template.md)
 - 程式碼：進入點與模組路徑
 
 ## 1. 總覽
@@ -52,7 +52,7 @@ flowchart LR
 
 - 依使用者故事分組，順序同功能文件。
 - 已實作故事的每條 AC 都要有一項，反之亦然。〔規劃中〕的故事完成時再補上。
-- 需要網路的條目標註〔需網路〕，測試放在 `tests/e2e/` 並加上 `@pytest.mark.network`（見 [development.md](../conventions/development.md#測試)）。
+- 需要網路的條目標註〔需網路〕，測試放在 `tests/e2e/` 並加上 `@pytest.mark.network`（見 [development.md](../../conventions/development.md#測試)）。
 - 共用的測試資料只簡述用途，細節看測試程式。
 
 一次跑完所有離線驗收：
@@ -63,5 +63,5 @@ uv run pytest tests/test_<模組>*.py
 
 ### <故事 slug>
 
-- [AC-<slug>-<重點>](../features/feature_template.md#ac-slug-重點標題)：`uv run pytest tests/test_<模組>.py -k <函式名>`
-- [AC-<slug>-real](../features/feature_template.md#ac-slug-重點標題)〔需網路〕：`uv run pytest -m network tests/e2e/test_<模組>.py -k real`
+- [AC-<slug>-<重點>](../../product/features/feature_template.md#ac-slug-重點標題)：`uv run pytest tests/test_<模組>.py -k <函式名>`
+- [AC-<slug>-real](../../product/features/feature_template.md#ac-slug-重點標題)〔需網路〕：`uv run pytest -m network tests/e2e/test_<模組>.py -k real`

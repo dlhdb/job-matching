@@ -25,6 +25,23 @@
 - [ ] 保留評分歷史：`job_scores` 目前每筆職缺只留最新一次，trend-analysis 要分析分數變化時再改成多列
 - [ ] `--no-cache` 強制重新呼叫 AI：目前要重問 AI 只能改動快取鍵的來源（模型、提示詞模板、經歷、`目標方向`、`產業偏好`），或刪掉 `job_scores` 中的列
 
+## mcp-server 實作備忘
+
+- [ ] 實作 mcp-server 時，把以下暫定的技術方案帶進實作計畫。完成後把會長期留下的部分寫成 `docs/tech/tech-design/mcp-server.md`，並從這裡移除：
+  - 使用官方的 `mcp` Python SDK，以 stdio 傳輸。
+  - 每個 tool 只做參數檢查與格式轉換，邏輯都呼叫既有模組（爬蟲的 `execute_scraping`、`job_scoring` 的 `score_batch`），CLI 與 MCP 的行為才會一致，之後的 Web 介面也呼叫同一組函式。
+  - `score_jobs` 從 `jobs` 表讀取職缺，順序依 `run_jobs`；評分結果寫入同一個資料庫的 `job_scores`。
+  - `query_jobs` 以 `jobs` LEFT JOIN `job_scores`（`職缺代碼`）取分數，沒有對應列的職缺視為未評分。
+    - 排除淘汰時，未評分職缺的 `淘汰` 是 NULL，條件要寫成 `IFNULL(淘汰, 0) = 0`，才不會連未評分的職缺一起排除。
+  - `get_job_detail` 的 `評分` 是 `job_scores.評分結果` 解析後的物件。
+  - stdout 只留給協定（實現 FR-output）：
+    - stdio 傳輸以 stdout 傳送協定訊息，任何其他輸出都會讓 client 解析失敗。
+    - 爬蟲的 `execute_scraping` 會把進度與預覽表格 `print` 到 stdout。
+    - tool 執行期間以 `contextlib.redirect_stdout` 把 stdout 導向 stderr，不必修改爬蟲 CLI 的輸出。
+  - `score_jobs` 的進度：client 有提供 progress token 時，每筆開始時送出 MCP progress 通知。
+  - tool 函式可以不經過 MCP 直接呼叫，離線測試就這樣測。
+  - 驗收對照預計的測試檔是 `tests/test_mcp_server.py` 與 `tests/e2e/test_mcp_server.py`，另外要跑型別檢查 `uv run mypy src/`。
+
 ## 文件
 
-- [ ] 在 [documentation.md](docs/conventions/documentation.md#功能文件的結構) 補上「範圍外」要列哪些項目：實作者合理會以為包含、但其實不做的事（屬於相鄰功能、順手會做的下一步、刻意不採用的做法），不是列出所有沒做的事。已寫在 docs/README.md「非目標」的事不重複列
+- [ ] 在 [documentation.md](docs/conventions/documentation.md#功能文件的結構) 補上「範圍外」要列哪些項目：實作者合理會以為包含、但其實不做的事（屬於相鄰功能、順手會做的下一步、刻意不採用的做法），不是列出所有沒做的事。已寫在 docs/product/overview.md「非目標」的事不重複列

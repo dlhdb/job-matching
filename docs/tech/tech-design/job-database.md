@@ -1,7 +1,7 @@
 # 職缺資料庫：技術設計
 
-- 功能文件：[job-database.md](../features/job-database.md)
-- 程式碼：[src/job_db/](../../src/job_db/)、[src/import_jobs.py](../../src/import_jobs.py)（匯入 CLI）、[src/fetch_104_jobs.py](../../src/fetch_104_jobs.py)（寫入資料庫的部分）
+- 功能文件：[job-database.md](../../product/features/job-database.md)
+- 程式碼：[src/job_db/](../../../src/job_db/)、[src/import_jobs.py](../../../src/import_jobs.py)（匯入 CLI）、[src/fetch_104_jobs.py](../../../src/fetch_104_jobs.py)（寫入資料庫的部分）
 
 ## 1. 總覽
 
@@ -31,7 +31,7 @@ flowchart LR
   - 原因：爬蟲會 import `job_db`，反向 import 會形成循環。
   - 因此 `schema.py` 另外定義一份 `jobs` 的欄名與型態（`JOB_COLUMNS`），不 import 爬蟲的 `CSV_FIELDNAMES`。兩份欄名是否一致由測試檢查。
   - 其他模組呼叫 `job_db` 時，參數都用基本型別。
-- 使用標準函式庫 `sqlite3`，不新增依賴（選用 SQLite 的理由見 [決策紀錄 0005](../decisions/0005-database-selection.md)）。
+- 使用標準函式庫 `sqlite3`，不新增依賴（選用 SQLite 的理由見 [決策紀錄：資料庫選型](../decisions/database-selection.md)）。
 - `fetch_104_jobs.py` 原本是單檔自足腳本，加入本功能後依賴 `src/job_db/`。
   - 以 `uv run src/fetch_104_jobs.py` 執行時，`src/` 在 import 路徑上，不需要額外設定。
 
@@ -39,7 +39,7 @@ flowchart LR
 
 ### 2.1 寫入一次執行
 
-實現 FR-save-*。業務規則見[功能文件的寫入規則](../features/job-database.md#421-寫入規則)。
+實現 FR-save-*。業務規則見[功能文件的寫入規則](../../product/features/job-database.md#421-寫入規則)。
 
 `store.save_run` 是爬蟲與匯入共用的進入點，整批在同一個 transaction 中：
 
@@ -55,7 +55,7 @@ flowchart LR
 
 ### 2.2 匯入 JSON
 
-實現 FR-import。業務規則見[功能文件的匯入既有 JSON](../features/job-database.md#521-匯入既有-json)。
+實現 FR-import。業務規則見[功能文件的匯入既有 JSON](../../product/features/job-database.md#521-匯入既有-json)。
 
 `store.import_json` 處理單一檔案：
 
@@ -66,7 +66,7 @@ flowchart LR
 
 ## 3. 資料與儲存
 
-實現 FR-db、FR-save-run。每個欄位的業務意義見[功能文件的保存的資訊](../features/job-database.md#721-保存的資訊)。
+實現 FR-db、FR-save-run。每個欄位的業務意義見[功能文件的保存的資訊](../../product/features/job-database.md#721-保存的資訊)。
 
 ### 3.1 開啟資料庫
 
@@ -109,6 +109,14 @@ flowchart LR
 - 欄名沿用中文，讓 `pandas.read_sql` 讀出來的欄位與 CSV／JSON 一致，job-scoring 不需要做欄名對照。
 - 時間存成 ISO 8601 字串，字串比較的結果與時間先後相同，寫入規則可以直接比較。
 
+### 3.3 查詢
+
+沒有查詢介面，使用者與下游功能直接以 SQL 讀取 `data/jobs.db`：
+
+- 終端機：`sqlite3 data/jobs.db`（開發容器已安裝，見 [devcontainer.md](../ai-coding-setup/devcontainer.md#容器內的工具)）
+- 程式或 notebook：`pandas.read_sql`，中文欄名讀出來就與 CSV／JSON 一致
+- 評分結果在 `job_scores`，以 `職缺代碼` JOIN `jobs`（見 [job-scoring 技術設計](job-scoring.md#32-job_scores-資料表)）
+
 ## 4. 錯誤處理與結束碼
 
 爬蟲寫入資料庫：
@@ -144,16 +152,16 @@ uv run pytest tests/test_fetch_104_jobs.py -k db
 
 ### save
 
-- [AC-save-dedup](../features/job-database.md#ac-save-dedup跨次去重與出現時間)：`uv run pytest tests/test_job_db.py -k save_run`
-- [AC-save-keep-detail](../features/job-database.md#ac-save-keep-detailnull-不覆蓋既有內容)：`uv run pytest tests/test_job_db.py -k keeps_detail`
-- [AC-save-run](../features/job-database.md#ac-save-run執行紀錄與整批寫入)：`uv run pytest tests/test_job_db.py -k "save_run and (records or rollback)"`
-- [AC-save-auto](../features/job-database.md#ac-save-auto爬蟲寫入資料庫)：`uv run pytest tests/test_fetch_104_jobs.py -k db`
+- [AC-save-dedup](../../product/features/job-database.md#ac-save-dedup跨次去重與出現時間)：`uv run pytest tests/test_job_db.py -k save_run`
+- [AC-save-keep-detail](../../product/features/job-database.md#ac-save-keep-detailnull-不覆蓋既有內容)：`uv run pytest tests/test_job_db.py -k keeps_detail`
+- [AC-save-run](../../product/features/job-database.md#ac-save-run執行紀錄與整批寫入)：`uv run pytest tests/test_job_db.py -k "save_run and (records or rollback)"`
+- [AC-save-auto](../../product/features/job-database.md#ac-save-auto爬蟲寫入資料庫)：`uv run pytest tests/test_fetch_104_jobs.py -k db`
 
 ### import
 
-- [AC-import](../features/job-database.md#ac-import匯入既有-json)：`uv run pytest tests/test_import_jobs.py`
+- [AC-import](../../product/features/job-database.md#ac-import匯入既有-json)：`uv run pytest tests/test_import_jobs.py`
 
 ### 共用規則
 
-- [AC-db](../features/job-database.md#ac-db自動建立資料庫)：`uv run pytest tests/test_job_db.py -k open_db`，以及 `git check-ignore data/jobs.db`
+- [AC-db](../../product/features/job-database.md#ac-db自動建立資料庫)：`uv run pytest tests/test_job_db.py -k open_db`，以及 `git check-ignore data/jobs.db`
   - 通過條件：pytest 全部 passed，`git check-ignore` 印出路徑

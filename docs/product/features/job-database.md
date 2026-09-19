@@ -12,7 +12,7 @@
 - 看不出哪些職缺是這次新出現的，也看不出一筆職缺開了多久。
 - 零散的檔案無法累積成歷史資料，後續的趨勢分析（trend-analysis）沒有資料來源。
 
-本功能把每次抓到的職缺寫進同一個 SQLite 資料庫（UP-01）：
+本功能把每次抓到的職缺寫進同一個職缺資料庫（UP-01）：
 
 - 以職缺代碼跨次去重
 - 記錄每筆職缺第一次與最後一次被抓到的時間
@@ -25,12 +25,10 @@
 範圍外（實作時不要做）：
 
 - 評分結果存入資料庫、評分結果快取：屬 [job-scoring §7](job-scoring.md#7-依分數查詢職缺store)、[§8](job-scoring.md#8-重跑時不重複付-ai-費用cache)，本功能只提供資料庫
-- job-scoring 改從資料庫讀取職缺（見 [TODO.md](../../TODO.md#職缺評分範圍外)）
+- job-scoring 改從資料庫讀取職缺（見 [TODO.md](../../../TODO.md#職缺評分範圍外)）
 - 判斷職缺是否已下架：只記錄最後一次被抓到的時間，不推論是否下架（見 [§7.2.1](#721-保存的資訊)）
 - 其他求職平台的資料（另開一個功能）
-- 查詢或瀏覽介面：
-  - 目前直接用 pandas 或 SQLite 工具讀取
-  - agent 查詢屬 [mcp-server](mcp-server.md)
+- 查詢或瀏覽介面：agent 查詢屬 [mcp-server](mcp-server.md)
 - 保留職缺內容的歷史版本：只保留最新一版
 
 ## 3. 設計總覽
@@ -40,8 +38,8 @@
 - 輸入：104-job-scraper 產出的職缺清單，欄位依 [104-job-scraper 的欄位字典](104-job-scraper.md#821-欄位字典)。來源有兩種：
   - 爬蟲這次抓到的職缺
   - `output/104/` 的 JSON
-- 輸出：`data/jobs.db`，保存的資訊見 [§7.2.1](#721-保存的資訊)。
-  - job-scoring、trend-analysis、mcp-server 需要以職缺代碼為準、欄位固定的職缺資料，直接用 pandas 或 SQL 查詢。
+- 輸出：職缺資料庫，保存的資訊見 [§7.2.1](#721-保存的資訊)。
+  - job-scoring、trend-analysis、mcp-server 需要以職缺代碼為準、欄位固定的職缺資料。
 
 ### 3.2 使用者故事清單
 
@@ -231,7 +229,7 @@ uv run src/import_jobs.py output/104/*.json [--db data/jobs.db]
 ### 6.1 需求
 
 - NFR-local：資料庫只存在本機，不進版控。
-- NFR-null：欄位缺值時存成 `null`，不回填（依 [development.md](../conventions/development.md#防禦性設計)）。
+- NFR-null：欄位缺值時存成 `null`，不回填（依 [development.md](../../conventions/development.md#防禦性設計)）。
   - 唯一的例外是 `工作內容`、`薪資待遇` 不被 `null` 覆蓋，理由見 [§4.2.2](#422-詳情欄位不被-null-覆蓋)。
 
 ### 6.2 規則
@@ -251,16 +249,15 @@ uv run src/import_jobs.py output/104/*.json [--db data/jobs.db]
 
 ### 7.1 需求
 
-- FR-db：資料庫預設為專案根目錄的 `data/jobs.db`。
-  - 不論在哪個目錄執行都相同。
-  - 檔案或目錄不存在時自動建立。
+- FR-db：爬蟲、匯入與評分預設都寫入同一份職缺資料庫，位置可用各 CLI 的 `--db` 指定。
+  - 不論在哪個目錄執行，預設的位置都相同。
+  - 資料庫不存在時自動建立。
 
 ### 7.2 規則
 
 #### 7.2.1 保存的資訊
 
-- 資料庫是 SQLite，理由見 [決策紀錄 0005](../decisions/0005-database-selection.md)。
-- 欄位名稱沿用中文，與爬蟲的 CSV／JSON 相同，用 `pandas.read_sql` 讀出來不必做欄名對照。
+- 欄位名稱沿用中文，與爬蟲的 CSV／JSON 相同。
 - 所有時間都是本地時間，格式為 ISO 8601，精確到秒，例如 `2026-09-17T10:15:00`。
 
 每筆職缺：
@@ -303,7 +300,7 @@ uv run src/import_jobs.py output/104/*.json [--db data/jobs.db]
   - 目錄與檔案被建立
   - 可以保存職缺、執行紀錄與每次執行出現的職缺
   - 職缺的欄位依序是 104-job-scraper 欄位字典的欄位，接著是 `首次出現時間`、`最後出現時間`
-  - 預設的資料庫路徑不進版控
+  - 預設的職缺資料庫不進版控
 - 通過條件：全部符合。
 
 ## 8. 待決問題
