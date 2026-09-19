@@ -27,10 +27,4 @@
 
 ## 文件
 
-- [ ] 把 [104-job-scraper](docs/features/104-job-scraper.md)、[job-database](docs/features/job-database.md)、[mcp-server](docs/features/mcp-server.md) 改成新的結構（見 [決策紀錄 0006](docs/decisions/0006-separate-tech-design.md)）：
-  - 功能文件的「設計」改為「規則」、「共用設計」改為「共用規則」，AC 改用業務語言。
-  - 功能文件拿掉實作方式，例如 mcp-server 提到的 `job_scores` 表、「寫入同一個資料庫」。
-  - 已實作的 104-job-scraper、job-database：實作方式、驗證指令與 AC-mypy 搬到新的技術設計。
-  - 尚未實作的 mcp-server：實作完成後再寫技術設計，現有的架構內容先留在功能文件。
-
 - [ ] 在 [documentation.md](docs/conventions/documentation.md#功能文件的結構) 補上「範圍外」要列哪些項目：實作者合理會以為包含、但其實不做的事（屬於相鄰功能、順手會做的下一步、刻意不採用的做法），不是列出所有沒做的事。已寫在 docs/README.md「非目標」的事不重複列

@@ -81,7 +81,7 @@ uv run src/fetch_104_jobs.py -k "後端工程師,Backend,Python" -a 新竹
 uv run src/import_jobs.py output/104/*.json
 ```
 
-用 `pandas.read_sql` 或任何 SQLite 工具讀取即可，資料表說明見 [job-database §7.2.2](docs/features/job-database.md#722-資料表)。
+用 `pandas.read_sql` 或任何 SQLite 工具讀取即可，保存的資訊見 [job-database §7.2.1](docs/features/job-database.md#721-保存的資訊)，資料表 schema 見 [job-database 技術設計](docs/tech-design/job-database.md#32-資料表)。
 
 ### 我想讓 AI 幫我評估職缺適不適合
 
@@ -154,7 +154,7 @@ scripts/        工具腳本
 profile/        使用者的求職偏好與工作經歷（真實資料不進版控）
 output/         應用程式輸出結果（不進版控）
 data/           職缺資料庫 jobs.db（不進版控）
-docs/           專案總覽、功能文件、決策紀錄與慣例
+docs/           專案總覽、功能文件、技術設計、決策紀錄與慣例
 .devcontainer/  開發環境隔離容器設定
 ```
 
@@ -162,9 +162,12 @@ docs/           專案總覽、功能文件、決策紀錄與慣例
 
 - [docs/README.md](docs/README.md)：專案總覽（目標、使用者問題、功能清單與現況）
 - [docs/architecture.md](docs/architecture.md)：系統架構（模組依賴、資料存放、技術選型）
-- [docs/features/job-scoring.md](docs/features/job-scoring.md)：職缺評分（需求、評分規則、提示詞、LLM 抽象層、整批評分與結果檔、驗收標準）
-- [docs/features/104-job-scraper.md](docs/features/104-job-scraper.md)：104 爬蟲（需求、API 限制、欄位字典、驗收標準）
-- [docs/features/job-database.md](docs/features/job-database.md)：職缺資料庫（需求、資料表、寫入規則、匯入指令、驗收標準）
+- [docs/features/job-scoring.md](docs/features/job-scoring.md)：職缺評分（需求、評分規則、提示詞、整批評分與結果檔、驗收標準）
+  - [技術設計](docs/tech-design/job-scoring.md)：模組分工、`job_scores` 資料表、LLM 抽象層、驗收對照
+- [docs/features/104-job-scraper.md](docs/features/104-job-scraper.md)：104 爬蟲（需求、欄位字典、CLI、輸出檔、驗收標準）
+  - [技術設計](docs/tech-design/104-job-scraper.md)：104 API 的限制與請求標頭、欄位來源、驗收對照
+- [docs/features/job-database.md](docs/features/job-database.md)：職缺資料庫（需求、寫入規則、保存的資訊、匯入指令、驗收標準）
+  - [技術設計](docs/tech-design/job-database.md)：模組依賴、資料表 schema、驗收對照
 - [docs/features/mcp-server.md](docs/features/mcp-server.md)：MCP 介面（tool 清單與參數、stdout 限制、註冊方式、驗收標準）
 - [docs/conventions/documentation.md](docs/conventions/documentation.md)：文件撰寫慣例
 - [docs/conventions/development.md](docs/conventions/development.md)：開發慣例

@@ -29,8 +29,10 @@ uv add <pkg>                 # 新增依賴
 - 單一功能怎麼做（系統輪廓、模組分工、資料表、外部系統的技術限制、驗收對應的測試指令）：`docs/tech-design/<功能 ID>.md`
 - 撰寫新功能文件、技術設計的格式：[docs/features/feature_template.md](docs/features/feature_template.md)、[docs/tech-design/tech_design_template.md](docs/tech-design/tech_design_template.md)
 - 專案檔案結構：[README.md](README.md) 的「專案結構」
-- 104 爬蟲的請求標頭與頻率限制、職缺欄位字典、執行方式與輸出位置：[docs/features/104-job-scraper.md](docs/features/104-job-scraper.md)
-- 職缺資料庫的資料表、跨次去重與出現時間的寫入規則、匯入既有 JSON 的指令：[docs/features/job-database.md](docs/features/job-database.md)
+- 104 爬蟲的頻率限制、職缺欄位字典、執行方式與輸出位置：[docs/features/104-job-scraper.md](docs/features/104-job-scraper.md)
+- 104 API 的請求標頭與限制、欄位來源、測試指令：[docs/tech-design/104-job-scraper.md](docs/tech-design/104-job-scraper.md)
+- 職缺資料庫保存的資訊、跨次去重與出現時間的寫入規則、匯入既有 JSON 的指令：[docs/features/job-database.md](docs/features/job-database.md)
+- 職缺資料庫的模組依賴、資料表 schema、測試指令：[docs/tech-design/job-database.md](docs/tech-design/job-database.md)
 - 工作評分的維度、淘汰與薪資規則、偏好檔格式、提示詞內容、輸出欄位：[docs/features/job-scoring.md](docs/features/job-scoring.md)
 - 工作評分的模組分工、`job_scores` 資料表、快取鍵計算、LLM 抽象層與 Gemini 的限制、測試指令：[docs/tech-design/job-scoring.md](docs/tech-design/job-scoring.md)
 - MCP 介面的 tool 清單與參數、stdout 限制、註冊方式：[docs/features/mcp-server.md](docs/features/mcp-server.md)

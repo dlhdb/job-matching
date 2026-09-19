@@ -38,7 +38,7 @@ flowchart LR
 依賴限制：
 
 - 只有 `llm.py` 可以 import 特定供應商的 SDK（`google` 開頭的模組），實現 FR-llm，由 [AC-cli-error](../features/job-scoring.md#ac-cli-error錯誤處理與供應商隔離) 的 (d) 以 `ast` 掃描 import 驗證。
-- `job_db` 不 import 專案內的其他模組（原因見 [job-database 的模組佈局](../features/job-database.md#721-模組佈局)），所以 `job_db/scores.py` 的參數都用基本型別，由 `scorer.py` 把評分結果轉好再傳入。
+- `job_db` 不 import 專案內的其他模組（原因見 [job-database 的技術設計](job-database.md#1-總覽)），所以 `job_db/scores.py` 的參數都用基本型別，由 `scorer.py` 把評分結果轉好再傳入。
 
 import 路徑：
 

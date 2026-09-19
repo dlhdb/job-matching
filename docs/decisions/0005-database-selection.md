@@ -21,5 +21,5 @@ job-database 要把每次抓到的職缺累積到同一個地方（見 [job-data
   - 一樣是 SQL 資料庫：之後需要改用 PostgreSQL 等 SQL 資料庫時，資料表設計與查詢大多可以沿用，遷移成本低。
 - 影響的文件：
   - [architecture.md 的資料存放](../architecture.md#資料存放)
-  - [job-database §7.2](../features/job-database.md#72-設計)：模組佈局與資料表
+  - [job-database 技術設計](../tech-design/job-database.md#3-資料與儲存)：模組依賴與資料表
   - [job-scoring 技術設計](../tech-design/job-scoring.md#32-job_scores-資料表)：`job_scores` 表

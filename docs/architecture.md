@@ -37,7 +37,7 @@ flowchart LR
     class mcp planned
 ```
 
-- `job_db` 在最底層，不 import 專案內的其他模組。原因見 [job-database 的模組佈局](features/job-database.md#721-模組佈局)。
+- `job_db` 在最底層，不 import 專案內的其他模組。原因見 [job-database 的技術設計總覽](tech-design/job-database.md#1-總覽)。
 - `job_scoring` 經由 `job_db/scores.py` 寫入 `job_scores`（見 [job-scoring 的技術設計總覽](tech-design/job-scoring.md#1-總覽)）。
 - mcp-server 的 tool 只做參數檢查與格式轉換，邏輯都呼叫 CLI 用的同一組函式（見 [mcp-server 的架構](features/mcp-server.md#921-架構)）。
 
@@ -47,7 +47,7 @@ flowchart LR
 
 - 所有表的建表語法都放在 `job_db` 的 schema，開啟資料庫時一起建立。
 - 各表由哪個功能負責：
-  - `jobs`、`scrape_runs`、`run_jobs`：job-database（見 [資料表](features/job-database.md#722-資料表)）
+  - `jobs`、`scrape_runs`、`run_jobs`：job-database（見 [資料表](tech-design/job-database.md#32-資料表)）
     - 寫入：爬蟲、匯入 CLI
   - `job_scores`：job-scoring（見 [資料表](tech-design/job-scoring.md#32-job_scores-資料表)）
     - 寫入：評分（CLI 或 mcp-server）
@@ -68,7 +68,7 @@ flowchart LR
 
 - 語言與套件管理：Python 3.14，依賴由 uv 管理（見 [依賴管理](conventions/development.md#依賴管理)）
 - 資料庫：SQLite，使用標準函式庫 `sqlite3`（見 [決策紀錄 0005](decisions/0005-database-selection.md)）
-- 抓取：`requests` 呼叫 104 的內部 API（見 [104 API 的限制](features/104-job-scraper.md#422-104-api-的限制)）
+- 抓取：`requests` 呼叫 104 的內部 API（見 [104 API 的限制](tech-design/104-job-scraper.md#4-外部系統整合)）
 - LLM：Gemini，使用 `google-genai`
   - 經由 `LLMClient` 抽象層呼叫，換供應商不必改其他模組（見 [LLM 供應商抽象層](tech-design/job-scoring.md#41-llm-供應商抽象層)）
 - 資料驗證：Pydantic，驗證偏好檔、AI 輸出與評分結果
