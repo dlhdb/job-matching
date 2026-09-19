@@ -43,7 +43,6 @@
   - `output/104/` 的 JSON
 - 輸出：`data/jobs.db`，資料表見 [§7.2.2](#722-資料表)。
   - job-scoring、trend-analysis、mcp-server 需要一份以職缺代碼為主鍵、欄位固定的資料表，直接用 pandas 或 SQL 查詢。
-  - job-scoring 的評分結果也寫進同一個資料庫（`job_scores`，見 [job-scoring §7.2.1](job-scoring.md#721-資料表)）。
 
 ### 3.2 使用者故事清單
 

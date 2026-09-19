@@ -25,20 +25,22 @@ uv add <pkg>                 # 新增依賴
 
 - 產品目標與成功指標、使用者問題、跨功能的使用者旅程、功能清單與現況、名詞定義：[docs/README.md](docs/README.md)
 - 跨功能的模組依賴、資料存放位置與各資料表的負責功能、技術選型總覽：[docs/architecture.md](docs/architecture.md)
-- 單一功能的需求、範圍、設計、驗收標準：`docs/features/<功能 ID>.md`
-- 撰寫新功能文件的格式：[docs/features/feature_template.md](docs/features/feature_template.md)
+- 單一功能的為什麼做、做什麼（需求、範圍、業務規則、驗收標準）：`docs/features/<功能 ID>.md`
+- 單一功能怎麼做（系統輪廓、模組分工、資料表、外部系統的技術限制、驗收對應的測試指令）：`docs/tech-design/<功能 ID>.md`
+- 撰寫新功能文件、技術設計的格式：[docs/features/feature_template.md](docs/features/feature_template.md)、[docs/tech-design/tech_design_template.md](docs/tech-design/tech_design_template.md)
 - 專案檔案結構：[README.md](README.md) 的「專案結構」
 - 104 爬蟲的請求標頭與頻率限制、職缺欄位字典、執行方式與輸出位置：[docs/features/104-job-scraper.md](docs/features/104-job-scraper.md)
 - 職缺資料庫的資料表、跨次去重與出現時間的寫入規則、匯入既有 JSON 的指令：[docs/features/job-database.md](docs/features/job-database.md)
-- 工作評分的維度、淘汰與薪資規則、偏好檔格式、提示詞設計、輸出欄位、LLM 抽象層：[docs/features/job-scoring.md](docs/features/job-scoring.md)
+- 工作評分的維度、淘汰與薪資規則、偏好檔格式、提示詞內容、輸出欄位：[docs/features/job-scoring.md](docs/features/job-scoring.md)
+- 工作評分的模組分工、`job_scores` 資料表、快取鍵計算、LLM 抽象層與 Gemini 的限制、測試指令：[docs/tech-design/job-scoring.md](docs/tech-design/job-scoring.md)
 - MCP 介面的 tool 清單與參數、stdout 限制、註冊方式：[docs/features/mcp-server.md](docs/features/mcp-server.md)
-- 文件撰寫規範（內容、功能文件結構、FR／AC 命名、決策紀錄、格式、繪圖）：[docs/conventions/documentation.md](docs/conventions/documentation.md)
+- 文件撰寫規範（內容、功能文件與技術設計的結構、FR／AC 命名、決策紀錄、格式、繪圖）：[docs/conventions/documentation.md](docs/conventions/documentation.md)
 - 程式碼風格、docstring 格式、終端輸出慣例、依賴管理、測試慣例、防禦性設計：[docs/conventions/development.md](docs/conventions/development.md)
 - 過去的取捨、考慮過但不採用的做法與原因：[docs/decisions/](docs/decisions/)
 - 隔離容器與防火牆白名單設計（所有 AI coding 工具共用）：[docs/ai-coding-setup/devcontainer.md](docs/ai-coding-setup/devcontainer.md)
 - Claude Code 專屬的權限規則（deny/ask）與設計理由：[docs/ai-coding-setup/claude-code.md](docs/ai-coding-setup/claude-code.md)
 
-所有文件都描述系統的現況：需求、設計或實作改變時，直接更新對應的文件。一個功能的需求、設計與驗收標準都寫在同一份功能文件裡。撰寫或修改任何文件前，先讀 [docs/conventions/documentation.md](docs/conventions/documentation.md)。只改文件時不必讀 development.md。
+所有文件都描述系統的現況：需求、設計或實作改變時，直接更新對應的文件。一個功能的需求、業務規則與驗收標準寫在功能文件，實作方式寫在技術設計。撰寫或修改任何文件前，先讀 [docs/conventions/documentation.md](docs/conventions/documentation.md)。只改文件時不必讀 development.md。
 
 實作進度只記在 [docs/README.md](docs/README.md#功能清單) 的狀態與「現況」，本檔不記錄進度。
 
@@ -58,6 +60,12 @@ uv add <pkg>                 # 新增依賴
 
 ## 功能開發流程
 
-1. 先在 docs/README.md 的功能清單找到要做的功能，再讀該功能的文件。功能文件以「使用者故事」為章節，一個故事自己帶著需求、設計與驗收（結構規則見 [docs/conventions/documentation.md](docs/conventions/documentation.md#功能文件的結構)），所以只需要讀要動到的故事那章、它連到的設計，加上「非功能需求」與「共用設計」。沒有功能文件，或功能文件仍有待決問題時，先與使用者釐清，不要直接實作。修改既有功能時，先在功能文件把新增或修改的使用者故事標上〔規劃中〕、狀態退回待規劃，與使用者確認後再實作。
-2. 實作時只做該使用者故事「需求」列出的事，不碰「範圍外」。設計有調整時，同步更新該故事的「設計」小節。
-3. 完成後逐條執行該使用者故事「驗收」小節的每一條，回報 ✅ / ❌ 與實際輸出；全部通過才移除〔規劃中〕標記，把功能文件與 docs/README.md 的狀態改為 ✅ 已完成，並更新 docs/README.md 中該功能的「現況」。
+1. 先在 docs/README.md 的功能清單找到要做的功能，再讀該功能的文件：
+   - 功能文件以「使用者故事」為章節，一個故事自己帶著需求、規則與驗收（結構規則見 [docs/conventions/documentation.md](docs/conventions/documentation.md#功能文件的結構)），所以只需要讀要動到的故事那章、它連到的規則，加上「非功能需求」與「共用規則」。
+   - 技術設計讀「總覽」掌握系統輪廓，再讀要動到的元件章節。
+   - 沒有功能文件，或功能文件仍有待決問題時，先與使用者釐清，不要直接實作。
+   - 修改既有功能時，先在功能文件把新增或修改的使用者故事標上〔規劃中〕、狀態退回待規劃，與使用者確認後再實作。
+2. 實作時只做該使用者故事「需求」列出的事，不碰「範圍外」。業務規則有調整時，同步更新該故事的「規則」小節。技術方案寫在實作計畫或 commit 說明，不寫進技術設計。
+3. 完成後依技術設計的「驗收對照」，逐條執行該使用者故事的每一條驗收，回報 ✅ / ❌ 與實際輸出。全部通過後：
+   - 移除〔規劃中〕標記，把功能文件與 docs/README.md 的狀態改為 ✅ 已完成，並更新 docs/README.md 中該功能的「現況」。
+   - 把會長期留下的設計更新到技術設計對應的元件章節，並在驗收對照補上新的 AC。

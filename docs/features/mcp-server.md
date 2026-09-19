@@ -37,7 +37,7 @@
 
 - 資料庫：讀寫 `data/jobs.db`
   - 資料表契約見 [job-database 的資料表](job-database.md#722-資料表)。
-  - 評分結果的 `job_scores` 表見 [job-scoring §7.2.1](job-scoring.md#721-資料表)，每筆職缺只有最新一列。
+  - 評分結果的 `job_scores` 表見 [job-scoring §7.2.1](job-scoring.md#721-儲存的評分資訊)，每筆職缺只有最新一列。
 - 抓取：沿用 104-job-scraper，頻率限制與輸出檔見 [104 API 的限制](104-job-scraper.md#422-104-api-的限制)、[輸出檔](104-job-scraper.md#621-輸出檔)。
 - 評分：沿用 job-scoring，流程見 [job-scoring §4.2.3](job-scoring.md#423-評分流程)、[§6](job-scoring.md#6-一次評完整批並拿到結果檔batch)。
   - 個人資料檔讀取 `profile/`。
@@ -123,8 +123,8 @@
 - `run_id` 取自 `search_104_jobs` 的回傳。
 - 評分流程：
   1. 從 `jobs` 表讀取職缺內容。
-  2. 交給 job-scoring 的整批評分函式，並傳入同一個資料庫連線。
-  3. 由評分函式查快取、寫入 `job_scores`。
+  2. 依 job-scoring 的整批評分逐筆評分（見 [job-scoring §7.2.2](job-scoring.md#722-流程)）。
+  3. 評分結果寫入同一個資料庫的 `job_scores`。
 - `job_nos` 中有代碼不在 `jobs` 表時，回傳 tool error，不評任何一筆。
 - 職缺依 `run_jobs` 或 `job_nos` 的順序處理：
   - 超過 `limit` 的部分不評分，列在回傳的 `未處理`。
@@ -225,7 +225,7 @@
 
 - 參數：`job_no`（str，必填）。
 - 回傳：`jobs` 表的全部欄位，加上 `評分`。
-  - `評分` 是 `job_scores.評分結果` 解析後的物件，格式同 [job-scoring §11.2.2](job-scoring.md#1122-jobscore-輸出格式) 的 JobScore。
+  - `評分` 是 `job_scores.評分結果` 解析後的物件，格式同 [job-scoring §11.2.1](job-scoring.md#1121-評分結果格式)。
   - 尚未評分時 `評分` 為 `null`。
 - 找不到職缺時回傳 tool error。
 
