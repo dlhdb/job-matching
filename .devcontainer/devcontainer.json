@@ -21,8 +21,8 @@
     // 虛擬環境放在工作目錄外，避免與主機（macOS）的 .venv 互相覆蓋
     "UV_PROJECT_ENVIRONMENT": "/home/node/.venv",
     "UV_LINK_MODE": "copy",
-    // 遙測主機不在防火牆允許清單內，直接關閉以免連線失敗重試
-    "DISABLE_TELEMETRY": "1",
+    // 不設 DISABLE_TELEMETRY：Claude Code 的 Remote Control 需要 feature flag 判斷是否可用，
+    // 而 DISABLE_TELEMETRY 會一併關掉 feature flag 評估，導致 Remote Control 初始化失敗
     "DISABLE_ERROR_REPORTING": "1"
   },
   "customizations": {

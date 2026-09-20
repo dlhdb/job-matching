@@ -43,9 +43,12 @@
 - 用 `iptables` + `ipset` 把對外連線限制在白名單網域，其餘一律 `REJECT`。
 - 設計原則是 fail-closed：先切成預設拒絕，白名單建置過程中任何一步失敗，網路就維持封鎖，不會因為腳本出錯而變成全開放。
 
-白名單網域分三類：
+白名單網域分四類：
 
 - Claude Code 本身：`api.anthropic.com`、`claude.ai`、`claude.com`、`platform.claude.com`、`mcp-proxy.anthropic.com`、`code.claude.com`、`raw.githubusercontent.com`、`registry.npmjs.org`
+- Claude Code 的 Remote Control（見下方「Remote Control 與遙測」）：
+  - `bridge.claudeusercontent.com`：連線用的 websocket，手機或網頁的操作從這裡進來、session 的輸出從這裡回去。它目前解析到的 IP 與 `api.anthropic.com` 相同，但這只是巧合，仍要獨立列出。
+  - `cdn.growthbook.io`：feature flag 的來源，Claude Code 用它判斷 Remote Control 是否可用。Claude Code 相關的網域中只有這個不是 Anthropic 的機器（GrowthBook 的 CDN，掛在 Fastly）。
 - VS Code 擴充套件：`marketplace.visualstudio.com`、`vscode.blob.core.windows.net`、`update.code.visualstudio.com`
 - 本專案需要：`generativelanguage.googleapis.com`（Gemini API）、`www.104.com.tw`（爬蟲目標）、`pypi.org`、`files.pythonhosted.org`
 
@@ -55,3 +58,16 @@
 
 - Claude Code 的 `WebSearch` / `WebFetch` 這類工具，由 Anthropic 伺服器端執行實際查詢，不受此白名單限制。
 - 其他 AI coding 工具若有類似「伺服器端代為查詢」的功能，同樣不受影響。
+
+## Remote Control 與遙測
+
+Remote Control 讓手機或 claude.ai/code 操作容器內的 Claude Code session。要能用，除了上面兩個網域，`devcontainer.json` 的 `containerEnv` **不能**設 `DISABLE_TELEMETRY`：
+
+- Claude Code 以 feature flag 判斷這個帳號能不能用 Remote Control，而 `DISABLE_TELEMETRY` 會把整個 feature flag 評估一起關掉，Remote Control 就固定初始化失敗。
+- 兩個條件缺一不可，且錯誤訊息不同，可用 `claude doctor` 的「Remote Control」段落分辨：
+  - 設了 `DISABLE_TELEMETRY`：`Feature-flag evaluation disabled (disabled by DISABLE_TELEMETRY)`
+  - 少了 `cdn.growthbook.io`：`the feature-flag service was unreachable (offline or blocked)`
+  - 兩者都滿足：不列出診斷項目，只顯示 `Control this session from claude.ai/code or the Claude mobile app`
+- 代價是 Claude Code 會送使用遙測到 `api.anthropic.com`。只關錯誤回報用 `DISABLE_ERROR_REPORTING`，它不影響 feature flag。
+
+這條通道會把 session 的完整對話往外送、並接受外部指令，這正是 Remote Control 的定義。不需要從容器外操作 session 時，移除上述兩個網域並設回 `DISABLE_TELEMETRY` 即可關閉。

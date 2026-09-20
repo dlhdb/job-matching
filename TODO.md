@@ -42,6 +42,10 @@
   - tool 函式可以不經過 MCP 直接呼叫，離線測試就這樣測。
   - 驗收對照預計的測試檔是 `tests/test_mcp_server.py` 與 `tests/e2e/test_mcp_server.py`，另外要跑型別檢查 `uv run mypy src/`。
 
+## 開發環境
+
+- [ ] Claude Code 的自動更新在容器內無法運作：`downloads.claude.ai` 不在 [init-firewall.sh](.devcontainer/init-firewall.sh) 的白名單內，`claude doctor` 顯示 Auto-updates 為 enabled 但實際連不出去。要嘛把該網域加進白名單，要嘛改成固定版本並在重建容器時更新
+
 ## 文件
 
 - [ ] 在 [documentation.md](docs/conventions/documentation.md#功能文件的結構) 補上「範圍外」要列哪些項目：實作者合理會以為包含、但其實不做的事（屬於相鄰功能、順手會做的下一步、刻意不採用的做法），不是列出所有沒做的事。已寫在 docs/product/overview.md「非目標」的事不重複列

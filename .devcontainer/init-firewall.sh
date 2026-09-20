@@ -18,6 +18,9 @@ ALLOWED_DOMAINS=(
   "code.claude.com"
   "raw.githubusercontent.com"
   "registry.npmjs.org"
+  # Claude Code Remote Control：bridge 是連線用的 websocket，cdn.growthbook.io 供 feature flag 判斷功能是否可用
+  "bridge.claudeusercontent.com"
+  "cdn.growthbook.io"
   # VS Code 擴充套件
   "marketplace.visualstudio.com"
   "vscode.blob.core.windows.net"

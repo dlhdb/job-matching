@@ -175,7 +175,7 @@ docs/           文件：product/（產品）、tech/（技術）、conventions/
   - [docs/tech/tech-design/104-job-scraper.md](docs/tech/tech-design/104-job-scraper.md)：104 API 的限制與請求標頭、欄位來源、驗收對照
   - [docs/tech/tech-design/job-database.md](docs/tech/tech-design/job-database.md)：模組依賴、資料表 schema、查詢方式、驗收對照
   - [docs/tech/decisions/](docs/tech/decisions/)：技術取捨的決策紀錄
-  - [docs/tech/ai-coding-setup/devcontainer.md](docs/tech/ai-coding-setup/devcontainer.md)：隔離容器與防火牆白名單（所有 AI coding 工具共用）
+  - [docs/tech/ai-coding-setup/devcontainer.md](docs/tech/ai-coding-setup/devcontainer.md)：隔離容器與防火牆白名單（所有 AI coding 工具共用）、Remote Control 要的網域與環境變數
   - [docs/tech/ai-coding-setup/claude-code.md](docs/tech/ai-coding-setup/claude-code.md)：Claude Code 專屬的權限規則（deny/ask）
 - 慣例：
   - [docs/conventions/documentation.md](docs/conventions/documentation.md)：文件撰寫慣例

@@ -44,7 +44,7 @@ uv add <pkg>                 # 新增依賴
   - 產品取捨：[docs/product/decisions/](docs/product/decisions/)
   - 技術取捨：[docs/tech/decisions/](docs/tech/decisions/)
   - 文件與開發流程的取捨：[docs/conventions/decisions/](docs/conventions/decisions/)
-- 隔離容器與防火牆白名單設計（所有 AI coding 工具共用）：[docs/tech/ai-coding-setup/devcontainer.md](docs/tech/ai-coding-setup/devcontainer.md)
+- 隔離容器與防火牆白名單設計（所有 AI coding 工具共用）、Remote Control 要的網域與環境變數：[docs/tech/ai-coding-setup/devcontainer.md](docs/tech/ai-coding-setup/devcontainer.md)
 - Claude Code 專屬的權限規則（deny/ask）與設計理由：[docs/tech/ai-coding-setup/claude-code.md](docs/tech/ai-coding-setup/claude-code.md)
 
 所有文件都描述系統的現況：需求、設計或實作改變時，直接更新對應的文件。一個功能的需求、業務規則與驗收標準寫在功能文件，實作方式寫在技術設計。撰寫或修改任何文件前，先讀 [docs/conventions/documentation.md](docs/conventions/documentation.md)。只改文件時不必讀 development.md。
