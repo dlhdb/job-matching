@@ -46,13 +46,17 @@
 白名單網域分四類：
 
 - Claude Code 本身：`api.anthropic.com`、`claude.ai`、`claude.com`、`platform.claude.com`、`mcp-proxy.anthropic.com`、`code.claude.com`、`raw.githubusercontent.com`、`registry.npmjs.org`
+  - 自動更新走 `registry.npmjs.org`：容器內是 npm 全域安裝（Dockerfile 的 `npm install -g @anthropic-ai/claude-code`），更新從 npm 取得新版，不下載原生執行檔。`claude doctor` 的 `Config install method` 顯示 `global`、`Last update attempt` 顯示結果。
+  - 不放行 `downloads.claude.ai`：這是 Claude Code 的 CDN，只有原生安裝版的自動更新一定要走它，npm 安裝版用不到。模型目錄與官方 plugin 市集的資料 CDN 上也有，但不是唯一來源——該網域被擋的狀態下，`~/.claude/cache/model-catalog/` 仍會更新，plugin 市集則在 GitHub（`anthropics/claude-plugins-official`）。改用原生安裝版時才需要加進白名單。
 - Claude Code 的 Remote Control（見下方「Remote Control 與遙測」）：
   - `bridge.claudeusercontent.com`：連線用的 websocket，手機或網頁的操作從這裡進來、session 的輸出從這裡回去。它目前解析到的 IP 與 `api.anthropic.com` 相同，但這只是巧合，仍要獨立列出。
   - `cdn.growthbook.io`：feature flag 的來源，Claude Code 用它判斷 Remote Control 是否可用。Claude Code 相關的網域中只有這個不是 Anthropic 的機器（GrowthBook 的 CDN，掛在 Fastly）。
 - VS Code 擴充套件：`marketplace.visualstudio.com`、`vscode.blob.core.windows.net`、`update.code.visualstudio.com`
 - 本專案需要：`generativelanguage.googleapis.com`（Gemini API）、`www.104.com.tw`（爬蟲目標）、`pypi.org`、`files.pythonhosted.org`
 
-新增資料來源、外部 API，或換用其他需要連網的 AI coding 工具時，要把對應網域加進 `init-firewall.sh` 的 `ALLOWED_DOMAINS`，否則容器內的程式碼連不出去。
+新增資料來源、外部 API，或換用其他需要連網的 AI coding 工具時，要把對應網域加進 `init-firewall.sh` 的 `ALLOWED_DOMAINS`，否則容器內的程式碼連不出去。清單是逐一解析網域取 IP 加進 ipset，子網域不會被母網域涵蓋，例如 `claude.ai` 不會一併放行 `downloads.claude.ai`，兩者解析到的 IP 不同。
+
+`ALLOWED_DOMAINS` 改了要重建容器才會生效：腳本在 build 時 COPY 到 `/usr/local/bin/init-firewall.sh`，postStartCommand 執行的是那份副本，不是 `.devcontainer/` 底下的原始檔。
 
 這個防火牆**只**限制容器自己發出的連線：
 
