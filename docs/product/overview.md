@@ -64,13 +64,10 @@ flowchart LR
     scraper -->|職缺 JSON| scoring["job-scoring 職缺評分 (UP-02)"]
     scoring -->|結果檔 JSON / CSV| U(["使用者用表格工具排序、篩選"])
     scoring -->|評分結果| db
-    db -.->|職缺與分數| mcp["mcp-server MCP 介面 (UP-01、UP-02)"]
-    mcp -.->|抓取、評分| scraper
-    mcp -.->|抓取、評分| scoring
     db -.->|歷次職缺與分數| trend["trend-analysis 趨勢與興趣分佈 (UP-04、UP-05)"]
 
     classDef planned stroke-dasharray: 5 5
-    class mcp,trend planned
+    class trend planned
 ```
 
 ## 功能清單
@@ -100,10 +97,6 @@ flowchart LR
   - 解決的使用者問題：UP-04、UP-05
   - 狀態：待規劃
   - 文件：尚無
-- mcp-server（MCP 介面）：讓 agent 以 tool 的形式操作抓取、評分與查詢。
-  - 解決的使用者問題：UP-01、UP-02
-  - 狀態：待規劃
-  - 文件：[mcp-server.md](features/mcp-server.md)
 
 ### 功能依賴
 
@@ -118,13 +111,10 @@ flowchart LR
     scraper["104-job-scraper 104 職缺爬蟲"] --> db["job-database 職缺資料庫"]
     scoring["job-scoring 職缺評分"] --> db
     scoring -->|"讀職缺 JSON"| scraper
-    mcp["mcp-server MCP 介面"] -.-> scraper
-    mcp -.-> scoring
-    mcp -.-> db
     trend["trend-analysis 趨勢與興趣分佈"] -.-> db
 
     classDef planned stroke-dasharray: 5 5
-    class mcp,trend planned
+    class trend planned
 ```
 
 - job-database 不依賴任何功能：它只定義[職缺欄位契約](features/job-database.md#621-職缺欄位契約)與寫入規則，不需要知道誰在寫它。
@@ -150,7 +140,6 @@ flowchart LR
   - 重跑時，送給 AI 的內容沒變的職缺沿用上次的 AI 評分，不重複付費；薪資、權重等程式端的計算照常重算。
   - 可以換一份偏好、經歷或模型試跑：照常呼叫 AI 評分並寫成另一組結果檔，不影響資料庫中的正式分數與正式的結果檔。
 - trend-analysis：尚無。
-- mcp-server：尚無。
 
 ## 名詞定義
 

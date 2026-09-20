@@ -36,8 +36,6 @@ uv add <pkg>                 # 新增依賴
 - 職缺資料庫的模組依賴、資料表 schema、測試指令：[docs/tech/tech-design/job-database.md](docs/tech/tech-design/job-database.md)
 - 工作評分的維度、淘汰與薪資規則、偏好檔格式、提示詞內容、輸出欄位：[docs/product/features/job-scoring.md](docs/product/features/job-scoring.md)
 - 工作評分的模組分工、`job_scores` 資料表、快取鍵計算、LLM 抽象層與 Gemini 的限制、測試指令：[docs/tech/tech-design/job-scoring.md](docs/tech/tech-design/job-scoring.md)
-- MCP 介面的 tool 清單與參數、註冊方式：[docs/product/features/mcp-server.md](docs/product/features/mcp-server.md)
-- MCP 介面尚未實作，暫定的技術方案（stdout 限制、資料表查詢）：[TODO.md](TODO.md#mcp-server-實作備忘)
 - 文件撰寫規範（內容、功能文件與技術設計的結構、FR／AC 命名、決策紀錄、格式、繪圖）：[docs/conventions/documentation.md](docs/conventions/documentation.md)
 - 程式碼風格、docstring 格式、終端輸出慣例、依賴管理、測試慣例、防禦性設計：[docs/conventions/development.md](docs/conventions/development.md)
 - 過去的取捨、考慮過但不採用的做法與原因（決策紀錄，依性質分三處）：

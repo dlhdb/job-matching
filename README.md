@@ -167,7 +167,6 @@ docs/           文件：product/（產品）、tech/（技術）、conventions/
   - [docs/product/features/job-scoring.md](docs/product/features/job-scoring.md)：職缺評分（需求、評分規則、提示詞、整批評分與結果檔、驗收標準）
   - [docs/product/features/104-job-scraper.md](docs/product/features/104-job-scraper.md)：104 爬蟲（需求、CLI、輸出檔、寫入資料庫與匯入、驗收標準）
   - [docs/product/features/job-database.md](docs/product/features/job-database.md)：職缺資料庫（需求、職缺欄位契約、寫入規則、保存的資訊、驗收標準）
-  - [docs/product/features/mcp-server.md](docs/product/features/mcp-server.md)：MCP 介面（tool 清單與參數、註冊方式、驗收標準）
   - [docs/product/decisions/](docs/product/decisions/)：產品取捨的決策紀錄
 - 技術（怎麼做）：
   - [docs/tech/architecture.md](docs/tech/architecture.md)：系統架構（模組依賴、資料存放、技術選型）

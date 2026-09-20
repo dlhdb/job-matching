@@ -3,8 +3,7 @@
 本文件是跨功能的技術總覽：模組之間怎麼依賴、資料放在哪裡、用了哪些技術。
 
 - 功能之間的資料流見 [專案總覽的使用者旅程](../product/overview.md#使用者旅程)。
-- 各模組的細節見對應的技術設計（尚未實作的功能沒有技術設計，暫定的技術方案記在 [TODO.md](../../TODO.md#mcp-server-實作備忘)），本文件只列總覽並連過去。
-- 〔規劃中〕標示尚未實作的部分。
+- 各模組的細節見對應的技術設計，本文件只列總覽並連過去。
 
 ## 執行方式
 
@@ -13,12 +12,8 @@
   - `fetch_104_jobs.py`：抓取 104 職缺（見 [104-job-scraper 的 CLI](../product/features/104-job-scraper.md#1021-cli)）
   - `import_jobs.py`：把既有的職缺 JSON 匯入資料庫（見 [104-job-scraper 的匯入 CLI](../product/features/104-job-scraper.md#822-匯入-cli)）
   - `score_job.py`：評分單筆或整批職缺（見 [job-scoring 的 CLI](../product/features/job-scoring.md#1122-cli)）
-  - `mcp_server.py`：〔規劃中〕讓 agent 以 tool 操作抓取、評分與查詢（見 [mcp-server 的功能文件](../product/features/mcp-server.md)）
 
 ## 模組依賴
-
-- 實線：已完成
-- 虛線：規劃中
 
 ```mermaid
 flowchart LR
@@ -26,20 +21,13 @@ flowchart LR
     imp["import_jobs.py"] --> jobdb
     score["score_job.py"] --> scoring["job_scoring"]
     scoring --> jobdb
-    mcp["mcp_server.py"] -.-> fetch
-    mcp -.-> scoring
-    mcp -.-> jobdb
     jobdb --> db[("data/jobs.db")]
     fetch --> api104(["104 API"])
     scoring --> gemini(["Gemini API"])
-
-    classDef planned stroke-dasharray: 5 5
-    class mcp planned
 ```
 
 - `job_db` 在最底層，不 import 專案內的其他模組。原因見 [job-database 的技術設計總覽](tech-design/job-database.md#1-總覽)。
 - `job_scoring` 經由 `job_db/scores.py` 寫入 `job_scores`（見 [job-scoring 的技術設計總覽](tech-design/job-scoring.md#1-總覽)）。
-- 〔規劃中〕mcp-server 的 tool 只做參數檢查與格式轉換，邏輯都呼叫 CLI 用的同一組函式。
 
 ## 資料存放
 
@@ -50,9 +38,9 @@ flowchart LR
   - `jobs`、`scrape_runs`、`run_jobs`：job-database（見 [資料表](tech-design/job-database.md#32-資料表)）
     - 寫入：104-job-scraper 的爬蟲與匯入 CLI（見 [寫入資料庫與匯入](tech-design/104-job-scraper.md#4-寫入資料庫與匯入)）
   - `job_scores`：job-scoring（見 [資料表](tech-design/job-scoring.md#32-job_scores-資料表)）
-    - 寫入：評分（CLI 或 mcp-server）
+    - 寫入：評分 CLI
 - 表之間以 `職缺代碼` 關聯，它是 `jobs` 與 `job_scores` 的主鍵。
-- 欄名沿用中文，與[職缺欄位契約](../product/features/job-database.md#621-職缺欄位契約)、評分結果、mcp-server 回傳的鍵名一致。
+- 欄名沿用中文，與[職缺欄位契約](../product/features/job-database.md#621-職缺欄位契約)、評分結果的鍵名一致。
 
 檔案：
 
@@ -73,4 +61,3 @@ flowchart LR
   - 經由 `LLMClient` 抽象層呼叫，換供應商不必改其他模組（見 [LLM 供應商抽象層](tech-design/job-scoring.md#41-llm-供應商抽象層)）
 - 資料驗證：Pydantic，驗證偏好檔、AI 輸出與評分結果
 - 設定檔：偏好檔用 YAML（`pyyaml`），API key 用 `.env`（`python-dotenv`）
-- Agent 介面：〔規劃中〕官方 `mcp` Python SDK，以 stdio 傳輸

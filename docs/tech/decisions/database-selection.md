@@ -2,7 +2,7 @@
 
 ## 決策背景與問題
 
-job-database 要把每次抓到的職缺累積到同一個地方（見 [job-database §1](../../product/features/job-database.md#1-背景與目標)），job-scoring 與 mcp-server 之後也會讀寫同一份資料。要決定用哪一種資料庫。
+job-database 要把每次抓到的職缺累積到同一個地方（見 [job-database §1](../../product/features/job-database.md#1-背景與目標)），job-scoring 之後也會讀寫同一份資料。要決定用哪一種資料庫。
 
 - 專案只有求職者本人在本機使用，不做多使用者服務（見 [非目標](../../product/overview.md#非目標)）。
 - 目標是快速開發，不想為了存資料另外啟動與管理一套資料庫服務。
