@@ -28,7 +28,7 @@ uv add <pkg>                 # 新增依賴
 - 跨功能的模組依賴、資料存放位置與各資料表的負責功能、技術選型總覽：[docs/tech/architecture.md](docs/tech/architecture.md)
 - 單一功能的為什麼做、做什麼（需求、範圍、業務規則、驗收標準）：`docs/product/features/<功能 ID>.md`
 - 單一功能怎麼做（系統輪廓、模組分工、資料表、外部系統的技術限制、驗收對應的測試指令）：`docs/tech/tech-design/<功能 ID>.md`
-- 撰寫新功能文件、技術設計的格式：[docs/product/features/feature_template.md](docs/product/features/feature_template.md)、[docs/tech/tech-design/tech_design_template.md](docs/tech/tech-design/tech_design_template.md)
+- 撰寫新功能文件、技術設計的格式：[docs/product/features/_feature_template.md](docs/product/features/_feature_template.md)、[docs/tech/tech-design/_tech_design_template.md](docs/tech/tech-design/_tech_design_template.md)
 - 專案檔案結構：[README.md](README.md) 的「專案結構」
 - 104 爬蟲的頻率限制、職缺欄位字典、執行方式與輸出位置：[docs/product/features/104-job-scraper.md](docs/product/features/104-job-scraper.md)
 - 104 API 的請求標頭與限制、欄位來源、測試指令：[docs/tech/tech-design/104-job-scraper.md](docs/tech/tech-design/104-job-scraper.md)

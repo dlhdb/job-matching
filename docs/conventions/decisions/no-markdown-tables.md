@@ -30,4 +30,4 @@
   - 各種內容的寫法見 [documentation.md「格式」](../documentation.md#格式)。
 - 真值表、判斷矩陣改寫成規則句：規則句比逐格對照更容易看出例外。
 - 給 LLM 的提示詞（例如 `src/job_scoring/prompts/scoring.md`）不是文件，不受這條規則約束。
-- 影響的文件：[feature_template.md](../../product/features/feature_template.md)、所有功能文件、[docs/product/overview.md](../../product/overview.md)、[docs/tech/ai-coding-setup/](../../tech/ai-coding-setup/)、[README.md](../../../README.md)、[CLAUDE.md](../../../CLAUDE.md)。
+- 影響的文件：[_feature_template.md](../../product/features/_feature_template.md)、所有功能文件、[docs/product/overview.md](../../product/overview.md)、[docs/tech/ai-coding-setup/](../../tech/ai-coding-setup/)、[README.md](../../../README.md)、[CLAUDE.md](../../../CLAUDE.md)。

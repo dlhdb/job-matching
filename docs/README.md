@@ -22,7 +22,7 @@
 
 1. 新增功能或修改既有功能：
    - 新增功能：使用者能完成一件原本做不到的事時，才新增功能。
-     - 在 `product/features/` 複製 [feature_template.md](product/features/feature_template.md)，依命名規則取檔名。
+     - 在 `product/features/` 複製 [_feature_template.md](product/features/_feature_template.md)，依命名規則取檔名。
      - 在[功能清單](product/overview.md#功能清單)登記，狀態設為 `待規劃`。
    - 修改既有功能：下列情況都屬於修改，直接修改原本的功能文件。
      - 同一件事換個入口，例如 CLI 改成網頁
