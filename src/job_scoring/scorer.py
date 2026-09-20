@@ -129,7 +129,7 @@ def score_and_save(
     prefs: Preferences,
     experience: str,
     client_factory: Callable[[], LLMClient],
-    conn: sqlite3.Connection,
+    conn: sqlite3.Connection | None,
     provider: str,
     model: str,
 ) -> tuple[JobScore, bool]:
@@ -139,11 +139,13 @@ def score_and_save(
     送給 AI 的內容與上次相同（快取鍵相同）時，沿用上次的 AI 維度與評語，不呼叫 AI；
     淘汰、薪資分數與總分每次都重算。
 
+    conn 為 None 時是試跑：不讀寫資料庫，也不沿用上次的 AI 評分，沒被淘汰的職缺一律呼叫 AI。
+
     :param job: dict, 爬蟲輸出的單筆職缺
     :param prefs: Preferences, 偏好設定
     :param experience: str, experience.md 全文
     :param client_factory: callable, 取得 LLM client；只有真的要呼叫 AI 時才呼叫
-    :param conn: sqlite3.Connection, open_db 開啟的連線
+    :param conn: sqlite3.Connection or None, open_db 開啟的連線；None 表示試跑
     :param provider: str, client_factory 使用的 LLM 供應商
     :param model: str, client_factory 使用的模型名稱
     :return: tuple (JobScore, bool), (評分結果, 是否沿用上次的 AI 評分)
@@ -164,7 +166,7 @@ def score_and_save(
     else:
         system, user = build_prompt(job, prefs, experience)
         key, used_provider, used_model = cache_key(provider, model, system, user), provider, model
-        cached = load_cached_result(conn, job_no, key)
+        cached = load_cached_result(conn, job_no, key) if conn is not None else None
         reused = cached is not None
         if cached is not None:
             assessment = _assessment_from_result(cached)
@@ -172,6 +174,8 @@ def score_and_save(
             assessment = client_factory().assess(system, user)
         score = _combine(job, prefs, assessment)
 
+    if conn is None:
+        return score, reused
     save_score(
         conn,
         job_no=score.job_no,

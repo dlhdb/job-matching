@@ -49,7 +49,7 @@ import 路徑：
 
 ### 2.1 單筆評分
 
-實現 FR-score-*、FR-filter、FR-store-write、FR-cache-reuse。業務規則見[功能文件的評分流程](../../product/features/job-scoring.md#423-評分流程)。
+實現 FR-score-*、FR-filter、FR-store-write、FR-cache-reuse、FR-dry-run。業務規則見[功能文件的評分流程](../../product/features/job-scoring.md#423-評分流程)。
 
 `scorer.score_and_save` 評分並寫入資料庫，單筆 CLI 與[整批評分](#22-整批評分)共用這一步：
 
@@ -61,17 +61,19 @@ import 路徑：
 4. 回傳評分結果與是否沿用，供單筆印出沿用訊息、整批統計摘要。
 5. 評分失敗時例外往外拋，不寫入，資料庫中原本的列不變。
 
+試跑時呼叫端傳入的連線是 `None`：跳過查快取與寫入，其餘步驟相同，所以試跑與正式評分走同一套評分邏輯。
+
 總分與年薪換算共用 `rules.round_half_up`：以 `Fraction` 精確計算再 .5 進位，避免浮點誤差，也不用 Python `round()` 的五成雙。
 
 ### 2.2 整批評分
 
 實現 FR-batch-*。`batch.score_batch` 是整批評分的共用進入點，不綁定 CLI，其他入口也呼叫同一個函式：
 
-- 資料庫連線、供應商與模型由參數傳入，呼叫端各自開啟連線。
+- 資料庫連線、供應商與模型由參數傳入，呼叫端各自開啟連線。連線是 `None` 時為試跑，原樣傳給 `score_and_save`。
 - client 以 `client_factory` 傳入，第一次快取沒命中時才建立，之後整批共用；整批都被淘汰或都沿用時就不需要 API key。
 - 每筆結果帶有是否沿用的標記，只供摘要統計與其他入口使用，不寫進結果檔。
 - 每筆都經過 `scorer.score_and_save`，哪些錯誤算單筆失敗見 [§5](#5-cli-與錯誤處理)。
-- `batch.write_results` 依結果寫出 JSON 與 CSV，格式見[功能文件的結果檔](../../product/features/job-scoring.md#622-結果檔)。
+- `batch.write_results` 依結果寫出 JSON 與 CSV，格式見[功能文件的結果檔](../../product/features/job-scoring.md#622-結果檔)。檔名後綴由呼叫端指定，試跑用 `_dryrun`。
 
 ## 3. 資料與儲存
 
@@ -181,7 +183,7 @@ AI 必須輸出以下 JSON（Pydantic 模型 `AIAssessment`）：
 
 ## 5. CLI 與錯誤處理
 
-實現 FR-cli、FR-store-db-path。
+實現 FR-cli、FR-store-db-path、FR-dry-run。
 
 進入點：
 
@@ -192,7 +194,8 @@ AI 必須輸出以下 JSON（Pydantic 模型 `AIAssessment`）：
 資料庫：
 
 - CLI 以 `--db` 的路徑開啟連線，再傳給單筆與整批評分。
-- `--dry-run` 在開啟資料庫之前就結束，不會建立資料庫檔。
+- `--dry-run` 不開啟資料庫，不會建立資料庫檔。
+  - 單筆試跑也交給整批評分處理（只有一筆的整批），單筆與整批的試跑都以 `None` 取代連線，結果都寫成 `_dryrun` 結果檔。
 
 錯誤處理：
 
@@ -207,7 +210,7 @@ AI 必須輸出以下 JSON（Pydantic 模型 `AIAssessment`）：
 輸出：
 
 - 單筆評分：結果以 JSON 印到 stdout（`ensure_ascii=False`，縮排 2）。
-- 整批評分：結果寫成檔案，stdout 不輸出。
+- 整批評分與試跑：結果寫成檔案，stdout 不輸出。
 - 進度、摘要與錯誤訊息都印到 stderr，方便把 stdout 導向檔案。
 
 結束碼：
@@ -273,7 +276,10 @@ uv run pytest tests/test_job_scoring_*.py tests/test_score_job_cli.py
 
 - [AC-cache](../../product/features/job-scoring.md#ac-cache沿用上次的-ai-評分)：`uv run pytest tests/test_score_job_cli.py -k cache`
 
+### dry-run
+
+- [AC-dry-run](../../product/features/job-scoring.md#ac-dry-rundry-run-試跑)：`uv run pytest tests/test_score_job_cli.py -k dry_run`
+
 ### 共用規則
 
-- [AC-cli-dry-run](../../product/features/job-scoring.md#ac-cli-dry-rundry-run-印出提示詞且不呼叫-ai)：`uv run pytest tests/test_score_job_cli.py -k dry_run_prints_prompt`
 - [AC-cli-error](../../product/features/job-scoring.md#ac-cli-error錯誤處理)：`uv run pytest tests/test_score_job_cli.py -k "error and not provider_sdk"`

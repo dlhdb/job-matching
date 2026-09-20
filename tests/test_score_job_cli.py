@@ -1,4 +1,4 @@
-"""工作評分 CLI（score_job.py）的測試：dry-run、被淘汰職缺、資料庫路徑、錯誤處理、沿用上次的 AI 評分與供應商隔離。"""
+"""工作評分 CLI（score_job.py）的測試：被淘汰職缺、資料庫路徑、錯誤處理、沿用上次的 AI 評分、試跑與供應商隔離。"""
 
 import ast
 import json
@@ -19,16 +19,6 @@ SRC = Path(__file__).resolve().parents[1] / "src"
 
 def _run(jobs_file, profile_dir, *extra):
     return score_job.main(["--jobs", str(jobs_file), "--profile-dir", str(profile_dir), *extra])
-
-
-def test_main_dry_run_prints_prompt(jobs_file, profile_dir, forbid_client, capsys):
-    code = _run(jobs_file, profile_dir, "--job-no", "ok", "--dry-run")
-    out = capsys.readouterr().out
-
-    assert code == 0
-    for marker in ["目標標記-AAA", "經歷標記-BBB", "工作標記-CCC", "（無資料）"]:
-        assert marker in out
-    assert forbid_client == []
 
 
 def test_main_eliminated_needs_no_api_key(jobs_file, profile_dir, forbid_client, capsys):
@@ -161,14 +151,6 @@ def test_main_batch_writes_files_and_summary(jobs_file, profile_dir, fake_client
         path = scores_dir / f"jobs_scored.{suffix}"
         assert path.is_file()
         assert str(path) in captured.err
-
-
-def test_main_batch_dryrun_needs_job_no(jobs_file, profile_dir, forbid_client, scores_dir, capsys):
-    code = _run(jobs_file, profile_dir, "--dry-run")
-
-    assert code == 1
-    assert "[-]" in capsys.readouterr().err
-    assert not scores_dir.exists()
 
 
 def test_main_batch_all_eliminated_no_client(tmp_path, profile_dir, out_job, forbid_client, scores_dir):
@@ -346,3 +328,67 @@ def test_main_cache_single_job(jobs_file, profile_dir, counted_client, scores_di
     assert len(counted_client.calls) == 1
     assert json.loads(captured.out) == {key: record[key] for key in JOB_SCORE_KEYS}
     assert "沿用上次的 AI 評分結果" in captured.err
+
+
+def _score_rows(db):
+    """
+    取出 job_scores 的所有列，用來確認試跑沒有改動資料庫
+
+    :return: list[tuple]
+    """
+    with closing(open_db(db)) as conn:
+        return conn.execute('SELECT * FROM job_scores ORDER BY "職缺代碼"').fetchall()
+
+
+def test_main_dry_run_single(jobs_file, profile_dir, counted_client, scores_dir, isolate_db, capsys):
+    assert _run(jobs_file, profile_dir) == 0
+    rows_before = _score_rows(isolate_db)
+    capsys.readouterr()
+
+    for _ in range(2):
+        code = _run(jobs_file, profile_dir, "--job-no", "ok", "--dry-run")
+        captured = capsys.readouterr()
+        records = json.loads((scores_dir / "jobs_dryrun.json").read_text(encoding="utf-8"))
+
+        assert code == 0
+        assert captured.out == ""
+        assert [r["職缺代碼"] for r in records] == ["ok"]
+        assert records[0]["總分"] == 75
+
+    # 正式評分 1 次，兩次試跑各 1 次，試跑不沿用上次的 AI 評分
+    assert len(counted_client.calls) == 3
+    system, user = counted_client.calls[-1]
+    for marker in ["目標標記-AAA", "經歷標記-BBB", "工作標記-CCC", "（無資料）"]:
+        assert marker in system + user
+    assert _score_rows(isolate_db) == rows_before
+
+
+def test_main_dry_run_all_jobs(jobs_file, profile_dir, counted_client, scores_dir, isolate_db, capsys):
+    assert _run(jobs_file, profile_dir) == 0
+    rows_before = _score_rows(isolate_db)
+    scored_files = [(scores_dir / f"jobs_scored.{suffix}").read_bytes() for suffix in ("json", "csv")]
+    capsys.readouterr()
+
+    code = _run(jobs_file, profile_dir, "--dry-run")
+    captured = capsys.readouterr()
+
+    assert code == 0
+    assert captured.out == ""
+    assert "共 2 筆，成功 1、淘汰 1、失敗 0" in captured.err
+    for suffix in ("json", "csv"):
+        path = scores_dir / f"jobs_dryrun.{suffix}"
+        assert path.is_file()
+        assert str(path) in captured.err
+    assert len(counted_client.calls) == 2
+    assert [(scores_dir / f"jobs_scored.{suffix}").read_bytes() for suffix in ("json", "csv")] == scored_files
+    assert _score_rows(isolate_db) == rows_before
+
+
+def test_main_dry_run_no_db_created(tmp_path, jobs_file, profile_dir, counted_client, scores_dir):
+    db = tmp_path / "missing" / "jobs.db"
+
+    code = _run(jobs_file, profile_dir, "--job-no", "ok", "--dry-run", "--db", str(db))
+
+    assert code == 0
+    assert not db.exists()
+    assert not db.parent.exists()

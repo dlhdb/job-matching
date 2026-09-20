@@ -34,7 +34,7 @@ def test_main_profile_invalid(mutate, preferences_data, write_profile, jobs_file
     mutate(preferences_data)
     profile_dir = write_profile(preferences_data)
 
-    code = score_job.main(["--jobs", str(jobs_file), "--profile-dir", str(profile_dir), "--job-no", "ok", "--dry-run"])
+    code = score_job.main(["--jobs", str(jobs_file), "--profile-dir", str(profile_dir), "--job-no", "out"])
 
     assert code == 1
     assert "[-]" in capsys.readouterr().err
@@ -42,7 +42,7 @@ def test_main_profile_invalid(mutate, preferences_data, write_profile, jobs_file
 
 def test_main_profile_valid(profile_dir, jobs_file, forbid_client):
     """共用測試偏好本身必須合法"""
-    assert score_job.main(["--jobs", str(jobs_file), "--profile-dir", str(profile_dir), "--job-no", "ok", "--dry-run"]) == 0
+    assert score_job.main(["--jobs", str(jobs_file), "--profile-dir", str(profile_dir), "--job-no", "out"]) == 0
 
 
 def test_load_preferences_template_valid():

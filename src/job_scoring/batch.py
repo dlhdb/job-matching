@@ -44,20 +44,21 @@ def score_batch(
     client_factory: Callable[[], LLMClient],
     progress: Callable[[str], None],
     *,
-    conn: sqlite3.Connection,
+    conn: sqlite3.Connection | None,
     provider: str,
     model: str,
 ) -> list[BatchResult]:
     """
     依輸入順序逐筆評分，每筆評完就寫入 job_scores；LLM 呼叫失敗或回應驗證失敗時記下原因並繼續下一筆（不寫入）。
     送給 AI 的內容與上次相同的職缺沿用上次的 AI 評分，不呼叫 AI。
+    conn 為 None 時是試跑：不讀寫資料庫、不沿用上次的 AI 評分。
 
     :param jobs: list[dict], 爬蟲輸出的職缺
     :param prefs: Preferences, 偏好設定
     :param experience: str, experience.md 全文
     :param client_factory: callable, 建立 LLM client；第一次需要呼叫 AI 時才呼叫，整批都被淘汰或都沿用時不呼叫
     :param progress: callable, 接收每筆開始前的進度訊息
-    :param conn: sqlite3.Connection, open_db 開啟的連線，評分結果寫入其中的 job_scores
+    :param conn: sqlite3.Connection or None, open_db 開啟的連線，評分結果寫入其中的 job_scores；None 表示試跑
     :param provider: str, client_factory 使用的 LLM 供應商
     :param model: str, client_factory 使用的模型名稱
     :return: list[BatchResult], 與輸入順序相同，每筆職缺一筆結果；reused 標示是否沿用上次的 AI 評分
@@ -122,18 +123,20 @@ def _csv_row(record: dict[str, Any]) -> dict[str, Any]:
     return {k: "" if v is None else v for k, v in row.items()}
 
 
-def write_results(results: list[BatchResult], input_path: Path, output_dir: Path) -> tuple[Path, Path]:
+def write_results(results: list[BatchResult], input_path: Path, output_dir: Path,
+                  *, suffix: str = "_scored") -> tuple[Path, Path]:
     """
-    把整批結果寫成 <輸入檔主體>_scored.json 與 _scored.csv，已存在時直接覆寫。
+    把整批結果寫成 <輸入檔主體><suffix>.json 與 .csv，已存在時直接覆寫。
 
     :param results: list[BatchResult], 整批評分結果
     :param input_path: Path, 輸入的職缺檔，用來決定輸出檔名
     :param output_dir: Path, 輸出目錄，不存在時自動建立
+    :param suffix: str, 接在輸入檔主體後的檔名後綴；試跑用另一個後綴，不覆寫正式的結果檔
     :return: tuple (Path, Path), (JSON 路徑, CSV 路徑)
     """
     output_dir.mkdir(parents=True, exist_ok=True)
-    json_path = output_dir / f"{input_path.stem}_scored.json"
-    csv_path = output_dir / f"{input_path.stem}_scored.csv"
+    json_path = output_dir / f"{input_path.stem}{suffix}.json"
+    csv_path = output_dir / f"{input_path.stem}{suffix}.csv"
     records = [r.model_dump(by_alias=True) for r in results]
 
     json_path.write_text(json.dumps(records, ensure_ascii=False, indent=2), encoding="utf-8")
