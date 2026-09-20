@@ -25,6 +25,11 @@
 - [ ] 保留評分歷史：`job_scores` 目前每筆職缺只留最新一次，trend-analysis 要分析分數變化時再改成多列
 - [ ] `--no-cache` 強制重新呼叫 AI：目前要重問 AI 只能改動快取鍵的來源（模型、提示詞模板、經歷、`目標方向`、`產業偏好`），或刪掉 `job_scores` 中的列
 
+## 職缺資料庫
+
+- [ ] 職缺欄位契約與執行紀錄的平台中立化：目前的欄位取自 104 職缺，執行紀錄的條件欄位（`關鍵字`、`地區`、`職缺性質`、`頁數`、`來源檔`）也是 104 留下的形狀。接第二個求職平台時要處理跨平台的職缺識別（現在的 `職缺代碼` 就是 104 的 `jobNo`）、來源平台欄位，以及各平台特有欄位怎麼放
+- [ ] 把 `import_json` 整個從 `src/job_db/store.py` 移到 `src/import_jobs.py`，`job_db` 只留 `save_run`：檔名解析（`jobs_104_<關鍵字>_<YYYYMMDD_HHMMSS>.json`）與「以 `來源檔` 判斷是否已匯入」都是 [104-job-scraper 的業務規則](docs/product/features/104-job-scraper.md#821-匯入既有-json)，不該留在所有來源共用的底層模組。只搬檔名解析不夠，剩下的部分形狀一樣
+
 ## mcp-server 實作備忘
 
 - [ ] 實作 mcp-server 時，把以下暫定的技術方案帶進實作計畫。完成後把會長期留下的部分寫成 `docs/tech/tech-design/mcp-server.md`，並從這裡移除：

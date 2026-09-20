@@ -24,15 +24,15 @@ uv add <pkg>                 # 新增依賴
 需要下列資訊時，再去讀對應的文件：
 
 - 文件分區（產品／技術／慣例）與撰寫、使用流程：[docs/README.md](docs/README.md)
-- 產品目標與成功指標、使用者問題、跨功能的使用者旅程、功能清單與現況、名詞定義：[docs/product/overview.md](docs/product/overview.md)
+- 產品目標與成功指標、使用者問題、跨功能的使用者旅程、功能依賴、功能清單與現況、名詞定義：[docs/product/overview.md](docs/product/overview.md)
 - 跨功能的模組依賴、資料存放位置與各資料表的負責功能、技術選型總覽：[docs/tech/architecture.md](docs/tech/architecture.md)
 - 單一功能的為什麼做、做什麼（需求、範圍、業務規則、驗收標準）：`docs/product/features/<功能 ID>.md`
 - 單一功能怎麼做（系統輪廓、模組分工、資料表、外部系統的技術限制、驗收對應的測試指令）：`docs/tech/tech-design/<功能 ID>.md`
 - 撰寫新功能文件、技術設計的格式：[docs/product/features/_feature_template.md](docs/product/features/_feature_template.md)、[docs/tech/tech-design/_tech_design_template.md](docs/tech/tech-design/_tech_design_template.md)
 - 專案檔案結構：[README.md](README.md) 的「專案結構」
-- 104 爬蟲的頻率限制、職缺欄位字典、執行方式與輸出位置：[docs/product/features/104-job-scraper.md](docs/product/features/104-job-scraper.md)
-- 104 API 的請求標頭與限制、欄位來源、測試指令：[docs/tech/tech-design/104-job-scraper.md](docs/tech/tech-design/104-job-scraper.md)
-- 職缺資料庫保存的資訊、跨次去重與出現時間的寫入規則、匯入既有 JSON 的指令：[docs/product/features/job-database.md](docs/product/features/job-database.md)
+- 104 爬蟲的頻率限制、執行方式與輸出位置、寫入資料庫與匯入既有 JSON 的指令：[docs/product/features/104-job-scraper.md](docs/product/features/104-job-scraper.md)
+- 104 API 的請求標頭與限制、欄位來源、寫入資料庫與匯入的模組分工、測試指令：[docs/tech/tech-design/104-job-scraper.md](docs/tech/tech-design/104-job-scraper.md)
+- 職缺欄位契約、職缺資料庫保存的資訊、跨次去重與出現時間的寫入規則：[docs/product/features/job-database.md](docs/product/features/job-database.md)
 - 職缺資料庫的模組依賴、資料表 schema、測試指令：[docs/tech/tech-design/job-database.md](docs/tech/tech-design/job-database.md)
 - 工作評分的維度、淘汰與薪資規則、偏好檔格式、提示詞內容、輸出欄位：[docs/product/features/job-scoring.md](docs/product/features/job-scoring.md)
 - 工作評分的模組分工、`job_scores` 資料表、快取鍵計算、LLM 抽象層與 Gemini 的限制、測試指令：[docs/tech/tech-design/job-scoring.md](docs/tech/tech-design/job-scoring.md)

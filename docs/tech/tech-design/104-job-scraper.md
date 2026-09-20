@@ -1,7 +1,7 @@
 # 104 職缺爬蟲：技術設計
 
 - 功能文件：[104-job-scraper.md](../../product/features/104-job-scraper.md)
-- 程式碼：[src/fetch_104_jobs.py](../../../src/fetch_104_jobs.py)
+- 程式碼：[src/fetch_104_jobs.py](../../../src/fetch_104_jobs.py)、[src/import_jobs.py](../../../src/import_jobs.py)（匯入 CLI）
 
 ## 1. 總覽
 
@@ -11,12 +11,14 @@ flowchart LR
     cli --> detail(["104 詳情 API"])
     cli --> out["output/104/ (CSV、JSON)"]
     cli --> jobdb["job_db"]
+    imp["import_jobs.py"] --> jobdb
     jobdb --> db[("data/jobs.db")]
 ```
 
 - `fetch_104_jobs.py`：單檔腳本，包含 CLI 與互動模式、呼叫 104 API、整理欄位、寫出檔案與終端機預覽。
-- 專案內只依賴 `job_db`，用來寫入職缺資料庫，寫入的設計見 [job-database 技術設計](job-database.md)。
-  - 以 `uv run src/fetch_104_jobs.py` 執行時，`src/` 在 import 路徑上，不需要額外設定。
+- `import_jobs.py`：匯入 CLI，把本功能過去輸出的 JSON 寫進職缺資料庫。
+- 專案內只依賴 `job_db`，用來寫入職缺資料庫，資料表與寫入的設計見 [job-database 技術設計](job-database.md)。
+  - 以 `uv run src/<腳本>.py` 執行時，`src/` 在 import 路徑上，不需要額外設定。
 
 ## 2. 流程
 
@@ -24,7 +26,7 @@ flowchart LR
 
 1. `main` 解析參數，沒有 `--keyword` 時改由 `run_interactive` 詢問搜尋條件。兩者都呼叫 `execute_scraping`。
 2. 逐一關鍵字、逐頁呼叫搜尋 API，以 `職缺代碼` 去重後累積成原始職缺清單。
-3. `parse_jobs` 逐筆呼叫詳情 API，把原始職缺整理成欄位字典的中文欄位。
+3. `parse_jobs` 逐筆呼叫詳情 API，把原始職缺整理成職缺欄位契約的中文欄位。
 4. 寫出 CSV 與 JSON，再經由 `job_db` 寫入資料庫（`--no-db` 時略過）。
 5. 在終端機印出前 10 筆的預覽表格。
 
@@ -35,7 +37,7 @@ flowchart LR
 實現 FR-output-files。
 
 - `OUTPUT_DIR`：以腳本位置推算專案根目錄下的 `output/104/`，已列入 `.gitignore`。
-- 欄位字典的欄位與 104 API 欄位的對照，以下是搜尋 API 的欄位，另有標註的除外：
+- 職缺欄位契約的欄位與 104 API 欄位的對照，以下是搜尋 API 的欄位，另有標註的除外：
   - `職缺代碼` ← `jobNo`
   - `職缺名稱` ← `jobName`
   - `公司名稱` ← `custName`
@@ -52,12 +54,21 @@ flowchart LR
   - `特色標籤` ← `tags` 的 `desc`
   - `職缺連結` ← `link.job`
   - `公司連結` ← `link.cust`
+- 欄位由 [job-database 的職缺欄位契約](../../product/features/job-database.md#621-職缺欄位契約)決定，`job_db` 的 `JOB_COLUMNS` 是它的實作，本功能的 `CSV_FIELDNAMES` 對齊它。
 - 新增欄位時要同步修改：
-  - `parse_jobs()` 與 `CSV_FIELDNAMES`
-  - 功能文件的[欄位字典](../../product/features/104-job-scraper.md#821-欄位字典)
-  - `job_db` 的 `JOB_COLUMNS`：`job_db` 不 import 爬蟲，另外定義一份欄名與型態，由測試檢查兩份一致（見 [job-database 技術設計](job-database.md#1-總覽)）
+  - 職缺欄位契約與 `job_db` 的 `JOB_COLUMNS`
+  - `parse_jobs()` 與 `CSV_FIELDNAMES`：`job_db` 不 import 爬蟲，兩份欄名是否一致由測試檢查（見 [job-database 技術設計](job-database.md#1-總覽)）
 
-## 4. 外部系統整合
+## 4. 寫入資料庫與匯入
+
+實現 FR-store-*、FR-import。業務規則見功能文件的[寫入時機與失敗處理](../../product/features/104-job-scraper.md#721-寫入時機與失敗處理)與[匯入既有 JSON](../../product/features/104-job-scraper.md#821-匯入既有-json)，去重與資料表見 [job-database 技術設計](job-database.md)。
+
+- `fetch_104_jobs.py`：寫出 CSV／JSON 後呼叫 `job_db` 的寫入進入點，帶入這次的搜尋條件，`--no-db` 時整段略過。
+- `import_jobs.py`：解析參數後逐檔呼叫 `job_db` 的匯入函式，各檔獨立成功或失敗。
+  - 進入點是 `main(argv: list[str] | None = None) -> int`，測試直接呼叫。
+  - 檔名時間解析與「是否已匯入」的判斷目前實作在 `job_db`，之後要移到本模組（見 [TODO.md](../../../TODO.md#職缺資料庫)）。
+
+## 5. 外部系統整合
 
 實現 FR-search-request、FR-detail、NFR-rate。
 
@@ -79,33 +90,45 @@ flowchart LR
 
 頻率：
 
-- 詳情請求不加延遲會被 104 拒絕，延遲的區間見[功能文件的非功能需求](../../product/features/104-job-scraper.md#7-非功能需求)。
+- 詳情請求不加延遲會被 104 拒絕，延遲的區間見[功能文件的非功能需求](../../product/features/104-job-scraper.md#9-非功能需求)。
 
-## 5. 錯誤處理與結束碼
+## 6. 錯誤處理與結束碼
 
 - 搜尋 API 回非 200 或拋出 `requests.exceptions.RequestException` 時，`fetch_jobs` 回傳空結果，視為空頁。
 - 詳情 API 回非 200 或拋出任何例外時，`fetch_job_detail` 回傳 `None`，`薪資待遇` 與 `工作內容` 為 `None`。
 - 寫出 CSV／JSON 發生 `IOError` 時印出錯誤，不中斷程式。
-- 寫入資料庫失敗的處理見 [job-database 技術設計](job-database.md#4-錯誤處理與結束碼)。
 - 按下 Ctrl+C 時，`__main__` 區塊攔下 `KeyboardInterrupt`，印出取消訊息並以結束碼 0 結束。
 
-## 6. 驗收對照
+寫入資料庫：
+
+- 開啟或寫入時發生 `sqlite3.Error` 或 `OSError`，在 stderr 印出 `[-]`，不中斷程式，因為 CSV／JSON 已經寫出。
+
+匯入 CLI：
+
+- 單一檔案發生 `ValueError` 或 `sqlite3.Error` 時印出 `[!]`，略過該檔，繼續下一個。
+- 已匯入過的檔案印出 `[i]`。
+- 結束碼：
+  - `0`：至少一個檔案匯入成功，或全部都因為已匯入而略過
+  - `1`：沒有指定檔案，或所有檔案都因為錯誤而被略過，印出 `[-]`
+- 訊息一律印到 stderr。
+
+## 7. 驗收對照
 
 測試資料：
 
-- 離線測試都在 `tests/test_fetch_104_jobs.py`。
-- `requests.get` 與 `time.sleep` 以 monkeypatch 換成假函式，檔案寫到 `tmp_path`。
+- 抓取與寫入資料庫的離線測試在 `tests/test_fetch_104_jobs.py`，匯入 CLI 在 `tests/test_import_jobs.py`。
+- `requests.get` 與 `time.sleep` 以 monkeypatch 換成假函式，檔案與資料庫都寫到 `tmp_path`。
 
 一次跑完所有離線驗收：
 
 ```bash
-uv run pytest tests/test_fetch_104_jobs.py
+uv run pytest tests/test_fetch_104_jobs.py tests/test_import_jobs.py
 ```
 
 不屬於任何 AC 的檢查：
 
 - 型別檢查：`uv run mypy src/`，通過條件為沒有錯誤。
-- 請求標頭（見 [§4](#4-外部系統整合)）：`uv run pytest tests/test_fetch_104_jobs.py -k "sends_headers or uses_job_referer"`，檢查每個請求都帶 `User-Agent`、`Referer` 與 `timeout`，詳情 API 的 `Referer` 是該職缺自己的頁面。
+- 請求標頭（見 [§5](#5-外部系統整合)）：`uv run pytest tests/test_fetch_104_jobs.py -k "sends_headers or uses_job_referer"`，檢查每個請求都帶 `User-Agent`、`Referer` 與 `timeout`，詳情 API 的 `Referer` 是該職缺自己的頁面。
 
 ### search
 
@@ -123,6 +146,14 @@ uv run pytest tests/test_fetch_104_jobs.py
 
 - [AC-output-files](../../product/features/104-job-scraper.md#ac-output-files輸出檔)：`uv run pytest tests/test_fetch_104_jobs.py -k "save or execute_scraping_filename or execute_scraping_no_jobs"`
 - [AC-output-format](../../product/features/104-job-scraper.md#ac-output-format欄位格式正規化)：`uv run pytest tests/test_fetch_104_jobs.py -k "format_date or normalize_url"`
+
+### store
+
+- [AC-store](../../product/features/104-job-scraper.md#ac-store爬蟲寫入資料庫)：`uv run pytest tests/test_fetch_104_jobs.py -k db`
+
+### import
+
+- [AC-import](../../product/features/104-job-scraper.md#ac-import匯入既有-json)：`uv run pytest tests/test_import_jobs.py`
 
 ### 非功能需求
 

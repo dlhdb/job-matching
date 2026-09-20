@@ -41,9 +41,9 @@
 ## 3. 輸入與輸出
 
 - 職缺資料庫：
-  - 職缺與每次執行的紀錄見 [job-database 的保存的資訊](job-database.md#721-保存的資訊)。
+  - 職缺與每次執行的紀錄見 [job-database 的保存的資訊](job-database.md#622-保存的資訊)。
   - 評分結果見 [job-scoring 的儲存的評分資訊](job-scoring.md#721-儲存的評分資訊)，每筆職缺只有最新一次的結果。
-- 抓取：沿用 104-job-scraper，請求頻率與輸出檔見 [104-job-scraper 的非功能需求](104-job-scraper.md#7-非功能需求)、[輸出檔](104-job-scraper.md#621-輸出檔)。
+- 抓取：沿用 104-job-scraper，請求頻率與輸出檔見 [104-job-scraper 的非功能需求](104-job-scraper.md#9-非功能需求)、[輸出檔](104-job-scraper.md#621-輸出檔)。
 - 評分：沿用 job-scoring，流程見 [job-scoring §4.2.3](job-scoring.md#423-評分流程)、[§6](job-scoring.md#6-一次評完整批並拿到結果檔batch)。
   - 個人資料檔讀取 `profile/`。
   - API key 讀取 `.env`。
@@ -67,7 +67,7 @@
 - `area`（str | null）：縣市名稱，規則同 104-job-scraper CLI 的 `-a`
   - `null` 代表全台灣
 - `pages`（int）：每個關鍵字抓幾頁，1–5，預設 1
-- `job_type`（int）：`0`／`1`／`2`，意義同 [104-job-scraper 的 CLI](104-job-scraper.md#822-cli)，預設 `0`
+- `job_type`（int）：`0`／`1`／`2`，意義同 [104-job-scraper 的 CLI](104-job-scraper.md#1021-cli)，預設 `0`
 
 - 回傳：`執行編號`、`職缺數`、`新增`、`更新`、`JSON 檔`。
 - 沒有抓到任何職缺時不算錯誤，回傳 `職缺數` 為 0、`執行編號` 為 `null`。
@@ -210,7 +210,7 @@
 `get_job_detail`：查看單筆職缺。
 
 - 參數：`job_no`（str，必填）。
-- 回傳：職缺的全部欄位（見 [job-database 的保存的資訊](job-database.md#721-保存的資訊)），加上 `評分`。
+- 回傳：職缺的全部欄位（見 [job-database 的保存的資訊](job-database.md#622-保存的資訊)），加上 `評分`。
   - `評分` 是保存的完整評分結果，格式同 [job-scoring §11.2.1](job-scoring.md#1121-評分結果格式)。
   - 尚未評分時 `評分` 為 `null`。
 - 找不到職缺時回傳 tool error。
@@ -232,7 +232,7 @@
 
 - NFR-rate：`search_104_jobs` 的 `keywords` 最多 5 個、`pages` 最多 5 頁。
   - 避免 agent 一次發出大量請求，違反 [非目標](../overview.md#非目標) 的頻率限制。
-  - 請求之間的延遲沿用 104-job-scraper（見 [104-job-scraper 的非功能需求](104-job-scraper.md#7-非功能需求)）。
+  - 請求之間的延遲沿用 104-job-scraper（見 [104-job-scraper 的非功能需求](104-job-scraper.md#9-非功能需求)）。
 - NFR-cost：評分由專案內的評分功能執行，不讓 agent 自己打分。
   - 這樣才能用上 job-scoring 的評分快取：送給 AI 的內容沒變的職缺，不重複呼叫 AI（見 [job-scoring §8.2.1](job-scoring.md#821-快取鍵)）。
 - NFR-null：缺值時回傳 `null`，不回填（依 [development.md](../../conventions/development.md#防禦性設計)）。
@@ -261,7 +261,7 @@
 ### 9.1 需求
 
 - FR-server：`uv run src/mcp_server.py` 啟動 MCP server，供本機的 agent 連線。
-  - `--db` 可指定資料庫路徑，預設為 `data/jobs.db`（同 [job-database 的資料庫預設路徑](job-database.md#71-需求)）。
+  - `--db` 可指定資料庫路徑，預設為 `data/jobs.db`（同 [job-database 的資料庫預設路徑](job-database.md#61-需求)）。
   - 專案根目錄的 `.mcp.json` 註冊這個 server，設定見 [§9.2.1](#921-註冊)。
 - FR-output：tool 執行期間，抓取與評分的進度訊息不會混進給 agent 的回應，避免 agent 無法解析回應。
 - FR-error：下列情況以 tool error 回傳訊息，server 繼續執行：

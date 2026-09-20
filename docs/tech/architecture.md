@@ -10,8 +10,8 @@
 
 - 在本機手動執行，不排程（見 [非目標](../product/overview.md#非目標)）。
 - 每個進入點都是 `src/` 下的一支腳本，以 `uv run src/<腳本>.py` 執行：
-  - `fetch_104_jobs.py`：抓取 104 職缺（見 [104-job-scraper 的 CLI](../product/features/104-job-scraper.md#822-cli)）
-  - `import_jobs.py`：把既有的職缺 JSON 匯入資料庫（見 [job-database 的匯入 CLI](../product/features/job-database.md#522-匯入-cli)）
+  - `fetch_104_jobs.py`：抓取 104 職缺（見 [104-job-scraper 的 CLI](../product/features/104-job-scraper.md#1021-cli)）
+  - `import_jobs.py`：把既有的職缺 JSON 匯入資料庫（見 [104-job-scraper 的匯入 CLI](../product/features/104-job-scraper.md#822-匯入-cli)）
   - `score_job.py`：評分單筆或整批職缺（見 [job-scoring 的 CLI](../product/features/job-scoring.md#1122-cli)）
   - `mcp_server.py`：〔規劃中〕讓 agent 以 tool 操作抓取、評分與查詢（見 [mcp-server 的功能文件](../product/features/mcp-server.md)）
 
@@ -48,11 +48,11 @@ flowchart LR
 - 所有表的建表語法都放在 `job_db` 的 schema，開啟資料庫時一起建立。
 - 各表由哪個功能負責：
   - `jobs`、`scrape_runs`、`run_jobs`：job-database（見 [資料表](tech-design/job-database.md#32-資料表)）
-    - 寫入：爬蟲、匯入 CLI
+    - 寫入：104-job-scraper 的爬蟲與匯入 CLI（見 [寫入資料庫與匯入](tech-design/104-job-scraper.md#4-寫入資料庫與匯入)）
   - `job_scores`：job-scoring（見 [資料表](tech-design/job-scoring.md#32-job_scores-資料表)）
     - 寫入：評分（CLI 或 mcp-server）
 - 表之間以 `職缺代碼` 關聯，它是 `jobs` 與 `job_scores` 的主鍵。
-- 欄名沿用中文，與爬蟲的 CSV／JSON、評分結果、mcp-server 回傳的鍵名一致。
+- 欄名沿用中文，與[職缺欄位契約](../product/features/job-database.md#621-職缺欄位契約)、評分結果、mcp-server 回傳的鍵名一致。
 
 檔案：
 
@@ -68,7 +68,7 @@ flowchart LR
 
 - 語言與套件管理：Python 3.14，依賴由 uv 管理（見 [依賴管理](../conventions/development.md#依賴管理)）
 - 資料庫：SQLite，使用標準函式庫 `sqlite3`（見 [決策紀錄：資料庫選型](decisions/database-selection.md)）
-- 抓取：`requests` 呼叫 104 的內部 API（見 [104 API 的限制](tech-design/104-job-scraper.md#4-外部系統整合)）
+- 抓取：`requests` 呼叫 104 的內部 API（見 [104 API 的限制](tech-design/104-job-scraper.md#5-外部系統整合)）
 - LLM：Gemini，使用 `google-genai`
   - 經由 `LLMClient` 抽象層呼叫，換供應商不必改其他模組（見 [LLM 供應商抽象層](tech-design/job-scoring.md#41-llm-供應商抽象層)）
 - 資料驗證：Pydantic，驗證偏好檔、AI 輸出與評分結果

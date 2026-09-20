@@ -56,6 +56,7 @@
 - 實線：已完成的功能
 - 虛線：規劃中或待規劃的功能與資料流
 - 欄位與格式見各功能文件的「輸入與輸出」
+- 功能之間誰依賴誰見[功能依賴](#功能依賴)，方向與資料流不一定相同
 
 ```mermaid
 flowchart LR
@@ -77,16 +78,17 @@ flowchart LR
 - 功能是系統中一個獨立且可交付的大型功能模組，一個功能一份功能文件。
 - 功能 ID 用英文簡短描述（kebab-case），也是檔名：`features/<功能 ID>.md`。
 - 功能不再分組，理由見 [決策紀錄：功能不再分組，ID 用英文簡稱](decisions/flat-feature-list.md)。
+- 功能之間可以有依賴，但方向必須單向：使用契約的功能依賴定義契約的功能，不能反過來。依賴方向與資料流不一定相同，例如職缺資料從爬蟲流向評分，但依賴是評分依賴爬蟲的輸出格式。判斷依賴方向對不對，看被依賴的那個功能的文件需不需要知道誰在用它。
 - 狀態值：`待規劃` → `待實作` → `實作中` → `✅ 已完成`。
 - 還沒有功能文件的功能，狀態為 `待規劃`，文件寫「尚無」。
 
 功能：
 
-- 104-job-scraper（104 職缺爬蟲）：從 104 擷取職缺，轉換成結構化資料，供 AI 分析。
+- 104-job-scraper（104 職缺爬蟲）：從 104 擷取職缺，轉換成結構化資料供 AI 分析，並存進職缺資料庫。
   - 解決的使用者問題：UP-01
   - 狀態：✅ 已完成
   - 文件：[104-job-scraper.md](features/104-job-scraper.md)
-- job-database（職缺資料庫）：把每次抓到的職缺累積到同一個資料庫，跨次去重並記錄出現時間。
+- job-database（職缺資料庫）：保管所有寫進來的職缺，跨次去重並記錄出現時間，定義職缺欄位契約。
   - 解決的使用者問題：UP-01
   - 狀態：✅ 已完成
   - 文件：[job-database.md](features/job-database.md)
@@ -103,15 +105,43 @@ flowchart LR
   - 狀態：待規劃
   - 文件：[mcp-server.md](features/mcp-server.md)
 
+### 功能依賴
+
+箭頭是「依賴誰」：A → B 代表 A 依照 B 定義的契約，B 不必知道 A 的存在。方向規則見上方的[功能清單](#功能清單)說明。
+
+- 實線：已完成的功能與依賴
+- 虛線：規劃中的功能與依賴
+- 每個功能實際依賴什麼，寫在該功能文件表頭的「依賴」
+
+```mermaid
+flowchart LR
+    scraper["104-job-scraper 104 職缺爬蟲"] --> db["job-database 職缺資料庫"]
+    scoring["job-scoring 職缺評分"] --> db
+    scoring -->|"讀職缺 JSON"| scraper
+    mcp["mcp-server MCP 介面"] -.-> scraper
+    mcp -.-> scoring
+    mcp -.-> db
+    trend["trend-analysis 趨勢與興趣分佈"] -.-> db
+
+    classDef planned stroke-dasharray: 5 5
+    class mcp,trend planned
+```
+
+- job-database 不依賴任何功能：它只定義[職缺欄位契約](features/job-database.md#621-職缺欄位契約)與寫入規則，不需要知道誰在寫它。
+- job-scoring 對 104-job-scraper 的依賴只剩「評分 CLI 讀爬蟲輸出的 JSON」，改成從職缺資料庫讀取後就會消失（見 [TODO.md](../../TODO.md#職缺評分範圍外)）。
+
 ### 現況
 
 每個功能目前讓使用者做得到的事：
 
-- 104-job-scraper：可依關鍵字、縣市與職缺性質抓取 104 職缺（含完整工作內容），輸出 CSV 與 JSON。
+- 104-job-scraper：
+  - 可依關鍵字、縣市與職缺性質抓取 104 職缺（含完整工作內容），輸出 CSV 與 JSON。
+  - 抓完的職缺會自動寫進職缺資料庫，並記下這次的搜尋條件。
+  - 過去抓好的 JSON 也能補匯入。
 - job-database：
-  - 每次抓取的結果會自動累積到職缺資料庫，跨次去重。
-  - 記錄每筆職缺第一次與最後一次被抓到的時間，以及每次抓取的條件。
-  - 過去抓好的 JSON 也能匯入。
+  - 寫進來的職缺累積在同一個資料庫，以職缺代碼跨次去重。
+  - 記錄每筆職缺第一次與最後一次出現的時間，以及每次寫入的條件。
+  - 定義職缺欄位契約，下游依它讀取職缺欄位。
 - job-scoring：
   - 可對單筆或整批職缺評分，依職涯方向、技能、產業公司、薪資四個維度給出 0–100 總分與評語。
   - 薪資低於底線、公司或職稱在排除清單中的職缺直接淘汰。
@@ -134,7 +164,7 @@ flowchart LR
 - 〔規劃中〕：標在尚未實作的使用者故事或被改到的那一行，見 [documentation.md](../conventions/documentation.md#功能文件的結構)
 - 現況：某個功能目前讓使用者做得到的事，見 [現況](#現況)
 - 決策紀錄（ADR）：有替代方案的取捨，寫出不採用的原因，依性質放在產品、技術或慣例的 `decisions/`，見 [documentation.md](../conventions/documentation.md#決策紀錄)
-- 職缺代碼：104 的職缺識別碼（`jobNo`），見 [104-job-scraper 欄位字典](features/104-job-scraper.md#821-欄位字典)
+- 職缺代碼：求職平台的職缺識別碼（104 是 `jobNo`），見 [job-database 的職缺欄位契約](features/job-database.md#621-職缺欄位契約)
   - 用於去重，也用來識別職缺資料庫中的職缺
 - 淘汰：職缺符合硬性淘汰條件（公司、職稱關鍵字、薪資低於底線），見 [job-scoring §5.2.1](features/job-scoring.md#521-硬性淘汰規則)
   - 被淘汰的職缺不呼叫 AI、沒有總分

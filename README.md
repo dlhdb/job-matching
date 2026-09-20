@@ -64,8 +64,8 @@ uv run src/fetch_104_jobs.py -k "後端工程師,Backend,Python" -a 新竹
 - `jobs_104_<關鍵字>_<時間>.csv`：用 Excel 直接開啟篩選，中文不會亂碼
 - `jobs_104_<關鍵字>_<時間>.json`：交給程式或 AI 做後續分析
 
-- 各欄位的意義見 [104-job-scraper §8.2.1 欄位字典](docs/product/features/104-job-scraper.md#821-欄位字典)。
-- 完整參數說明見 [§8.2.2](docs/product/features/104-job-scraper.md#822-cli)。
+- 各欄位的意義見 [job-database §6.2.1 職缺欄位契約](docs/product/features/job-database.md#621-職缺欄位契約)。
+- 完整參數說明見 [§10.2.1](docs/product/features/104-job-scraper.md#1021-cli)。
 - 想做統計或篩選時，打開 [notebooks/analyze_104_jobs.ipynb](notebooks/analyze_104_jobs.ipynb)，kernel 選專案的虛擬環境（devcontainer 內是 `~/.venv/bin/python`）。
 
 ### 我想累積每次抓到的職缺，看出哪些是新的
@@ -81,7 +81,7 @@ uv run src/fetch_104_jobs.py -k "後端工程師,Backend,Python" -a 新竹
 uv run src/import_jobs.py output/104/*.json
 ```
 
-用 `pandas.read_sql` 或任何 SQLite 工具讀取即可，保存的資訊見 [job-database §7.2.1](docs/product/features/job-database.md#721-保存的資訊)，資料表 schema 見 [job-database 技術設計](docs/tech/tech-design/job-database.md#32-資料表)。
+用 `pandas.read_sql` 或任何 SQLite 工具讀取即可，保存的資訊見 [job-database §6.2.2](docs/product/features/job-database.md#622-保存的資訊)，資料表 schema 見 [job-database 技術設計](docs/tech/tech-design/job-database.md#32-資料表)。
 
 ### 我想讓 AI 幫我評估職缺適不適合
 
@@ -165,14 +165,14 @@ docs/           文件：product/（產品）、tech/（技術）、conventions/
 - 產品（為什麼做、做什麼）：
   - [docs/product/overview.md](docs/product/overview.md)：專案總覽（目標、使用者問題、功能清單與現況）
   - [docs/product/features/job-scoring.md](docs/product/features/job-scoring.md)：職缺評分（需求、評分規則、提示詞、整批評分與結果檔、驗收標準）
-  - [docs/product/features/104-job-scraper.md](docs/product/features/104-job-scraper.md)：104 爬蟲（需求、欄位字典、CLI、輸出檔、驗收標準）
-  - [docs/product/features/job-database.md](docs/product/features/job-database.md)：職缺資料庫（需求、寫入規則、保存的資訊、匯入指令、驗收標準）
+  - [docs/product/features/104-job-scraper.md](docs/product/features/104-job-scraper.md)：104 爬蟲（需求、CLI、輸出檔、寫入資料庫與匯入、驗收標準）
+  - [docs/product/features/job-database.md](docs/product/features/job-database.md)：職缺資料庫（需求、職缺欄位契約、寫入規則、保存的資訊、驗收標準）
   - [docs/product/features/mcp-server.md](docs/product/features/mcp-server.md)：MCP 介面（tool 清單與參數、註冊方式、驗收標準）
   - [docs/product/decisions/](docs/product/decisions/)：產品取捨的決策紀錄
 - 技術（怎麼做）：
   - [docs/tech/architecture.md](docs/tech/architecture.md)：系統架構（模組依賴、資料存放、技術選型）
   - [docs/tech/tech-design/job-scoring.md](docs/tech/tech-design/job-scoring.md)：模組分工、`job_scores` 資料表、LLM 抽象層、驗收對照
-  - [docs/tech/tech-design/104-job-scraper.md](docs/tech/tech-design/104-job-scraper.md)：104 API 的限制與請求標頭、欄位來源、驗收對照
+  - [docs/tech/tech-design/104-job-scraper.md](docs/tech/tech-design/104-job-scraper.md)：104 API 的限制與請求標頭、欄位來源、寫入資料庫與匯入、驗收對照
   - [docs/tech/tech-design/job-database.md](docs/tech/tech-design/job-database.md)：模組依賴、資料表 schema、查詢方式、驗收對照
   - [docs/tech/decisions/](docs/tech/decisions/)：技術取捨的決策紀錄
   - [docs/tech/ai-coding-setup/devcontainer.md](docs/tech/ai-coding-setup/devcontainer.md)：隔離容器與防火牆白名單（所有 AI coding 工具共用）、Remote Control 要的網域與環境變數

@@ -6,7 +6,7 @@ from pathlib import Path
 # 以模組位置為基準，不受執行時的工作目錄影響（data/ 已列入 .gitignore）
 DEFAULT_DB_PATH = Path(__file__).resolve().parents[2] / "data" / "jobs.db"
 
-# 爬蟲輸出的欄位與 SQL 型態；欄名與順序必須和爬蟲的 CSV_FIELDNAMES 一致
+# 職缺欄位契約的實作：欄名、順序與 SQL 型態。來源功能自己的欄名（例如爬蟲的 CSV_FIELDNAMES）對齊這份
 JOB_COLUMNS: list[tuple[str, str]] = [
     ("職缺代碼", "TEXT"),
     ("職缺名稱", "TEXT"),
