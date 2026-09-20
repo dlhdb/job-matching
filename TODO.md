@@ -28,9 +28,6 @@
 ## 職缺資料庫
 
 - [ ] 職缺欄位契約與執行紀錄的平台中立化：目前的欄位取自 104 職缺，執行紀錄的條件欄位（`關鍵字`、`地區`、`職缺性質`、`頁數`、`來源檔`）也是 104 留下的形狀。接第二個求職平台時要處理跨平台的職缺識別（現在的 `職缺代碼` 就是 104 的 `jobNo`）、來源平台欄位，以及各平台特有欄位怎麼放
-- [ ] 把 `import_json` 整個從 `src/job_db/store.py` 移到 `src/import_jobs.py`，`job_db` 只留 `save_run`：檔名解析（`jobs_104_<關鍵字>_<YYYYMMDD_HHMMSS>.json`）與「以 `來源檔` 判斷是否已匯入」都是 [104-job-scraper 的業務規則](docs/product/features/104-job-scraper.md#821-匯入既有-json)，不該留在所有來源共用的底層模組。只搬檔名解析不夠，剩下的部分形狀一樣
-  - 一起調整契約一致性測試的方向：`tests/test_job_db.py` 目前拿爬蟲的 `CSV_FIELDNAMES` 當基準驗 `jobs` 表欄位（`test_open_db_creates_directories_and_tables`、`test_open_db_job_columns_match_scraper`），應改成資料庫測自己的 `JOB_COLUMNS`、由 `tests/test_fetch_104_jobs.py` 驗 `CSV_FIELDNAMES` 對齊 `JOB_COLUMNS`，並更新兩份技術設計中「兩份欄名是否一致由測試檢查」的指向
-  - `test_parse_run_time` 隨 `parse_run_time` 移到 `tests/test_import_jobs.py`，它現在不在任何一條驗收對照的指令範圍內
 
 ## mcp-server 實作備忘
 

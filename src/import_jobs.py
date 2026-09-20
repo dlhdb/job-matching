@@ -12,11 +12,18 @@
 """
 
 import argparse
+import json
+import re
 import sqlite3
 import sys
+from datetime import datetime
 from pathlib import Path
+from typing import Any
 
-from job_db import DEFAULT_DB_PATH, import_json, open_db
+from job_db import DEFAULT_DB_PATH, SaveResult, open_db, save_run
+
+# 輸出檔名結尾的時間戳，命名規則見功能文件的輸出檔，例如 jobs_104_Python_20260917_101500.json
+_FILENAME_TIME = re.compile(r"_(\d{8}_\d{6})\.json$")
 
 
 def log(message: str) -> None:
@@ -26,6 +33,67 @@ def log(message: str) -> None:
     :param message: str, 要印出的訊息
     """
     print(message, file=sys.stderr)
+
+
+def parse_run_time(path: str | Path) -> datetime | None:
+    """
+    從輸出的檔名取出執行時間
+
+    :param path: str or Path, 檔案路徑，檔名結尾須為 _YYYYMMDD_HHMMSS.json
+    :return: datetime or None, 解析不出時間時為 None
+    """
+    match = _FILENAME_TIME.search(Path(path).name)
+    if match is None:
+        return None
+    try:
+        return datetime.strptime(match.group(1), "%Y%m%d_%H%M%S")
+    except ValueError:
+        return None
+
+
+def _load_job_file(path: Path) -> list[dict[str, Any]]:
+    """
+    讀取並驗證職缺 JSON
+
+    :param path: Path, JSON 檔
+    :return: list[dict], 職缺清單
+    :raises ValueError: 檔案讀不到、不是 JSON，或不是職缺清單
+    """
+    try:
+        jobs = json.loads(path.read_text(encoding="utf-8"))
+    except OSError as e:
+        raise ValueError(f"無法讀取檔案（{e}）") from None
+    except (json.JSONDecodeError, UnicodeDecodeError) as e:
+        raise ValueError(f"不是合法的 JSON（{e}）") from None
+
+    if not isinstance(jobs, list) or not jobs:
+        raise ValueError("不是職缺清單，或沒有任何職缺")
+    for job in jobs:
+        if not isinstance(job, dict) or not isinstance(job.get("職缺代碼"), str) or not job["職缺代碼"]:
+            raise ValueError("有職缺不是物件，或缺少職缺代碼")
+    return jobs
+
+
+def import_json(conn: sqlite3.Connection, path: str | Path) -> SaveResult | None:
+    """
+    匯入一個本功能輸出的 JSON；執行時間取自檔名，同一個檔名只匯入一次。
+
+    :param conn: sqlite3.Connection, open_db 開啟的連線
+    :param path: str or Path, 爬蟲輸出的 JSON 檔
+    :return: SaveResult or None, 已匯入過而略過時為 None
+    :raises ValueError: 檔名解析不出時間，或檔案不是合法的職缺 JSON
+    """
+    path = Path(path)
+    run_time = parse_run_time(path)
+    if run_time is None:
+        raise ValueError("檔名結尾不是 _YYYYMMDD_HHMMSS.json，無法取得執行時間")
+
+    exists = conn.execute('SELECT 1 FROM scrape_runs WHERE "來源檔" = ?', (path.name,)).fetchone()
+    if exists:
+        return None
+
+    jobs = _load_job_file(path)
+    return save_run(conn, jobs, run_time, "匯入", source_file=path.name)
 
 
 def parse_args(argv: list[str] | None) -> argparse.Namespace:

@@ -5,8 +5,9 @@ from datetime import datetime
 
 import pytest
 
-import fetch_104_jobs
-from job_db import JOB_COLUMNS, SaveResult, open_db, parse_run_time, save_run
+from job_db import JOB_COLUMNS, SaveResult, open_db, save_run
+
+COLUMN_NAMES = [name for name, _ in JOB_COLUMNS]
 
 T1 = datetime(2026, 9, 1, 10, 0, 0)
 T2 = datetime(2026, 9, 17, 10, 15, 0)
@@ -60,7 +61,7 @@ def test_open_db_creates_directories_and_tables(tmp_path):
     assert path.is_file()
     tables = {row[0] for row in connection.execute("SELECT name FROM sqlite_master WHERE type = 'table'")}
     assert {"jobs", "scrape_runs", "run_jobs"} <= tables
-    assert columns(connection, "jobs") == [*fetch_104_jobs.CSV_FIELDNAMES, "首次出現時間", "最後出現時間"]
+    assert columns(connection, "jobs") == [*COLUMN_NAMES, "首次出現時間", "最後出現時間"]
     assert columns(connection, "scrape_runs") == [
         "執行編號", "執行時間", "來源", "關鍵字", "地區", "職缺性質", "頁數", "來源檔", "職缺數",
     ]
@@ -69,8 +70,7 @@ def test_open_db_creates_directories_and_tables(tmp_path):
     connection.close()
 
 
-def test_open_db_job_columns_match_scraper():
-    assert [name for name, _ in JOB_COLUMNS] == fetch_104_jobs.CSV_FIELDNAMES
+def test_open_db_job_columns_types():
     int_columns = {name for name, sql_type in JOB_COLUMNS if sql_type == "INTEGER"}
     assert int_columns == {"薪資下限", "薪資上限", "應徵人數"}
 
@@ -227,17 +227,3 @@ def test_save_run_rollback_on_error(conn, make_job):
 
     assert {table: dump(conn, table) for table in before} == before
 
-
-# ---------------------------------------------------------------------------
-# 檔名時間
-# ---------------------------------------------------------------------------
-
-@pytest.mark.parametrize("name, expected", [
-    ("jobs_104_Python_20260917_101500.json", datetime(2026, 9, 17, 10, 15, 0)),
-    ("output/104/jobs_104_all_20260101_000000.json", datetime(2026, 1, 1, 0, 0, 0)),
-    ("jobs.json", None),
-    ("jobs_104_Python_20260917_101500.csv", None),
-    ("jobs_104_Python_20261399_101500.json", None),  # 格式相符但日期不合法
-])
-def test_parse_run_time(name, expected):
-    assert parse_run_time(name) == expected

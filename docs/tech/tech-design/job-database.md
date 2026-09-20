@@ -18,7 +18,7 @@ flowchart LR
 模組職責：
 
 - `job_db/schema.py`：所有資料表的建表語法，以及開啟資料庫並建立缺少的表（含 job-scoring 的 `job_scores`）。
-- `job_db/store.py`：寫入一批職缺與該次的執行紀錄，並提供給來源功能呼叫的匯入輔助。
+- `job_db/store.py`：寫入一批職缺與該次的執行紀錄。
 - `job_db/scores.py`：寫入評分結果，由 job-scoring 呼叫（見 [job-scoring 技術設計](job-scoring.md#32-job_scores-資料表)）。
 - 呼叫者是各來源功能的進入點，見 [architecture.md 的模組依賴](../architecture.md#模組依賴)。
 
@@ -26,7 +26,7 @@ flowchart LR
 
 - `job_db` 在最底層，不 import 專案內的其他模組。
   - 原因：來源功能會 import `job_db`，反向 import 會形成循環。
-  - `schema.py` 的 `JOB_COLUMNS` 是[職缺欄位契約](../../product/features/job-database.md#621-職缺欄位契約)的實作，來源功能自己的欄名（例如爬蟲的 `CSV_FIELDNAMES`）對齊它，兩份是否一致由測試檢查。
+  - `schema.py` 的 `JOB_COLUMNS` 是[職缺欄位契約](../../product/features/job-database.md#621-職缺欄位契約)的實作，來源功能自己的欄名（例如爬蟲的 `CSV_FIELDNAMES`）對齊它，是否一致由來源功能的測試檢查（見 [104-job-scraper 技術設計](104-job-scraper.md#7-驗收對照)）。
   - 其他模組呼叫 `job_db` 時，參數都用基本型別。
 - 使用標準函式庫 `sqlite3`，不新增依賴（選用 SQLite 的理由見 [決策紀錄：資料庫選型](../decisions/database-selection.md)）。
 - 以 `uv run src/<腳本>.py` 執行時，`src/` 在 import 路徑上，來源功能不需要額外設定就能 import `job_db`。
@@ -48,17 +48,6 @@ flowchart LR
 5. commit 後在 stderr 印出新增、更新筆數與資料庫路徑。
 
 任何一步拋出例外，整個 transaction rollback，三張表都不變。呼叫端怎麼回報錯誤由來源功能決定（例如 [104-job-scraper 技術設計](104-job-scraper.md#6-錯誤處理與結束碼)）。
-
-### 2.2 匯入輔助
-
-支援 104-job-scraper 的 FR-import。`store.import_json` 給來源功能的匯入 CLI 呼叫，處理單一檔案，業務規則屬呼叫它的功能，例如 [104-job-scraper 的匯入既有 JSON](../../product/features/104-job-scraper.md#821-匯入既有-json)：
-
-1. 從檔名取出執行時間，取不到就拋出 `ValueError`。
-2. `scrape_runs` 已有相同 `來源檔` 時回傳 `None`，不讀取檔案內容。
-3. 讀取並驗證 JSON，不合法就拋出 `ValueError`。
-4. 以 `來源` 為 `匯入`、`來源檔` 為檔名呼叫 `save_run`。
-
-第 1、2 步是 104-job-scraper 的業務規則（檔名規則與「以 `來源檔` 判斷是否已匯入」），不該留在所有來源共用的 `job_db`，之後整個 `import_json` 要移到匯入 CLI，`job_db` 只留 `save_run`（見 [TODO.md](../../../TODO.md#職缺資料庫)）。
 
 ## 3. 資料與儲存
 

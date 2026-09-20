@@ -16,7 +16,7 @@ flowchart LR
 ```
 
 - `fetch_104_jobs.py`：單檔腳本，包含 CLI 與互動模式、呼叫 104 API、整理欄位、寫出檔案與終端機預覽。
-- `import_jobs.py`：匯入 CLI，把本功能過去輸出的 JSON 寫進職缺資料庫。
+- `import_jobs.py`：匯入 CLI，把本功能過去輸出的 JSON 寫進職缺資料庫；檔名時間解析與「是否已匯入」的判斷都在這支腳本裡，`job_db` 只負責寫入。
 - 專案內只依賴 `job_db`，用來寫入職缺資料庫，資料表與寫入的設計見 [job-database 技術設計](job-database.md)。
   - 以 `uv run src/<腳本>.py` 執行時，`src/` 在 import 路徑上，不需要額外設定。
 
@@ -57,16 +57,20 @@ flowchart LR
 - 欄位由 [job-database 的職缺欄位契約](../../product/features/job-database.md#621-職缺欄位契約)決定，`job_db` 的 `JOB_COLUMNS` 是它的實作，本功能的 `CSV_FIELDNAMES` 對齊它。
 - 新增欄位時要同步修改：
   - 職缺欄位契約與 `job_db` 的 `JOB_COLUMNS`
-  - `parse_jobs()` 與 `CSV_FIELDNAMES`：`job_db` 不 import 爬蟲，兩份欄名是否一致由測試檢查（見 [job-database 技術設計](job-database.md#1-總覽)）
+  - `parse_jobs()` 與 `CSV_FIELDNAMES`：`job_db` 不 import 爬蟲，兩份欄名是否一致由本功能的測試檢查（見 [§7](#7-驗收對照)）
 
 ## 4. 寫入資料庫與匯入
 
 實現 FR-store-*、FR-import。業務規則見功能文件的[寫入時機與失敗處理](../../product/features/104-job-scraper.md#721-寫入時機與失敗處理)與[匯入既有 JSON](../../product/features/104-job-scraper.md#821-匯入既有-json)，去重與資料表見 [job-database 技術設計](job-database.md)。
 
 - `fetch_104_jobs.py`：寫出 CSV／JSON 後呼叫 `job_db` 的寫入進入點，帶入這次的搜尋條件，`--no-db` 時整段略過。
-- `import_jobs.py`：解析參數後逐檔呼叫 `job_db` 的匯入函式，各檔獨立成功或失敗。
+- `import_jobs.py`：解析參數後逐檔呼叫本模組的 `import_json`，各檔獨立成功或失敗。
   - 進入點是 `main(argv: list[str] | None = None) -> int`，測試直接呼叫。
-  - 檔名時間解析與「是否已匯入」的判斷目前實作在 `job_db`，之後要移到本模組（見 [TODO.md](../../../TODO.md#職缺資料庫)）。
+  - `import_json` 處理單一檔案：
+    1. `parse_run_time` 從檔名結尾的 `_<YYYYMMDD_HHMMSS>.json` 取出執行時間，取不到就拋出 `ValueError`。
+    2. `scrape_runs` 已有相同 `來源檔` 時回傳 `None`，不讀取檔案內容。
+    3. 讀取並驗證 JSON，不合法就拋出 `ValueError`。
+    4. 以 `來源` 為 `匯入`、`來源檔` 為檔名呼叫 `job_db` 的 `save_run`。
 
 ## 5. 外部系統整合
 
@@ -128,6 +132,7 @@ uv run pytest tests/test_fetch_104_jobs.py tests/test_import_jobs.py
 不屬於任何 AC 的檢查：
 
 - 型別檢查：`uv run mypy src/`，通過條件為沒有錯誤。
+- 職缺欄位契約一致性（見 [§3](#3-資料與儲存)）：`uv run pytest tests/test_fetch_104_jobs.py -k csv_fieldnames`，檢查 `CSV_FIELDNAMES` 與 `job_db` 的 `JOB_COLUMNS` 欄名、順序相同。
 - 請求標頭（見 [§5](#5-外部系統整合)）：`uv run pytest tests/test_fetch_104_jobs.py -k "sends_headers or uses_job_referer"`，檢查每個請求都帶 `User-Agent`、`Referer` 與 `timeout`，詳情 API 的 `Referer` 是該職缺自己的頁面。
 
 ### search

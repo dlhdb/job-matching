@@ -1,6 +1,7 @@
 """匯入 CLI 的離線測試。JSON 與資料庫都建在 tmp_path。"""
 
 import json
+from datetime import datetime
 
 import pytest
 
@@ -45,6 +46,17 @@ def files(tmp_path, make_job):
         "no_time": write_json(src / "jobs.json", [make_job()]),
         "bad": write_json(src / "jobs_104_C_20260910_080000.json", {"不是": "清單"}),
     }
+
+
+@pytest.mark.parametrize("name, expected", [
+    ("jobs_104_Python_20260917_101500.json", datetime(2026, 9, 17, 10, 15, 0)),
+    ("output/104/jobs_104_all_20260101_000000.json", datetime(2026, 1, 1, 0, 0, 0)),
+    ("jobs.json", None),
+    ("jobs_104_Python_20260917_101500.csv", None),
+    ("jobs_104_Python_20261399_101500.json", None),  # 格式相符但日期不合法
+])
+def test_parse_run_time(name, expected):
+    assert import_jobs.parse_run_time(name) == expected
 
 
 def test_import_jobs_main_imports_and_skips(tmp_path, files, capsys):

@@ -13,6 +13,7 @@ import pytest
 import requests
 
 import fetch_104_jobs as m
+from job_db import JOB_COLUMNS
 
 SCRIPT = Path(__file__).resolve().parents[1] / "src" / "fetch_104_jobs.py"
 BOM = b"\xef\xbb\xbf"
@@ -74,6 +75,15 @@ def detail_ok(monkeypatch):
 
 def output_files(directory, suffix):
     return sorted(directory.glob(f"*{suffix}"))
+
+
+# ---------------------------------------------------------------------------
+# 職缺欄位契約
+# ---------------------------------------------------------------------------
+
+def test_csv_fieldnames_match_job_columns():
+    # 本功能的欄名對齊契約的實作 JOB_COLUMNS，不是反過來
+    assert m.CSV_FIELDNAMES == [name for name, _ in JOB_COLUMNS]
 
 
 # ---------------------------------------------------------------------------
