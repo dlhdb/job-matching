@@ -1,4 +1,4 @@
-"""把一批職缺寫入資料庫，以及匯入爬蟲輸出的 JSON。"""
+"""把一批符合職缺欄位契約的職缺寫入資料庫，以及匯入來源功能輸出的 JSON。"""
 
 import json
 import re
@@ -37,7 +37,7 @@ def _upsert_job(conn: sqlite3.Connection, job: dict[str, Any], t: str) -> bool:
     依出現時間寫入單筆職缺
 
     :param conn: sqlite3.Connection, 已開啟的連線（呼叫端負責交易）
-    :param job: dict, 爬蟲輸出的單筆職缺
+    :param job: dict, 符合職缺欄位契約的單筆職缺
     :param t: str, 本次執行時間（ISO 8601）
     :return: bool, True 代表新增，False 代表更新
     """
@@ -103,7 +103,7 @@ def save_run(
     把一次抓取或匯入的職缺寫入資料庫，並記錄這次執行；整批在同一個交易中，失敗時全部 rollback。
 
     :param conn: sqlite3.Connection, open_db 開啟的連線
-    :param jobs: list[dict], 爬蟲輸出格式的職缺
+    :param jobs: list[dict], 符合職缺欄位契約的職缺
     :param run_time: datetime, 本次執行時間（本地時間）
     :param source: str, "爬蟲" 或 "匯入"
     :param keywords: str or None, 以 ", " 合併的關鍵字
