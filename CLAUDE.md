@@ -87,4 +87,4 @@ uv add <pkg>                 # 新增依賴
    - 修正需要使用者決定時（例如要改業務規則、需求或驗收，或有多種合理修法），先停下來依「向使用者確認問題」的方式詢問，不自行選一種修法。
    - 修正最多三輪：第三輪修正後的審查仍有上述以外的問題時，停下來向使用者說明剩下的問題並詢問怎麼處理，不再自行修改，也不 commit。
    - 暫存區定案後執行 `.claude/hooks/require-review.sh --mark`，再單獨執行 `git commit`（不用 `-a`）。
-   - 暫存區含非 Markdown 檔卻沒有 `--mark`，或 `--mark` 之後暫存區又有變動，commit 會被 PreToolUse hook 擋下。只改 Markdown 的 commit 不必審查。
+   - 沒有 `--mark`，或 `--mark` 之後暫存區又有變動，commit 會被 PreToolUse hook 擋下。只改文件的 commit 也要審查。

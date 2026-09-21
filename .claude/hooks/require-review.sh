@@ -1,11 +1,9 @@
 #!/usr/bin/env bash
-# Claude Code PreToolUse hook：暫存區的程式碼修改沒經過 /code-review 就擋下 git commit。
+# Claude Code PreToolUse hook：暫存區的修改沒經過 /code-review 就擋下 git commit。
 #
 # 用法：
 #   require-review.sh          由 hook 呼叫，從 stdin 讀 Bash 工具的輸入
 #   require-review.sh --mark   審查完成後執行，記下目前暫存區的 hash
-#
-# 暫存區只有 Markdown 檔時直接放行。
 set -euo pipefail
 
 cd "$(git rev-parse --show-toplevel)"
@@ -32,13 +30,8 @@ if grep -qE "${git_sub}add|${git_sub}commit[^;&|]*[[:space:]](-a|--all|-[a-zA-Z]
     exit 2
 fi
 
-# 先存成變數再 grep：直接接管線時 grep -q 提早結束，git 會因 SIGPIPE 失敗，pipefail 下整個判斷變成假
-staged_files=$(git diff --cached --name-only) || { echo "無法讀取暫存區檔案清單，請確認 git 狀態後再 commit。" >&2; exit 2; }
-if grep -qvE '\.md$' <<< "$staged_files"; then
-    if [[ -f "$marker" && "$(cat "$marker")" == "$(staged_hash)" ]]; then
-        exit 0
-    fi
-    echo "暫存區的修改尚未審查。請先執行 /code-review 並處理發現的問題，修正後重新審查，直到除了已向使用者說明、決定不修的問題以外沒有其他問題為止（最多修正三輪，超過就停下來詢問使用者），確認暫存區是最終內容後執行 .claude/hooks/require-review.sh --mark，再重新 commit。" >&2
-    exit 2
+if [[ -f "$marker" && "$(cat "$marker")" == "$(staged_hash)" ]]; then
+    exit 0
 fi
-exit 0
+echo "暫存區的修改尚未審查。請先執行 /code-review 並處理發現的問題，修正後重新審查，直到除了已向使用者說明、決定不修的問題以外沒有其他問題為止（最多修正三輪，超過就停下來詢問使用者），確認暫存區是最終內容後執行 .claude/hooks/require-review.sh --mark，再重新 commit。" >&2
+exit 2
