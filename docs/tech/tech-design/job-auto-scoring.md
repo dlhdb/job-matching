@@ -103,9 +103,10 @@ profile/
 本功能寫入時：
 
 - `評分結果`：`scorer.py` 以 `JobScore.model_dump(by_alias=True)` 把評分結果轉成中文鍵的 dict 再傳入。
-- `評語`：取自評分結果；被淘汰時為 `null`。
+- `評語`：取自評分結果；被淘汰時由 `scorer.py` 以淘汰原因組成（見[功能文件的淘汰時的評語](../../product/features/job-auto-scoring.md#522-淘汰時的評語)）。
 - 疊加四欄，建表語法同樣在 `job_db/schema.py`：
-  - `評分結果`（TEXT NOT NULL）：以 `json.dumps(ensure_ascii=False)` 存成字串，`job_db/scores.py` 取出時以 `json.loads` 還原
+  - `評分結果`（TEXT | null）：以 `json.dumps(ensure_ascii=False)` 存成字串，`job_db/scores.py` 取出時以 `json.loads` 還原
+    - 本功能寫入時一定有值；可為 `null` 是因為評分資料庫的手動評分沒有這一項
   - `快取鍵`（TEXT | null）：見 [§3.3](#33-快取鍵)，被淘汰時為 `null`
   - `供應商`、`模型`（TEXT | null）：被淘汰時為 `null`
 - `淘汰`、`總分`、`評語` 與 `評分結果` 中的值重複：另外成欄是為了讓 SQL 可以直接篩選與排序，不解析 JSON。
@@ -113,11 +114,14 @@ profile/
 查詢（都在 `job_db/scores.py`）：
 
 - 快取查詢：見 [§3.3](#33-快取鍵)。
-- 取出單筆：以 `職缺代碼` 取出 `評分結果`，以 `json.loads` 還原。
+- 取出單筆：以 `職缺代碼` 取出 `評分結果`，以 `json.loads` 還原；`評分結果` 是 `null`（只有手動評分）時和沒評過一樣回傳 `None`。
+  - 函式名是 `get_score_result`，`get_score` 是評分資料庫取出基本評分紀錄的函式。
 - 依分數列出時多帶 `供應商`、`模型`，不帶 `評分結果` 與 `快取鍵`；要看各維度時以職缺代碼另外取出。
 
 寫入：
 
+- 寫入一整列用 `save_auto_score`，和評分資料庫的手動評分一樣以 `INSERT OR REPLACE` 覆寫整列（見 [job-score-database 技術設計的寫入](job-score-database.md#22-寫入)）。
+  - REPLACE 先刪掉舊列再寫入，手動評分覆寫這一列時，`評分結果`、`快取鍵`、`供應商`、`模型` 會變成 `NULL`，所以查快取時查不到。業務規則見[功能文件的流程](../../product/features/job-auto-scoring.md#722-流程)。
 - 每筆職缺的寫入各自是一個 transaction，整批中途中止時已經評完的職缺留在資料庫。
 - 整批評分中途發生 `sqlite3.Error` 時，CLI 回傳 1、不寫結果檔，已寫入的職缺留在資料庫。
 - 職缺內容更新不代表要重新呼叫 AI，是否重問由快取鍵決定，所以評分和 `jobs` 分開存放（見 [job-score-database 技術設計](job-score-database.md#21-job_scores-資料表)）。
@@ -250,6 +254,7 @@ uv run pytest tests/test_job_scoring_*.py tests/test_score_job_cli.py
 
 - [AC-filter-rules](../../product/features/job-auto-scoring.md#ac-filter-rules硬性淘汰)：`uv run pytest tests/test_job_scoring_rules.py -k check_hard_filters`
 - [AC-filter-no-key](../../product/features/job-auto-scoring.md#ac-filter-no-key被淘汰的職缺不需要-api-key)：`uv run pytest tests/test_score_job_cli.py -k eliminated`
+- [AC-filter-comment](../../product/features/job-auto-scoring.md#ac-filter-comment淘汰時的評語)：`uv run pytest tests/test_job_scoring_batch.py -k filter_comment`
 
 ### batch
 
@@ -262,7 +267,7 @@ uv run pytest tests/test_job_scoring_*.py tests/test_score_job_cli.py
 ### store
 
 - [AC-store-write](../../product/features/job-auto-scoring.md#ac-store-write評分結果入庫)：`uv run pytest tests/test_job_scoring_batch.py -k store`
-- [AC-store-get](../../product/features/job-auto-scoring.md#ac-store-get取出單筆評分結果)：`uv run pytest tests/test_job_scoring_batch.py -k get_score`
+- [AC-store-get](../../product/features/job-auto-scoring.md#ac-store-get取出單筆評分結果)：`uv run pytest tests/test_job_scoring_batch.py -k get_score_result`
 - [AC-store-db-path](../../product/features/job-auto-scoring.md#ac-store-db-path資料庫路徑)：`uv run pytest tests/test_score_job_cli.py -k db_path`
 - [AC-store-real](../../product/features/job-auto-scoring.md#ac-store-real真實評分結果入庫-需網路)〔需網路〕：`uv run pytest -m network -s tests/e2e/test_job_scoring.py -k real`
 

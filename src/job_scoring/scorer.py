@@ -5,7 +5,7 @@ from datetime import datetime
 from fractions import Fraction
 from typing import Any, Callable
 
-from job_db import load_cached_result, save_score
+from job_db import load_cached_result, save_auto_score
 from job_scoring.llm import LLMClient
 from job_scoring.models import (
     CAREER_FIT,
@@ -42,7 +42,7 @@ def compute_total(scores: dict[str, int | None], weights: dict[str, float]) -> i
 
 def _eliminated_score(job_no: str, reasons: list[str]) -> JobScore:
     """
-    被淘汰職缺的評分結果：沒有維度、總分與評語
+    被淘汰職缺的評分結果：沒有維度與總分，評語由淘汰原因組成
 
     :param job_no: str, 職缺代碼
     :param reasons: list[str], 淘汰原因
@@ -50,7 +50,7 @@ def _eliminated_score(job_no: str, reasons: list[str]) -> JobScore:
     """
     return JobScore(
         job_no=job_no, eliminated=True, elimination_reasons=reasons,
-        dimensions=None, total=None, unknown_dimensions=[], comment=None,
+        dimensions=None, total=None, unknown_dimensions=[], comment="淘汰：" + "；".join(reasons),
     )
 
 
@@ -176,7 +176,7 @@ def score_and_save(
 
     if conn is None:
         return score, reused
-    save_score(
+    save_auto_score(
         conn,
         job_no=score.job_no,
         scored_at=datetime.now(),

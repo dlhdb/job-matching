@@ -7,7 +7,7 @@ from datetime import datetime
 
 import pytest
 
-from job_db import get_score, list_scored_jobs, save_score
+from job_db import get_score_result, list_scored_jobs, save_auto_score, save_score
 from job_scoring.batch import score_batch, write_results
 from job_scoring.models import DIMENSIONS
 
@@ -127,7 +127,7 @@ def test_score_batch_store_write(make_job, prefs, make_batch_client, db_conn):
         make_job(**{"職缺代碼": "b", "職缺名稱": "業務專員"}),
         make_job(**{"職缺代碼": "c", "職缺名稱": "丙職缺"}),
     ]
-    save_score(
+    save_auto_score(
         db_conn, job_no="c", scored_at=datetime(2026, 9, 1, 10, 0, 0), eliminated=False, total=60,
         comment="舊評語", result={"職缺代碼": "c", "總分": 60}, cache_key="舊鍵", provider="gemini", model="舊模型",
     )
@@ -162,12 +162,12 @@ def test_score_batch_store_write(make_job, prefs, make_batch_client, db_conn):
     assert rows["c"] == old_row
 
 
-def test_get_score_returns_stored_result(make_job, prefs, make_batch_client, db_conn):
+def test_get_score_result_returns_stored_result(make_job, prefs, make_batch_client, db_conn):
     jobs = [make_job(**{"職缺代碼": "a", "職缺名稱": "甲職缺"})]
     client = make_batch_client({"甲職缺": {}})
     results = score_batch(jobs, prefs, "經歷", lambda: client, _no_progress, **_store(db_conn))
 
-    stored = get_score(db_conn, "a")
+    stored = get_score_result(db_conn, "a")
 
     assert list(stored) == ["職缺代碼", "淘汰", "淘汰原因", "維度", "總分", "未知維度", "評語"]
     assert list(stored["維度"]) == list(DIMENSIONS)
@@ -175,8 +175,15 @@ def test_get_score_returns_stored_result(make_job, prefs, make_batch_client, db_
     assert (stored["總分"], stored["評語"]) == (results[0].total, results[0].comment)
 
 
-def test_get_score_missing_is_none(db_conn):
-    assert get_score(db_conn, "沒有這筆") is None
+def test_get_score_result_missing_is_none(db_conn):
+    assert get_score_result(db_conn, "沒有這筆") is None
+
+
+def test_get_score_result_manual_only_is_none(db_conn):
+    save_score(db_conn, job_no="a", comment="手動的評語", total=70)
+
+    # 只有手動評分、沒有自動評分的結果，視為查不到
+    assert get_score_result(db_conn, "a") is None
 
 
 def test_list_scored_jobs_adds_provider_and_model(make_job, prefs, make_batch_client, db_conn):
@@ -221,3 +228,20 @@ def test_write_results_output_files(five_results, tmp_path):
     # 被淘汰的那列收集了多條原因，以 ", " 合併
     assert rows[1]["淘汰原因"] == ", ".join(records[1]["淘汰原因"])
     assert len(records[1]["淘汰原因"]) == 2
+
+
+def test_score_batch_filter_comment(make_job, prefs, db_conn, tmp_path):
+    # 同時符合公司與職稱兩條淘汰條件
+    job = make_job(**{"職缺代碼": "out", "職缺名稱": "業務專員", "公司名稱": "乙公司"})
+
+    [result] = score_batch([job], prefs, "經歷", lambda: None, _no_progress, **_store(db_conn))
+    json_path, csv_path = write_results([result], tmp_path / "jobs.json", tmp_path / "scores")
+
+    expected = "淘汰：公司在排除名單：乙公司；職稱含排除關鍵字：業務"
+    assert result.comment == expected
+    assert result.total is None
+    assert json.loads(json_path.read_text(encoding="utf-8"))[0]["評語"] == expected
+    with open(csv_path, newline="", encoding="utf-8-sig") as f:
+        assert next(csv.DictReader(f))["評語"] == expected
+    row = _score_rows(db_conn)["out"]
+    assert row["評語"] == json.loads(row["評分結果"])["評語"] == expected

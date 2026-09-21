@@ -4,12 +4,15 @@
 
 from job_db.queries import get_job, list_jobs, list_runs
 from job_db.schema import DEFAULT_DB_PATH, JOB_COLUMNS, open_db
-from job_db.scores import get_score, list_scored_jobs, load_cached_result, save_score
+from job_db.scores import (
+    get_score, get_score_result, list_scored_jobs, load_cached_result, save_auto_score, save_score,
+)
 from job_db.store import SaveResult, save_run
 
 __all__ = [
     "DEFAULT_DB_PATH", "JOB_COLUMNS", "open_db",
     "SaveResult", "save_run",
     "get_job", "list_jobs", "list_runs",
-    "get_score", "list_scored_jobs", "load_cached_result", "save_score",
+    "get_score", "list_scored_jobs", "save_score",
+    "get_score_result", "load_cached_result", "save_auto_score",
 ]

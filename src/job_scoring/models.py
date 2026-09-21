@@ -125,7 +125,7 @@ class JobScore(BaseModel):
     dimensions: dict[str, DimensionScore] | None = Field(serialization_alias="維度")
     total: int | None = Field(serialization_alias="總分")
     unknown_dimensions: list[str] = Field(serialization_alias="未知維度")
-    comment: str | None = Field(serialization_alias="評語")
+    comment: str = Field(serialization_alias="評語")
 
 
 class BatchResult(BaseModel):

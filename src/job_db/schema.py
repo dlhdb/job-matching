@@ -71,7 +71,7 @@ SCHEMA = [
         "淘汰" INTEGER NOT NULL,
         "總分" INTEGER,
         "評語" TEXT,
-        "評分結果" TEXT NOT NULL,
+        "評分結果" TEXT,
         "快取鍵" TEXT,
         "供應商" TEXT,
         "模型" TEXT

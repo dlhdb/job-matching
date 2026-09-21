@@ -16,7 +16,7 @@ flowchart LR
 
 模組職責：
 
-- `job_db/scores.py`：讀寫 `job_scores`，包括寫入一列與評分紀錄的查詢。其他功能疊加的查詢也放在這裡，見各功能的技術設計。
+- `job_db/scores.py`：讀寫 `job_scores`，包括寫入手動評分與評分紀錄的查詢。其他功能疊加的查詢也放在這裡，見各功能的技術設計。
 - `job_db/schema.py`：`job_scores` 的建表語法，與 job-database 的表一起建立（見 [job-database 技術設計的開啟資料庫](job-database.md#31-開啟資料庫)）。
 - `job_db/_sql.py`：與 `queries.py` 共用的 SQL 組裝（見 [job-database 技術設計的總覽](job-database.md#1-總覽)）。
 - 呼叫者見 [architecture.md 的模組依賴](../architecture.md#模組依賴)。
@@ -33,7 +33,7 @@ flowchart LR
 
 ### 2.1 job_scores 資料表
 
-實現 FR-record、FR-query。欄位的業務意義見[功能文件的評分紀錄契約](../../product/features/job-score-database.md#821-評分紀錄契約)。
+實現 FR-record、FR-query、FR-manual-write、FR-detail。欄位的業務意義見[功能文件的評分紀錄契約](../../product/features/job-score-database.md#821-評分紀錄契約)。
 
 `job_scores`：每筆職缺最多一列。
 
@@ -42,7 +42,8 @@ flowchart LR
   - 本地時間，ISO 8601，精確到秒
 - `淘汰`（INTEGER）：`0`／`1`
 - `總分`（INTEGER | null）
-- `評語`（TEXT | null）
+- `評語`（TEXT）：必填，由寫入的函式檢查
+  - 欄位不設 `NOT NULL`：改為必填前寫入的舊資料可能是 `NULL`，舊資料庫的遷移見 [TODO.md](../../../TODO.md#評分資料庫)
 - 其他功能疊加的欄位見各功能的技術設計
 
 設計理由：
@@ -56,7 +57,16 @@ flowchart LR
 
 ### 2.2 寫入
 
-- 以 `INSERT ... ON CONFLICT("職缺代碼") DO UPDATE` 覆寫整列。
+實現 FR-manual-write、FR-manual-check。
+
+- 以 `INSERT OR REPLACE` 覆寫整列：
+  - REPLACE 先刪掉舊列再寫入，這次沒寫到的欄位是 `NULL`。
+  - 一列不會混到兩次寫入的資料，本功能也不必知道其他功能疊加了哪些欄位。
+- 寫入前檢查欄位，不符合時拋出 `ValueError`，訊息寫出欄位名稱：
+  - 檢查在開始交易之前，拒絕時資料庫不變。
+  - `總分` 排除 `bool`：`bool` 是 `int` 的子類別，不排除的話 `True` 會被存成 1 分。
+  - `評語` 只有空白也算空字串。
+- `評分時間` 由寫入當下的本地時間填入，呼叫端不傳。
 - 每次寫入各自 commit，一個 transaction 只含一列。
 
 ### 2.3 查詢
@@ -67,6 +77,8 @@ flowchart LR
 - 第一個排序鍵明寫 `總分 IS NULL`，把沒有總分的列排到最後，不依賴 SQLite 對 `NULL` 的預設排序。
 - 最後一個排序鍵是 `職缺代碼`，同樣的資料每次查出來的順序才一致，分頁才不會漏或重複。
 - `limit`、`offset` 是負數時拋出 `ValueError`：SQLite 把負的 `LIMIT` 當成不限筆數，不擋下來會靜默回傳全部。
+- 取出單筆時只查 `job_scores`，不 JOIN `jobs`，查不到時回傳 `None`（實現 FR-detail）。
+- `淘汰` 在列表與單筆都以 `0`／`1` 回傳，不轉成 `bool`。
 
 ## 3. 驗收對照
 
@@ -84,6 +96,15 @@ uv run pytest tests/test_job_db_scores.py
 ### query
 
 - [AC-query](../../product/features/job-score-database.md#ac-query列出評過分的職缺)：`uv run pytest tests/test_job_db_scores.py -k list_scored_jobs`
+
+### manual
+
+- [AC-manual-write](../../product/features/job-score-database.md#ac-manual-write寫入與覆寫手動評分)：`uv run pytest tests/test_job_db_scores.py -k manual_write`
+- [AC-manual-check](../../product/features/job-score-database.md#ac-manual-check拒絕不符合的手動評分)：`uv run pytest tests/test_job_db_scores.py -k manual_check`
+
+### detail
+
+- [AC-detail](../../product/features/job-score-database.md#ac-detail取出整筆評分紀錄)：`uv run pytest tests/test_job_db_scores.py -k get_score`
 
 ### 共用規則
 
