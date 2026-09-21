@@ -63,7 +63,7 @@ SCHEMA = [
         PRIMARY KEY ("執行編號", "職缺代碼")
     )
     """,
-    # 評分紀錄，同一筆職缺可以有多筆：自動評分每次新增一筆，手動評分每筆職缺最多一筆；
+    # 評分紀錄，同一筆職缺可以有多筆：自動與手動評分每次都新增一筆；
     # 不設外鍵，評分的職缺不一定匯入過 jobs
     """
     CREATE TABLE IF NOT EXISTS job_scores (
@@ -75,14 +75,9 @@ SCHEMA = [
         "總分" INTEGER,
         "評語" TEXT,
         "評分明細" TEXT,
-        "快取鍵" TEXT,
         "供應商" TEXT,
         "模型" TEXT
     )
-    """,
-    """
-    CREATE UNIQUE INDEX IF NOT EXISTS job_scores_manual
-        ON job_scores("職缺代碼") WHERE "評分來源" = 'manual'
     """,
     'CREATE INDEX IF NOT EXISTS job_scores_job ON job_scores("職缺代碼", "評分時間")',
 ]
@@ -100,6 +95,18 @@ def _check_job_scores(conn: sqlite3.Connection) -> None:
     columns = {row[1] for row in conn.execute("PRAGMA table_info(job_scores)")}
     if columns and "評分來源" not in columns:
         raise sqlite3.DatabaseError("評分紀錄的資料表是舊版，不支援遷移，請刪除資料庫檔後重建")
+
+
+def _migrate_job_scores(conn: sqlite3.Connection) -> None:
+    """
+    移除舊版留下的快取欄位與「每筆職缺最多一筆手動評分」的唯一索引，保留既有的評分紀錄
+
+    :param conn: sqlite3.Connection, 開啟中的連線（呼叫端負責交易）
+    """
+    conn.execute("DROP INDEX IF EXISTS job_scores_manual")
+    columns = {row[1] for row in conn.execute("PRAGMA table_info(job_scores)")}
+    if "快取鍵" in columns:
+        conn.execute('ALTER TABLE job_scores DROP COLUMN "快取鍵"')
 
 
 def open_db(path: str | Path = DEFAULT_DB_PATH) -> sqlite3.Connection:
@@ -121,7 +128,19 @@ def open_db(path: str | Path = DEFAULT_DB_PATH) -> sqlite3.Connection:
         with conn:
             for ddl in SCHEMA:
                 conn.execute(ddl)
+            _migrate_job_scores(conn)
     except BaseException:
         conn.close()
         raise
     return conn
+
+
+def open_db_readonly(path: str | Path = DEFAULT_DB_PATH) -> sqlite3.Connection:
+    """
+    以唯讀模式開啟既有的資料庫：不建立檔案、不建表，任何寫入都會失敗。
+
+    :param path: str or Path, 資料庫檔路徑，預設為專案根目錄的 data/jobs.db
+    :return: sqlite3.Connection
+    :raises sqlite3.OperationalError: 檔案不存在或無法開啟
+    """
+    return sqlite3.connect(f"{Path(path).resolve().as_uri()}?mode=ro", uri=True)

@@ -1,7 +1,5 @@
 """組合評分提示詞。模板放在 prompts/scoring.md，和程式碼分開。"""
 
-import hashlib
-import json
 from pathlib import Path
 from string import Template
 from typing import Any
@@ -73,16 +71,3 @@ def build_prompt(job: dict[str, Any], prefs: Preferences, experience: str) -> tu
     )
     return system.substitute(), user_text
 
-
-def cache_key(provider: str, model: str, system: str, user: str) -> str:
-    """
-    計算快取鍵：AI 的輸出完全由送出去的內容決定，因此以供應商、模型與兩段提示詞的雜湊值作為鍵。
-
-    :param provider: str, LLM 供應商
-    :param model: str, 模型名稱
-    :param system: str, system 提示詞
-    :param user: str, user 提示詞
-    :return: str, SHA-256 的十六進位字串
-    """
-    payload = json.dumps([provider, model, system, user], ensure_ascii=False)
-    return hashlib.sha256(payload.encode("utf-8")).hexdigest()

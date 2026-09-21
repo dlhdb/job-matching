@@ -8,9 +8,8 @@
 ```mermaid
 flowchart LR
     cli["score_job.py (CLI)"] --> profile
-    cli --> jobs
     cli --> batch
-    cli --> scorer
+    cli --> scores
     batch --> scorer
     scorer --> rules
     scorer --> prompt
@@ -23,17 +22,17 @@ flowchart LR
 
 模組職責，都在 `src/job_scoring/` 下，另有標註的除外：
 
-- `score_job.py`（`src/`）：CLI 進入點，解析參數、載入 `.env`、開啟資料庫，分派到單筆或整批。
+- `score_job.py`（`src/`）：CLI 進入點，解析參數、載入 `.env`、開啟資料庫、選出要評的職缺，交給整批評分並印出摘要。
 - `models.py`：Pydantic 模型，包括偏好檔、AI 輸出、評分結果與整批的單筆結果。
 - `profile.py`：讀取並驗證 `preferences.yaml` 與 `experience.md`。
-- `jobs.py`：讀取並驗證爬蟲輸出的職缺 JSON。
 - `rules.py`：程式端的規則，包括硬性淘汰、薪資換算與計分，以及共用的進位函式。
-- `prompt.py`：由模板組出 system 與 user 提示詞，並計算快取鍵。
+- `prompt.py`：由模板組出 system 與 user 提示詞。
 - `prompts/scoring.md`：提示詞模板，和程式碼分開，調整提示詞時不必改程式。
 - `llm.py`：LLM 供應商抽象層與 Gemini 實作。
 - `scorer.py`：單筆評分流程、總分計算，以及「評分並寫入資料庫」這一步。
-- `batch.py`：整批評分、寫出結果檔。
-- `job_db/scores.py`：屬於 job-score-database（見 [job-score-database 技術設計](job-score-database.md#1-總覽)），本功能用它新增自動評分、查快取、取出評分明細，並在依分數列出時多帶欄位。
+- `batch.py`：逐筆評分（一筆也走這裡）、寫出試跑結果檔。
+- `job_db/scores.py`：屬於 job-score-database（見 [job-score-database 技術設計](job-score-database.md#1-總覽)），本功能用它選出還沒評分的職缺、新增自動評分、取出評分明細，並在依分數列出時多帶欄位。
+- `job_db/queries.py`：屬於 job-database，本功能用 `get_job` 取出 `--job-no` 指定的職缺。
 
 依賴限制：
 
@@ -49,31 +48,32 @@ import 路徑：
 
 ### 2.1 單筆評分
 
-實現 FR-score-*、FR-filter、FR-store-write、FR-cache-reuse、FR-dry-run、FR-history-append。業務規則見[功能文件的評分流程](../../product/features/job-auto-scoring.md#423-評分流程)。
+實現 FR-score-*、FR-filter、FR-store-write、FR-dry-run、FR-history-append。業務規則見[功能文件的評分流程](../../product/features/job-auto-scoring.md#423-評分流程)。
 
-`scorer.score_and_save` 評分並寫入資料庫，單筆 CLI 與[整批評分](#22-整批評分)共用這一步：
+`scorer.score_and_save` 評分並寫入資料庫，[整批評分](#22-整批評分)的每一筆都經過這一步：
 
-1. `rules.py` 檢查硬性淘汰，被淘汰的職缺直接寫入，不查快取、不建立 client。
-2. 沒被淘汰時，`prompt.py` 組出提示詞並計算快取鍵（[§3.3](#33-快取鍵)），再以 `職缺代碼` + `快取鍵` 查 `job_scores`：
-   - 查到：從那筆的評分明細還原 AI 的三個維度與評語，不呼叫 AI。
-   - 查不到：呼叫呼叫端傳入的 `client_factory` 取得 client 再呼叫 AI。只有這時才需要 API key。
-3. `rules.py` 重算薪資分數，`scorer.py` 重算總分，連同快取鍵交給 `job_db/scores.py`，由它判斷要不要新增一列（[§3.2](#32-job_scores-的自動評分欄位)）。
-4. 回傳評分結果與是否沿用，供單筆印出沿用訊息、整批統計摘要。
+1. `scorer.score_job` 以 `rules.py` 檢查硬性淘汰，被淘汰的職缺不呼叫 AI。
+2. 沒被淘汰時，`prompt.py` 組出提示詞，用呼叫端傳入的 client 呼叫 AI；每次都呼叫，不查上次的評分。
+3. `rules.py` 算薪資分數，`scorer.py` 算總分。
+4. 交給 `job_db/scores.py` 新增一列（[§3.2](#32-job_scores-的自動評分欄位)）。被淘汰的職缺，`供應商`、`模型` 寫 `NULL`。
 5. 評分失敗時例外往外拋，不寫入。
 
-試跑時呼叫端傳入的連線是 `None`：跳過查快取與寫入，其餘步驟相同，所以試跑與正式評分走同一套評分邏輯。
+試跑時呼叫端傳入的連線是 `None`：跳過寫入，其餘步驟相同，所以試跑與正式評分走同一套評分邏輯。
 
 總分與年薪換算共用 `rules.round_half_up`：以 `Fraction` 精確計算再 .5 進位，避免浮點誤差，也不用 Python `round()` 的五成雙。
 
 ### 2.2 整批評分
 
-實現 FR-batch-*。`batch.score_batch` 是整批評分的共用進入點，不綁定 CLI，其他入口也呼叫同一個函式：
+實現 FR-batch-*。`batch.score_batch` 是評分的共用進入點，不綁定 CLI，其他入口也呼叫同一個函式：
 
-- 資料庫連線、供應商與模型由參數傳入，呼叫端各自開啟連線。連線是 `None` 時為試跑，原樣傳給 `score_and_save`。
-- client 以 `client_factory` 傳入，第一次快取沒命中時才建立，之後整批共用；整批都被淘汰或都沿用時就不需要 API key。
-- 每筆結果帶有是否沿用的標記，只供摘要統計與其他入口使用，不寫進結果檔。
+- 要評的職缺由呼叫端選好傳入（CLI 的選法見 [§5](#5-cli-與錯誤處理)）。
+- 資料庫連線、供應商與模型由參數傳入。連線是 `None` 時為試跑，原樣傳給 `score_and_save`。
+- client 以 `client_factory` 傳入：
+  - 開始評分前先以 `rules.check_hard_filters` 檢查，有需要呼叫 AI 的職缺時才建立 client，之後整批共用；整批都被淘汰時就不需要 API key。
+  - 建立失敗（不支援的供應商、缺少 API key）時直接往外拋，這時還沒評任何一筆，所以會被淘汰的職缺也不會寫入。
 - 每筆都經過 `scorer.score_and_save`，哪些錯誤算單筆失敗見 [§5](#5-cli-與錯誤處理)。
-- `batch.write_results` 依結果寫出 JSON 與 CSV，格式見[功能文件的試跑結果檔](../../product/features/job-auto-scoring.md#922-試跑結果檔)。檔名後綴由呼叫端指定，試跑用 `_dryrun`。
+- `batch.write_dry_run_results` 把試跑結果寫成 JSON 與 CSV，格式見[功能文件的試跑結果檔](../../product/features/job-auto-scoring.md#822-試跑結果檔)。
+  - 檔名由呼叫端傳入的開始時間決定；`.json` 或 `.csv` 已經存在時依序加上 `_2`、`_3`，不覆寫。
 
 ## 3. 資料與儲存
 
@@ -98,7 +98,7 @@ profile/
 
 ### 3.2 job_scores 的自動評分欄位
 
-實現 FR-store-write、FR-store-db-path、FR-store-get、FR-list、FR-history-*、FR-current-*。`job_scores` 的基本欄位、查詢與設計理由見 [job-score-database 技術設計](job-score-database.md#21-job_scores-資料表)，業務意義見[功能文件的寫入的評分紀錄](../../product/features/job-auto-scoring.md#721-寫入的評分紀錄)與[保留評分歷史](../../product/features/job-auto-scoring.md#11-保留評分歷史並和手動評分並存history)。
+實現 FR-store-write、FR-store-db-path、FR-store-get、FR-list、FR-history-*、FR-current-*。`job_scores` 的基本欄位、查詢與設計理由見 [job-score-database 技術設計](job-score-database.md#21-job_scores-資料表)，業務意義見[功能文件的寫入的評分紀錄](../../product/features/job-auto-scoring.md#721-寫入的評分紀錄)與[保留評分歷史](../../product/features/job-auto-scoring.md#10-保留評分歷史並和手動評分並存history)。
 
 疊加的欄位，建表語法同樣在 `job_db/schema.py`：
 
@@ -108,12 +108,10 @@ profile/
 - `評分來源`（TEXT）：`auto`／`manual`，以 `CHECK` 限制
 - `評分明細`（TEXT | null）：`scorer.py` 以 `JobScore.model_dump(by_alias=True)` 轉成中文鍵的 dict，`job_db/scores.py` 以 `json.dumps(ensure_ascii=False)` 存成字串，取出時以 `json.loads` 還原
   - 自動評分一定有值，手動評分為 `null`
-- `快取鍵`（TEXT | null）：見 [§3.3](#33-快取鍵)，被淘汰時為 `null`
 - `供應商`、`模型`（TEXT | null）：被淘汰時為 `null`
 
 索引：
 
-- `job_scores_manual`：`職缺代碼` 的 partial unique index（`WHERE 評分來源 = 'manual'`），保證每筆職缺最多一筆手動評分。
 - `job_scores_job`：`(職缺代碼, 評分時間)`，查一筆職缺的紀錄與最新一筆時使用。
 
 其他欄位的來源：
@@ -123,43 +121,33 @@ profile/
 
 寫入（都在 `job_db/scores.py`）：
 
-- 自動評分用 `save_auto_score`，只 `INSERT`，不覆寫任何列：
-  - 先在同一個 transaction 裡取出這筆職缺最新的 `auto` 列，`評分時間` 以外的欄位（`淘汰`、`總分`、`評語`、`評分明細` 的 JSON 字串、`快取鍵`、`供應商`、`模型`）都相同時不寫。
-  - 回傳有沒有新增。
-- 手動評分（`save_score`）在一個 transaction 裡先 `DELETE` 這筆職缺的 `manual` 列再 `INSERT`，只覆寫手動評分，`auto` 列不動。
+- 自動評分（`save_auto_score`）與手動評分（`save_score`）都只 `INSERT`，不覆寫任何列，也不和先前的列比較。
 - 沒有任何刪除評分紀錄的函式，CLI 也沒有對應的參數（FR-history-no-delete）。
 - 每筆職缺的寫入各自是一個 transaction，整批中途中止時已經評完的職缺留在資料庫。
-- 整批評分中途發生 `sqlite3.Error` 時，CLI 回傳 1、不寫結果檔，已寫入的職缺留在資料庫。
-- 職缺內容更新不代表要重新呼叫 AI，是否重問由快取鍵決定，所以評分和 `jobs` 分開存放（見 [job-score-database 技術設計](job-score-database.md#21-job_scores-資料表)）。
+- 評分中途發生 `sqlite3.Error` 時，CLI 回傳 1，已寫入的職缺留在資料庫。
 
-舊版資料庫（`job_scores` 以 `職缺代碼` 為主鍵、欄名是 `評分結果`）不遷移，要刪除後重建：
+既有資料庫：
 
-- `open_db` 只用 `CREATE TABLE IF NOT EXISTS`，不會修改既有的表。
-- 所以 `open_db` 建表前先檢查：`job_scores` 已存在但沒有 `評分來源` 欄位時，拋出 `sqlite3.DatabaseError`，提示刪除資料庫檔後重建，評分 CLI 印出 `[-]` 並回傳 1。
-  - 不擋下的話，SQLite 會把找不到的雙引號欄名當成字串：查詢靜默查不到、快取一定沒命中，呼叫 AI 付了費用之後寫入才失敗。
+- `open_db` 建表用 `CREATE TABLE IF NOT EXISTS`，不會修改既有的表，所以舊版的表另外處理。
+- 拿掉快取之前的版本（有 `評分來源`，另有 `快取鍵` 欄位與 `job_scores_manual` 唯一索引）就地遷移，保留所有評分紀錄：
+  - `DROP INDEX IF EXISTS job_scores_manual`：這個索引限制每筆職缺最多一筆手動評分，留著的話手動評分無法新增第二筆。
+  - 有 `快取鍵` 欄位時 `ALTER TABLE ... DROP COLUMN`。
+- 更早的版本（`job_scores` 以 `職缺代碼` 為主鍵、欄名是 `評分結果`）不遷移，要刪除後重建。`open_db` 建表前先檢查：`job_scores` 已存在但沒有 `評分來源` 欄位時，拋出 `sqlite3.DatabaseError`，提示刪除資料庫檔後重建，評分 CLI 印出 `[-]` 並回傳 1。
+  - 不擋下的話，SQLite 會把找不到的雙引號欄名當成字串：查詢靜默查不到，呼叫 AI 付了費用之後寫入才失敗。
   - 爬蟲與匯入 CLI 也經過 `open_db`，同樣會被擋下。
 - 遷移的做法見 [TODO.md](../../../TODO.md#評分資料庫)。
 
 查詢（都在 `job_db/scores.py`）：
 
-- 快取查詢：見 [§3.3](#33-快取鍵)。
-- 代表的評分（見[功能文件的代表的評分](../../product/features/job-auto-scoring.md#1221-代表的評分)）以 window function 挑出：`ROW_NUMBER() OVER (PARTITION BY 職缺代碼 ORDER BY 評分來源 = 'manual' DESC, 評分時間 DESC, 評分編號 DESC)` 取第 1 列。
-  - `manual` 每筆職缺最多一列（`job_scores_manual`），所以只靠排序就是「有手動用手動，否則最新的 `auto`」。
+- 還沒評分的職缺（`list_unscored_jobs`）：`jobs` 中在 `job_scores` 沒有任何列的職缺（`NOT EXISTS`，自動與手動都算），依 `最後出現時間 DESC, 職缺代碼` 排序。欄位同 `get_job`，放在 `scores.py` 是因為要讀 `job_scores`，`queries.py` 屬於 job-database，不知道評分。
+- 代表的評分（見[功能文件的代表的評分](../../product/features/job-auto-scoring.md#1121-代表的評分)）以 window function 挑出：`ROW_NUMBER() OVER (PARTITION BY 職缺代碼 ORDER BY 評分時間 DESC, 評分編號 DESC)` 取第 1 列，不分來源。
+  - 評分時間相同時，後寫入的 `評分編號` 較大，排在前面。
   - 依分數列出（`list_scored_jobs`）、取出評分紀錄（`get_score`）、取出評分明細（`get_score_details`）共用這個子查詢。
 - 依分數列出時先挑代表再套 `淘汰` 篩選與排序：先篩再挑的話，代表被篩掉的職缺會改以別列出現。
-- 列表多帶 `評分來源`、`供應商`、`模型`，不帶 `評分明細` 與 `快取鍵`；取出評分紀錄多帶 `評分來源`。
+- 列表多帶 `評分來源`、`供應商`、`模型`，不帶 `評分明細`；取出評分紀錄多帶 `評分來源`。
 - 取出評分明細：代表那列是 `manual` 或沒評過時回傳 `None`。
-- 取出所有評分紀錄（`list_scores`）：不經過代表的挑選，`評分明細` 以 `json.loads` 還原，手動評分為 `None`，不帶 `快取鍵`。
+- 取出所有評分紀錄（`list_scores`）：不經過代表的挑選，`評分明細` 以 `json.loads` 還原，手動評分為 `None`。
 - 「最新」一律以 `評分時間 DESC, 評分編號 DESC` 排序。
-
-### 3.3 快取鍵
-
-哪些改動會讓快取鍵改變，見[功能文件的快取鍵](../../product/features/job-auto-scoring.md#821-快取鍵)。
-
-- 計算方式：`[供應商, 模型, system 提示詞, user 提示詞]` 以 `json.dumps(ensure_ascii=False)` 序列化後取 SHA-256，存成 64 字元的十六進位字串。
-- 每次評分都會計算，新增的列會寫入 `快取鍵` 欄。查詢條件是 `職缺代碼` 與 `快取鍵` 都相同的 `auto` 列，有多列時取最新的一列；被淘汰的列與手動評分的 `快取鍵` 是 NULL，不會命中。
-- 命中時從該列的 `評分明細`（中文鍵）取出三個 AI 維度與評語，以 `AIAssessment` 重新驗證後使用。不符合 schema 時算評分失敗，與 AI 回應不通過驗證的處理相同。
-- 供應商與模型包含在快取鍵中，所以沿用時新增的列，供應商、模型必然與沿用的那列相同。
 
 ## 4. 外部系統整合
 
@@ -201,7 +189,7 @@ AI 必須輸出以下 JSON（Pydantic 模型 `AIAssessment`）：
 
 - 欄位使用英文名稱，讓 schema 對各家模型都比較穩定。
 - 由 `scorer.py` 轉成評分結果（`JobScore`）的中文鍵名。
-  - `JobScore` 以 alias 定義中文鍵名，`model_dump(by_alias=True)` 的結果就是[功能文件的評分結果格式](../../product/features/job-auto-scoring.md#1421-評分結果格式)。
+  - `JobScore` 以 alias 定義中文鍵名，`model_dump(by_alias=True)` 的結果就是[功能文件的評分結果格式](../../product/features/job-auto-scoring.md#1321-評分結果格式)。
 - 不通過驗證時拋出 `ValidationError`，視為評分失敗，不自行修正分數。
 
 ## 5. CLI 與錯誤處理
@@ -214,33 +202,31 @@ AI 必須輸出以下 JSON（Pydantic 模型 `AIAssessment`）：
 - `if __name__ == "__main__"` 區塊只負責 `sys.exit(main())`。
 - 測試直接呼叫 `main([...])`，不必另外啟動子行程。
 
-資料庫：
+資料庫與要評的職缺：
 
-- CLI 以 `--db` 的路徑開啟連線，再傳給單筆與整批評分。
-- `--dry-run` 不開啟資料庫，不會建立資料庫檔。
-  - 單筆試跑也交給整批評分處理（只有一筆的整批），單筆與整批的試跑都以 `None` 取代連線，結果都寫成 `_dryrun` 結果檔。
+- `--db` 的檔案不存在時直接報錯，不交給 `open_db`：`open_db` 會建立空的資料庫，裡面沒有職缺，評分也沒有意義。
+- 正式評分以 `open_db` 開啟；試跑以 `open_db_readonly`（`file:...?mode=ro`）開啟，只讀職缺，不建表、不遷移，也不會寫入。
+- 選職缺（`select_jobs`）：
+  - 有 `--job-no` 時以 `dict.fromkeys` 依指定順序去除重複，逐筆 `get_job`；有找不到的代碼時一次列出，一筆都不評。
+  - 沒有 `--job-no` 時用 `list_unscored_jobs`（[§3.2](#32-job_scores-的自動評分欄位)）。
+- 選好的職缺交給 `batch.score_batch`，試跑時以 `None` 取代寫入的連線，評完再寫出試跑結果檔。
 
 錯誤處理：
 
-- 單筆評分：評分或寫入資料庫失敗都印出 `[-]` 並回傳 1。
-- 整批評分：
-  - 單筆的 `LLMError` 與 `ValidationError` 算單筆失敗，失敗原因記錄例外訊息，繼續下一筆。
-  - client 建立失敗（`ValueError` 不支援的供應商、`LLMError` 缺少 API key）時每一筆都會失敗，所以直接往外拋，由 CLI 回傳 1。
-    - client 在單筆評分的途中才建立，所以和單筆失敗在同一個 `try` 裡；client 還沒建立就拋出 `LLMError`，代表是建立失敗，不算單筆失敗。
-  - `sqlite3.Error` 讓整批中止，行為見 [§3.2](#32-job_scores-的自動評分欄位) 的寫入。
+- 單筆的 `LLMError` 與 `ValidationError` 算單筆失敗，失敗原因記錄例外訊息，繼續下一筆。
+- client 建立失敗（`ValueError` 不支援的供應商、`LLMError` 缺少 API key）時在開始評分前往外拋，由 CLI 印出 `[-]` 並回傳 1。
+- `sqlite3.Error` 讓評分中止，行為見 [§3.2](#32-job_scores-的自動評分欄位) 的寫入。
 - 其他例外代表程式錯誤，直接讓程式中止。
 
 輸出：
 
-- 單筆評分：結果以 JSON 印到 stdout（`ensure_ascii=False`，縮排 2）。
-- 整批評分與試跑：結果寫成檔案，stdout 不輸出。
-- 進度、摘要與錯誤訊息都印到 stderr，方便把 stdout 導向檔案。
+- 不論評幾筆，stdout 都不輸出，進度、摘要與錯誤訊息都印到 stderr。
+- 正式評分的結果只寫進資料庫；試跑的結果寫成檔案，摘要最後印出兩個檔案的路徑。
 
 結束碼：
 
-- `0`：成功，包括被淘汰
-  - 整批評分時，即使有職缺評分失敗也回傳 0
-- `1`：印出 `[-]` 並結束，情況見[功能文件的 CLI](../../product/features/job-auto-scoring.md#1422-cli)
+- `0`：成功，包括被淘汰、有職缺評分失敗，以及沒有還沒評分的職缺
+- `1`：印出 `[-]` 並結束，情況見[功能文件的 CLI](../../product/features/job-auto-scoring.md#1322-cli)
 
 ## 6. 驗收對照
 
@@ -254,8 +240,9 @@ AI 必須輸出以下 JSON（Pydantic 模型 `AIAssessment`）：
 - 假的 LLM client：回傳固定內容並記錄呼叫次數；整批用的版本可以對指定職缺拋出 `LLMError` 或回傳超出範圍的分數。
 - `forbid_client`：把 `get_client` 換成一呼叫就讓測試失敗的函式，並把 `GEMINI_API_KEY` 設為空字串。
 - `isolate_db`（autouse）：把 CLI 的預設資料庫換成 `tmp_path` 下的檔案，所有測試都不會寫入 `data/jobs.db`。
+- `jobs_db`：在 `isolate_db` 的資料庫寫入 `ok`、`out` 兩筆職缺，還沒有任何評分。
 - e2e 的固定輸入在 `tests/e2e/data/`：擬真的偏好檔與經歷檔，以及 5 筆改寫自 104 的職缺（虛構公司、內文重新表述）。
-  - 單筆與整批共用 `output/e2e/jobs.db`，開始前刪除上次留下的檔案，跑完保留。
+  - 單筆與整批共用 `output/e2e/jobs.db`，開始前刪除上次留下的檔案再匯入這 5 筆職缺，跑完保留。
 
 一次跑完所有離線驗收：
 
@@ -267,6 +254,7 @@ uv run pytest tests/test_job_scoring_*.py tests/test_score_job_cli.py
 
 - 型別檢查：`uv run mypy src/`，通過條件為 `Success: no issues found`。
 - 供應商隔離：`uv run pytest tests/test_score_job_cli.py -k provider_sdk_isolated`，通過條件為只有 `llm.py` import `google` 開頭的模組。
+- 既有資料庫的遷移（[§3.2](#32-job_scores-的自動評分欄位)）：`uv run pytest tests/test_score_job_cli.py -k migrates`
 
 ### score
 
@@ -284,10 +272,11 @@ uv run pytest tests/test_job_scoring_*.py tests/test_score_job_cli.py
 
 ### batch
 
+- [AC-batch-unscored](../../product/features/job-auto-scoring.md#ac-batch-unscored選出還沒評分的職缺)：`uv run pytest tests/test_score_job_cli.py -k unscored`
+- [AC-batch-job-nos](../../product/features/job-auto-scoring.md#ac-batch-job-nos指定職缺)：`uv run pytest tests/test_score_job_cli.py -k job_nos`
 - [AC-batch-order](../../product/features/job-auto-scoring.md#ac-batch-order整批評分)：`uv run pytest tests/test_job_scoring_batch.py -k batch_scoring`
 - [AC-batch-failure](../../product/features/job-auto-scoring.md#ac-batch-failure單筆失敗不中斷整批)：`uv run pytest tests/test_job_scoring_batch.py -k failure`
-- AC-batch-output（規劃中移除）：`uv run pytest tests/test_job_scoring_batch.py -k output`
-- [AC-batch-cli](../../product/features/job-auto-scoring.md#ac-batch-cli整批-cli-與摘要)：`uv run pytest tests/test_score_job_cli.py -k batch`
+- [AC-batch-cli](../../product/features/job-auto-scoring.md#ac-batch-cli整批-cli-與摘要)：`uv run pytest tests/test_score_job_cli.py -k batch` 與 `uv run pytest tests/test_job_scoring_batch.py -k client_error`
 - [AC-batch-real](../../product/features/job-auto-scoring.md#ac-batch-real真實整批評分-需網路)〔需網路〕：`uv run pytest -m network -s tests/e2e/test_job_scoring.py -k real_batch`
 
 ### store
@@ -297,13 +286,10 @@ uv run pytest tests/test_job_scoring_*.py tests/test_score_job_cli.py
 - [AC-store-db-path](../../product/features/job-auto-scoring.md#ac-store-db-path資料庫路徑)：`uv run pytest tests/test_score_job_cli.py -k db_path`
 - [AC-store-real](../../product/features/job-auto-scoring.md#ac-store-real真實評分結果入庫-需網路)〔需網路〕：`uv run pytest -m network -s tests/e2e/test_job_scoring.py -k real`
 
-### cache
-
-- [AC-cache](../../product/features/job-auto-scoring.md#ac-cache沿用上次的-ai-評分)：`uv run pytest tests/test_score_job_cli.py -k cache`
-
 ### dry-run
 
 - [AC-dry-run](../../product/features/job-auto-scoring.md#ac-dry-rundry-run-試跑)：`uv run pytest tests/test_score_job_cli.py -k dry_run`
+- [AC-dry-run-output](../../product/features/job-auto-scoring.md#ac-dry-run-output試跑結果檔)：`uv run pytest tests/test_job_scoring_batch.py -k dry_run_results`
 
 ### list
 
@@ -312,7 +298,7 @@ uv run pytest tests/test_job_scoring_*.py tests/test_score_job_cli.py
 ### history
 
 - [AC-history-source](../../product/features/job-auto-scoring.md#ac-history-source評分來源)：`uv run pytest tests/test_job_scoring_batch.py -k history_source`
-- [AC-history-append](../../product/features/job-auto-scoring.md#ac-history-append自動評分新增而不覆寫)：`uv run pytest tests/test_job_scoring_batch.py -k "history_append or history_reuses"`
+- [AC-history-append](../../product/features/job-auto-scoring.md#ac-history-append自動評分新增而不覆寫)：`uv run pytest tests/test_job_scoring_batch.py -k history_append`
 - [AC-history-coexist](../../product/features/job-auto-scoring.md#ac-history-coexist手動與自動並存)：`uv run pytest tests/test_job_scoring_batch.py -k history_coexist`
 - [AC-history-no-delete](../../product/features/job-auto-scoring.md#ac-history-no-delete不提供刪除評分紀錄)：`uv run pytest tests/test_score_job_cli.py -k no_delete`
 

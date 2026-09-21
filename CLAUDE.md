@@ -35,7 +35,7 @@ uv add <pkg>                 # 新增依賴
 - 職缺欄位契約、職缺資料庫保存的資訊、跨次去重與出現時間的寫入規則：[docs/product/features/job-database.md](docs/product/features/job-database.md)
 - 職缺資料庫的模組依賴、資料表 schema、測試指令：[docs/tech/tech-design/job-database.md](docs/tech/tech-design/job-database.md)
 - 自動評分的維度、淘汰與薪資規則、偏好檔格式、提示詞內容、輸出欄位、寫進評分資料庫的欄位：[docs/product/features/job-auto-scoring.md](docs/product/features/job-auto-scoring.md)
-- 自動評分的模組分工、`job_scores` 的自動評分欄位、快取鍵計算、LLM 抽象層與 Gemini 的限制、測試指令：[docs/tech/tech-design/job-auto-scoring.md](docs/tech/tech-design/job-auto-scoring.md)
+- 自動評分的模組分工、`job_scores` 的自動評分欄位、LLM 抽象層與 Gemini 的限制、測試指令：[docs/tech/tech-design/job-auto-scoring.md](docs/tech/tech-design/job-auto-scoring.md)
 - 評分紀錄契約、保存規則、依分數查詢評分、手動評分：[docs/product/features/job-score-database.md](docs/product/features/job-score-database.md)
 - 評分資料庫的 `job_scores` 資料表、查詢設計、測試指令：[docs/tech/tech-design/job-score-database.md](docs/tech/tech-design/job-score-database.md)
 - 文件撰寫規範（內容、功能文件與技術設計的結構、FR／AC 命名、決策紀錄、格式、繪圖）：[docs/conventions/documentation.md](docs/conventions/documentation.md)

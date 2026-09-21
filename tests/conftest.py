@@ -1,14 +1,15 @@
 """pytest 共用 fixture。"""
 
 import copy
-import json
+from contextlib import closing
+from datetime import datetime
 
 import pytest
 import yaml
 
 import fetch_104_jobs
 import score_job as score_job_cli
-from job_db import open_db
+from job_db import open_db, save_run
 from job_scoring.llm import LLMError
 from job_scoring.models import AIAssessment
 from job_scoring.profile import load_preferences
@@ -188,15 +189,15 @@ def out_job(make_job):
 
 
 @pytest.fixture
-def jobs_file(tmp_path, ok_job, out_job):
+def jobs_db(isolate_db, ok_job, out_job):
     """
-    含 ok、out 兩筆職缺的爬蟲輸出 JSON
+    評分 CLI 預設的資料庫（isolate_db），已寫入 ok、out 兩筆職缺，還沒有任何評分
 
-    :return: Path, JSON 檔路徑
+    :return: Path, 資料庫路徑
     """
-    path = tmp_path / "jobs.json"
-    path.write_text(json.dumps([ok_job, out_job], ensure_ascii=False), encoding="utf-8")
-    return path
+    with closing(open_db(isolate_db)) as conn:
+        save_run(conn, [ok_job, out_job], datetime(2026, 9, 1, 10, 0, 0), "匯入")
+    return isolate_db
 
 
 def make_assessment(career=5, skill=None, industry=3, comment="總評"):

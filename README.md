@@ -93,25 +93,25 @@ uv run src/import_jobs.py output/104/*.json
    cp .env.example .env
    ```
 
-2. 對整份爬蟲結果評分：
+2. 先讓職缺進到 `data/jobs.db`（爬蟲預設會寫入，以前的 JSON 用上一節的 `import_jobs.py` 匯入），再評所有還沒評分的職缺：
 
    ```bash
-   uv run src/score_job.py --jobs output/104/<檔名>.json
+   uv run src/score_job.py
    ```
 
-   - 結果寫到 `output/scores/<檔名>_scored.json` 與 `_scored.csv`。
-   - CSV 可以直接用 Excel 依總分排序，各維度的理由在 JSON 裡。
-   - 個別職缺評分失敗時會跳過並列在摘要中，不影響其他職缺。
+   - 最近出現的職缺先評，已經有評分（自動或手動）的職缺不會再評。
+   - 結果寫進同一個資料庫，終端機只顯示進度與摘要；個別職缺評分失敗時會跳過並列在摘要中，下次執行會再評。
 
-3. 只想看一筆職缺時，加上 `--job-no`，結果會以 JSON 印在終端機：
+3. 只想評某幾筆，或換了偏好、經歷之後要重評時，加上 `--job-no`，已經評過的也會重評：
 
    ```bash
-   uv run src/score_job.py --jobs output/104/<檔名>.json --job-no <職缺代碼>
+   uv run src/score_job.py --job-no <職缺代碼> [<職缺代碼> ...]
    ```
 
-- 結果包含各維度分數、理由與 0–100 總分。
+- 結果包含各維度分數、理由與 0–100 總分，每次評分都新增一筆紀錄，以最新的一筆為準。
+- 評分結果以 `pandas.read_sql` 或任何 SQLite 工具讀取 `job_scores` 表，各維度的分數與理由在 `評分明細` 欄（JSON）。
 - 薪資太低、公司或職稱在排除清單中的職缺會直接淘汰，不呼叫 AI。
-- 想換一份偏好、經歷或模型比較結果時，加上 `--dry-run` 試跑：照常呼叫 AI 評分，結果寫到 `output/scores/<檔名>_dryrun.json` 與 `_dryrun.csv`，不影響資料庫中的正式分數。
+- 想換一份偏好、經歷或模型比較結果時，加上 `--dry-run` 試跑（必須搭配 `--job-no`）：照常呼叫 AI 評分，結果寫到 `output/scores/dryrun_<開始時間>.json` 與 `.csv`，不寫入資料庫。
 - 評分方式見 [job-auto-scoring 評單筆職缺並看懂每個分數](docs/product/features/job-auto-scoring.md#4-評單筆職缺並看懂每個分數score)。
 
 ## 在隔離環境中讓 Coding Agent 自主執行

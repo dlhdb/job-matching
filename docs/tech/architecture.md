@@ -11,7 +11,7 @@
 - 每個進入點都是 `src/` 下的一支腳本，以 `uv run src/<腳本>.py` 執行：
   - `fetch_104_jobs.py`：抓取 104 職缺（見 [104-job-scraper 的 CLI](../product/features/104-job-scraper.md#1021-cli)）
   - `import_jobs.py`：把既有的職缺 JSON 匯入資料庫（見 [104-job-scraper 的匯入 CLI](../product/features/104-job-scraper.md#822-匯入-cli)）
-  - `score_job.py`：評分單筆或整批職缺（見 [job-auto-scoring 的 CLI](../product/features/job-auto-scoring.md#1422-cli)）
+  - `score_job.py`：評分單筆或整批職缺（見 [job-auto-scoring 的 CLI](../product/features/job-auto-scoring.md#1322-cli)）
 
 ## 模組依賴
 
@@ -38,7 +38,7 @@ flowchart LR
   - `jobs`、`scrape_runs`、`run_jobs`：job-database（見 [資料表](tech-design/job-database.md#32-資料表)）
     - 寫入：104-job-scraper 的爬蟲與匯入 CLI（見 [寫入資料庫與匯入](tech-design/104-job-scraper.md#4-寫入資料庫與匯入)）
   - `job_scores`：job-score-database（見 [資料表](tech-design/job-score-database.md#21-job_scores-資料表)）
-    - job-auto-scoring 疊加 `評分編號`、`評分來源`、`評分明細`、`快取鍵`、`供應商`、`模型`，同一筆職缺可以有多列（見 [自動評分欄位](tech-design/job-auto-scoring.md#32-job_scores-的自動評分欄位)）
+    - job-auto-scoring 疊加 `評分編號`、`評分來源`、`評分明細`、`供應商`、`模型`，同一筆職缺可以有多列（見 [自動評分欄位](tech-design/job-auto-scoring.md#32-job_scores-的自動評分欄位)）
     - 寫入：評分 CLI
 - 表之間以 `職缺代碼` 關聯，它是 `jobs` 的主鍵；`job_scores` 以 `評分編號` 為主鍵，同一個 `職缺代碼` 可以有多列。
 - 欄名沿用中文，與[職缺欄位契約](../product/features/job-database.md#721-職缺欄位契約)、評分結果的鍵名一致。
@@ -46,8 +46,8 @@ flowchart LR
 檔案：
 
 - `output/104/`：爬蟲每次輸出一組 CSV 與 JSON，不進版控（見 [輸出檔](../product/features/104-job-scraper.md#621-輸出檔)）
-  - JSON 是評分 CLI 與匯入 CLI 的輸入
-- `output/scores/`：整批評分的結果檔 JSON 與 CSV，不進版控（格式見[試跑結果檔](../product/features/job-auto-scoring.md#922-試跑結果檔)）
+  - JSON 是匯入 CLI 的輸入
+- `output/scores/`：試跑評分的結果檔 JSON 與 CSV，不進版控（格式見[試跑結果檔](../product/features/job-auto-scoring.md#822-試跑結果檔)）
 - `output/e2e/`：e2e 測試留下供查看的檔案，例如評分測試的資料庫 `jobs.db`，不進版控（見 [測試](../conventions/development.md#測試)）
 - `profile/`：求職偏好與工作經歷（見 [個人資料檔](../product/features/job-auto-scoring.md#421-個人資料檔)）
   - 範本進版控，真實資料不進版控

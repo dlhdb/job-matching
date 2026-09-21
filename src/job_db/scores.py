@@ -1,7 +1,7 @@
 """讀寫評分紀錄（job_scores）：評分紀錄的基本欄位，以及自動評分疊加的欄位。
 
-同一筆職缺可以有多筆評分紀錄：自動評分每次有變化就新增一筆，手動評分每筆職缺最多一筆。
-依分數列出、取出單筆評分紀錄與評分明細時，每筆職缺只用一筆代表的評分：有手動評分用它，否則用最新的自動評分。
+同一筆職缺可以有多筆評分紀錄：自動與手動評分每次都新增一筆，不覆寫任何紀錄。
+依分數列出、取出單筆評分紀錄與評分明細時，每筆職缺只用一筆代表的評分：最新的一筆，不分自動或手動。
 """
 
 import json
@@ -21,23 +21,25 @@ _RECORD_FIELDS = ["評分時間", "淘汰", "總分", "評語"]
 # 取出單筆評分紀錄要帶的評分欄位：基本欄位加上評分來源
 _CURRENT_FIELDS = _RECORD_FIELDS + ["評分來源"]
 
-# 列表要帶的評分欄位：再加上自動評分的供應商、模型，不含評分明細與快取鍵
+# 列表要帶的評分欄位：再加上自動評分的供應商、模型，不含評分明細
 _SCORE_FIELDS = _CURRENT_FIELDS + ["供應商", "模型"]
 
-# 取出一筆職缺所有評分紀錄時的欄位，不含快取鍵
+# 取出一筆職缺所有評分紀錄時的欄位
 _HISTORY_FIELDS = ["職缺代碼"] + _SCORE_FIELDS + ["評分明細"]
 
-# 自動評分判斷有沒有變化時比較的欄位：評分時間以外的全部欄位
-_AUTO_FIELDS = ["淘汰", "總分", "評語", "評分明細", "快取鍵", "供應商", "模型"]
+# 自動評分寫入的欄位（評分時間以外）
+_AUTO_FIELDS = ["淘汰", "總分", "評語", "評分明細", "供應商", "模型"]
+
+# 列出還沒評分的職缺時帶的欄位：職缺欄位契約加上出現時間，與 get_job 相同
+_UNSCORED_JOB_FIELDS = [name for name, _ in JOB_COLUMNS] + ["首次出現時間", "最後出現時間"]
 
 # 同一筆職缺的多筆紀錄由新到舊；評分時間只精確到秒，同一秒內的再以評分編號區分先後
 _LATEST_FIRST = 'ORDER BY "評分時間" DESC, "評分編號" DESC'
 
-# 每筆職缺代表的評分：手動評分每筆職缺最多一筆，排在最前；沒有時取最新的自動評分
+# 每筆職缺代表的評分：最新的一筆，不分自動或手動
 _CURRENT = (
     "(SELECT * FROM ("
-    'SELECT *, ROW_NUMBER() OVER (PARTITION BY "職缺代碼" '
-    """ORDER BY "評分來源" = 'manual' DESC, "評分時間" DESC, "評分編號" DESC) AS _rank """
+    f'SELECT *, ROW_NUMBER() OVER (PARTITION BY "職缺代碼" {_LATEST_FIRST}) AS _rank '
     "FROM job_scores) WHERE _rank = 1)"
 )
 
@@ -69,7 +71,7 @@ def save_score(
     eliminated: bool = False,
 ) -> None:
     """
-    寫入一筆手動評分，評分時間為寫入當下；只覆寫同一筆職缺上一次的手動評分，不動自動評分。單筆自成一個交易。
+    新增一筆手動評分，評分時間為寫入當下；不覆寫任何紀錄，查詢時以最新的一筆為準。單筆自成一個交易。
 
     :param conn: sqlite3.Connection, open_db 開啟的連線
     :param job_no: str, 職缺代碼，必填
@@ -81,9 +83,6 @@ def save_score(
     _check_manual_score(job_no, comment, total)
     with conn:
         conn.execute(
-            'DELETE FROM job_scores WHERE "職缺代碼" = ? AND "評分來源" = \'manual\'', (job_no,),
-        )
-        conn.execute(
             'INSERT INTO job_scores ("職缺代碼", "評分來源", "評分時間", "淘汰", "總分", "評語") '
             "VALUES (?, 'manual', ?, ?, ?, ?)",
             (job_no, datetime.now().isoformat(timespec="seconds"), int(eliminated), total, comment),
@@ -92,7 +91,7 @@ def save_score(
 
 def get_score(conn: sqlite3.Connection, job_no: str) -> dict[str, Any] | None:
     """
-    取出單筆職缺代表的評分紀錄：有手動評分用它，否則用最新的自動評分
+    取出單筆職缺代表的評分紀錄：最新的一筆，不分自動或手動
 
     :param conn: sqlite3.Connection, open_db 開啟的連線
     :param job_no: str, 職缺代碼
@@ -114,12 +113,11 @@ def save_auto_score(
     total: int | None,
     comment: str,
     details: dict[str, Any],
-    cache_key: str | None,
     provider: str | None,
     model: str | None,
-) -> bool:
+) -> None:
     """
-    新增一筆自動評分，不覆寫任何紀錄；與這筆職缺最新一筆自動評分除了評分時間都相同時不新增。單筆自成一個交易。
+    新增一筆自動評分，不覆寫任何紀錄，也不和先前的紀錄比較。單筆自成一個交易。
 
     :param conn: sqlite3.Connection, open_db 開啟的連線
     :param job_no: str, 職缺代碼
@@ -128,43 +126,33 @@ def save_auto_score(
     :param total: int or None, 總分；被淘汰時為 None
     :param comment: str, 評語：AI 的總評，被淘汰時為淘汰原因組成的文字
     :param details: dict, 中文鍵名的評分明細（完整評分結果），以 JSON 存入
-    :param cache_key: str or None, 快取鍵；被淘汰時為 None
     :param provider: str or None, LLM 供應商；被淘汰時為 None
     :param model: str or None, 模型名稱；被淘汰時為 None
-    :return: bool, 是否新增了一筆
     """
-    values = (int(eliminated), total, comment, json.dumps(details, ensure_ascii=False), cache_key, provider, model)
+    values = (int(eliminated), total, comment, json.dumps(details, ensure_ascii=False), provider, model)
     columns = ", ".join(f'"{name}"' for name in _AUTO_FIELDS)
+    placeholders = ", ".join("?" * len(values))
     with conn:
-        latest = conn.execute(
-            f'SELECT {columns} FROM job_scores WHERE "職缺代碼" = ? AND "評分來源" = \'auto\' {_LATEST_FIRST} LIMIT 1',
-            (job_no,),
-        ).fetchone()
-        if latest == values:
-            return False
         conn.execute(
             f'INSERT INTO job_scores ("職缺代碼", "評分來源", "評分時間", {columns}) '
-            "VALUES (?, 'auto', ?, ?, ?, ?, ?, ?, ?, ?)",
+            f"VALUES (?, 'auto', ?, {placeholders})",
             (job_no, scored_at.isoformat(timespec="seconds"), *values),
         )
-    return True
 
 
-def load_cached_result(conn: sqlite3.Connection, job_no: str, cache_key: str) -> dict[str, Any] | None:
+def list_unscored_jobs(conn: sqlite3.Connection) -> list[dict[str, Any]]:
     """
-    從這筆職缺的所有自動評分中，取出快取鍵相同的最新一筆評分明細；被淘汰的紀錄沒有快取鍵，不會被取出。
+    列出還沒有任何評分紀錄（自動或手動）的職缺，排序為最後出現時間由新到舊，相同時再比職缺代碼。
 
     :param conn: sqlite3.Connection, open_db 開啟的連線
-    :param job_no: str, 職缺代碼
-    :param cache_key: str, 這次評分的快取鍵
-    :return: dict or None, 中文鍵名的評分明細；沒有評過或快取鍵都不同時為 None
+    :return: list[dict], 每筆是職缺欄位契約的欄位加上首次、最後出現時間；沒有時為空清單
     """
-    row = conn.execute(
-        'SELECT "評分明細" FROM job_scores '
-        f'WHERE "職缺代碼" = ? AND "評分來源" = \'auto\' AND "快取鍵" = ? {_LATEST_FIRST} LIMIT 1',
-        (job_no, cache_key),
-    ).fetchone()
-    return None if row is None else json.loads(row[0])
+    columns = ", ".join(f'jobs."{name}"' for name in _UNSCORED_JOB_FIELDS)
+    return rows_to_dicts(conn.execute(
+        f"SELECT {columns} FROM jobs "
+        'WHERE NOT EXISTS (SELECT 1 FROM job_scores s WHERE s."職缺代碼" = jobs."職缺代碼") '
+        'ORDER BY jobs."最後出現時間" DESC, jobs."職缺代碼"'
+    ))
 
 
 def list_scored_jobs(
@@ -226,7 +214,7 @@ def get_score_details(conn: sqlite3.Connection, job_no: str) -> dict[str, Any] |
 
 def list_scores(conn: sqlite3.Connection, job_no: str) -> list[dict[str, Any]]:
     """
-    取出單筆職缺的所有評分紀錄，依評分時間由新到舊，手動與自動都列出。
+    取出單筆職缺的所有評分紀錄，依評分時間由新到舊（同一秒內後寫入的在前），手動與自動都列出。
 
     :param conn: sqlite3.Connection, open_db 開啟的連線
     :param job_no: str, 職缺代碼

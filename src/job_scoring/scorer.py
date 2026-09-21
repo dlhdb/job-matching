@@ -3,9 +3,9 @@
 import sqlite3
 from datetime import datetime
 from fractions import Fraction
-from typing import Any, Callable
+from typing import Any
 
-from job_db import load_cached_result, save_auto_score
+from job_db import save_auto_score
 from job_scoring.llm import LLMClient
 from job_scoring.models import (
     CAREER_FIT,
@@ -18,7 +18,7 @@ from job_scoring.models import (
     JobScore,
     Preferences,
 )
-from job_scoring.prompt import build_prompt, cache_key
+from job_scoring.prompt import build_prompt
 from job_scoring.rules import check_hard_filters, round_half_up, score_salary
 
 # 分數未知的維度以此分數（中性）代入，讓每筆職缺都用相同的維度與權重計算，總分才能互相比較
@@ -58,9 +58,9 @@ def _combine(job: dict[str, Any], prefs: Preferences, assessment: AIAssessment) 
     """
     以 AI 的三個維度加上薪資分數，組成沒被淘汰職缺的評分結果並計算總分
 
-    :param job: dict, 爬蟲輸出的單筆職缺
+    :param job: dict, 符合職缺欄位契約的單筆職缺
     :param prefs: Preferences, 偏好設定
-    :param assessment: AIAssessment, AI 的評分（新呼叫或沿用上次的）
+    :param assessment: AIAssessment, AI 的評分
     :return: JobScore, 評分結果
     """
     salary_score, salary_reason = score_salary(job, prefs)
@@ -83,43 +83,24 @@ def _combine(job: dict[str, Any], prefs: Preferences, assessment: AIAssessment) 
     )
 
 
-def _assessment_from_result(result: dict[str, Any]) -> AIAssessment:
-    """
-    從存下的評分結果（中文鍵名）還原 AI 的三個維度與評語
-
-    :param result: dict, 上次評分寫入資料庫的完整評分結果
-    :return: AIAssessment, 上次的 AI 評分
-    :raises pydantic.ValidationError: 存下的內容不符合 AI 輸出的 schema
-    """
-    dimensions = result.get("維度") or {}
-
-    def _dimension(name: str) -> dict[str, Any]:
-        stored = dimensions.get(name) or {}
-        return {"score": stored.get("分數"), "reason": stored.get("理由")}
-
-    return AIAssessment.model_validate({
-        "career_fit": _dimension(CAREER_FIT),
-        "skill_match": _dimension(SKILL_MATCH),
-        "industry_fit": _dimension(INDUSTRY_FIT),
-        "comment": result.get("評語"),
-    })
-
-
-def score_job(job: dict[str, Any], prefs: Preferences, experience: str, client: LLMClient) -> JobScore:
+def score_job(job: dict[str, Any], prefs: Preferences, experience: str, client: LLMClient | None) -> JobScore:
     """
     對單筆職缺評分；被淘汰的職缺不呼叫 LLM。
 
-    :param job: dict, 爬蟲輸出的單筆職缺
+    :param job: dict, 符合職缺欄位契約的單筆職缺
     :param prefs: Preferences, 偏好設定
     :param experience: str, experience.md 全文
-    :param client: LLMClient, LLM client
+    :param client: LLMClient or None, LLM client；呼叫端確定這筆會被淘汰時才可以是 None
     :return: JobScore, 評分結果
     :raises LLMError: LLM 呼叫失敗
     :raises pydantic.ValidationError: LLM 回應不符合 schema
+    :raises ValueError: 沒被淘汰卻沒有提供 client，代表呼叫端的程式錯誤
     """
     reasons = check_hard_filters(job, prefs)
     if reasons:
         return _eliminated_score(str(job.get("職缺代碼") or ""), reasons)
+    if client is None:
+        raise ValueError(f"職缺 {job.get('職缺代碼')} 需要呼叫 AI，但沒有提供 LLM client")
     system, user = build_prompt(job, prefs, experience)
     return _combine(job, prefs, client.assess(system, user))
 
@@ -128,54 +109,33 @@ def score_and_save(
     job: dict[str, Any],
     prefs: Preferences,
     experience: str,
-    client_factory: Callable[[], LLMClient],
+    client: LLMClient | None,
     conn: sqlite3.Connection | None,
     provider: str,
     model: str,
-) -> tuple[JobScore, bool]:
+) -> JobScore:
     """
-    對單筆職缺評分並新增一筆自動評分紀錄（與最新一筆相同時不新增）；評分失敗時例外直接往外拋，不寫入。
+    對單筆職缺評分並新增一筆自動評分紀錄；評分失敗時例外直接往外拋，不寫入。
+    每次都重新評分，沒被淘汰的職缺一律呼叫 AI。
 
-    送給 AI 的內容與上次相同（快取鍵相同）時，沿用上次的 AI 維度與評語，不呼叫 AI；
-    淘汰、薪資分數與總分每次都重算。
+    conn 為 None 時是試跑：只評分，不寫入資料庫。
 
-    conn 為 None 時是試跑：不讀寫資料庫，也不沿用上次的 AI 評分，沒被淘汰的職缺一律呼叫 AI。
-
-    :param job: dict, 爬蟲輸出的單筆職缺
+    :param job: dict, 符合職缺欄位契約的單筆職缺
     :param prefs: Preferences, 偏好設定
     :param experience: str, experience.md 全文
-    :param client_factory: callable, 取得 LLM client；只有真的要呼叫 AI 時才呼叫
+    :param client: LLMClient or None, LLM client；整批都會被淘汰時可以是 None
     :param conn: sqlite3.Connection or None, open_db 開啟的連線；None 表示試跑
-    :param provider: str, client_factory 使用的 LLM 供應商
-    :param model: str, client_factory 使用的模型名稱
-    :return: tuple (JobScore, bool), (評分結果, 是否沿用上次的 AI 評分)
-    :raises ValueError: client_factory 不認得供應商
-    :raises LLMError: 建立 client 或 LLM 呼叫失敗
-    :raises pydantic.ValidationError: LLM 回應或沿用的評分不符合 schema
-    :raises sqlite3.Error: 讀寫資料庫失敗
+    :param provider: str, client 使用的 LLM 供應商
+    :param model: str, client 使用的模型名稱
+    :return: JobScore, 評分結果
+    :raises LLMError: LLM 呼叫失敗
+    :raises pydantic.ValidationError: LLM 回應不符合 schema
+    :raises sqlite3.Error: 寫入資料庫失敗
     """
-    job_no = str(job.get("職缺代碼") or "")
-    reasons = check_hard_filters(job, prefs)
-    # 被淘汰的職缺沒有呼叫 AI，不需要快取鍵，也沒有使用任何 LLM
-    key: str | None = None
-    used_provider: str | None = None
-    used_model: str | None = None
-    reused = False
-    if reasons:
-        score = _eliminated_score(job_no, reasons)
-    else:
-        system, user = build_prompt(job, prefs, experience)
-        key, used_provider, used_model = cache_key(provider, model, system, user), provider, model
-        cached = load_cached_result(conn, job_no, key) if conn is not None else None
-        reused = cached is not None
-        if cached is not None:
-            assessment = _assessment_from_result(cached)
-        else:
-            assessment = client_factory().assess(system, user)
-        score = _combine(job, prefs, assessment)
-
+    score = score_job(job, prefs, experience, client)
     if conn is None:
-        return score, reused
+        return score
+    # 被淘汰的職缺沒有呼叫 AI，也就沒有使用任何 LLM
     save_auto_score(
         conn,
         job_no=score.job_no,
@@ -184,8 +144,7 @@ def score_and_save(
         total=score.total,
         comment=score.comment,
         details=score.model_dump(by_alias=True),
-        cache_key=key,
-        provider=used_provider,
-        model=used_model,
+        provider=None if score.eliminated else provider,
+        model=None if score.eliminated else model,
     )
-    return score, reused
+    return score
