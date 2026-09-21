@@ -98,7 +98,7 @@ profile/
 
 ### 3.2 job_scores 的自動評分欄位
 
-實現 FR-store-write、FR-store-db-path、FR-store-get、FR-list、FR-history-*。`job_scores` 的基本欄位、查詢與設計理由見 [job-score-database 技術設計](job-score-database.md#21-job_scores-資料表)，業務意義見[功能文件的寫入的評分紀錄](../../product/features/job-auto-scoring.md#721-寫入的評分紀錄)與[保留評分歷史](../../product/features/job-auto-scoring.md#11-保留評分歷史並和手動評分並存history)。
+實現 FR-store-write、FR-store-db-path、FR-store-get、FR-list、FR-history-*、FR-current-*。`job_scores` 的基本欄位、查詢與設計理由見 [job-score-database 技術設計](job-score-database.md#21-job_scores-資料表)，業務意義見[功能文件的寫入的評分紀錄](../../product/features/job-auto-scoring.md#721-寫入的評分紀錄)與[保留評分歷史](../../product/features/job-auto-scoring.md#11-保留評分歷史並和手動評分並存history)。
 
 疊加的欄位，建表語法同樣在 `job_db/schema.py`：
 
@@ -143,11 +143,14 @@ profile/
 查詢（都在 `job_db/scores.py`）：
 
 - 快取查詢：見 [§3.3](#33-快取鍵)。
-- 取出評分明細：`get_score_details` 取最新一筆 `auto` 列的 `評分明細`；只有手動評分或沒評過時回傳 `None`。
-  - `get_score` 是評分資料庫取出基本評分紀錄的函式，同一筆職缺有多列時取評分時間最新的一列，不分來源。
-- 依分數列出時多帶 `供應商`、`模型`，不帶 `評分明細` 與 `快取鍵`；每列各出現一次，同一筆職缺可能出現多次。
-- 「最新」一律以 `評分時間 DESC, 評分編號 DESC` 排序取第一列。
-- 列表與取出單筆還沒有挑出代表的評分（手動優先），行為見[功能文件的多筆評分時的查詢](../../product/features/job-auto-scoring.md#1123-多筆評分時的查詢)。
+- 代表的評分（見[功能文件的代表的評分](../../product/features/job-auto-scoring.md#1221-代表的評分)）以 window function 挑出：`ROW_NUMBER() OVER (PARTITION BY 職缺代碼 ORDER BY 評分來源 = 'manual' DESC, 評分時間 DESC, 評分編號 DESC)` 取第 1 列。
+  - `manual` 每筆職缺最多一列（`job_scores_manual`），所以只靠排序就是「有手動用手動，否則最新的 `auto`」。
+  - 依分數列出（`list_scored_jobs`）、取出評分紀錄（`get_score`）、取出評分明細（`get_score_details`）共用這個子查詢。
+- 依分數列出時先挑代表再套 `淘汰` 篩選與排序：先篩再挑的話，代表被篩掉的職缺會改以別列出現。
+- 列表多帶 `評分來源`、`供應商`、`模型`，不帶 `評分明細` 與 `快取鍵`；取出評分紀錄多帶 `評分來源`。
+- 取出評分明細：代表那列是 `manual` 或沒評過時回傳 `None`。
+- 取出所有評分紀錄（`list_scores`）：不經過代表的挑選，`評分明細` 以 `json.loads` 還原，手動評分為 `None`，不帶 `快取鍵`。
+- 「最新」一律以 `評分時間 DESC, 評分編號 DESC` 排序。
 
 ### 3.3 快取鍵
 
@@ -312,6 +315,11 @@ uv run pytest tests/test_job_scoring_*.py tests/test_score_job_cli.py
 - [AC-history-append](../../product/features/job-auto-scoring.md#ac-history-append自動評分新增而不覆寫)：`uv run pytest tests/test_job_scoring_batch.py -k "history_append or history_reuses"`
 - [AC-history-coexist](../../product/features/job-auto-scoring.md#ac-history-coexist手動與自動並存)：`uv run pytest tests/test_job_scoring_batch.py -k history_coexist`
 - [AC-history-no-delete](../../product/features/job-auto-scoring.md#ac-history-no-delete不提供刪除評分紀錄)：`uv run pytest tests/test_score_job_cli.py -k no_delete`
+
+### current
+
+- [AC-current-pick](../../product/features/job-auto-scoring.md#ac-current-pick代表的評分)：`uv run pytest tests/test_job_scoring_batch.py -k current_pick`
+- [AC-current-all](../../product/features/job-auto-scoring.md#ac-current-all所有評分紀錄)：`uv run pytest tests/test_job_scoring_batch.py -k current_all`
 
 ### 共用規則
 

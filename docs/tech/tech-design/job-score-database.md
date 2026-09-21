@@ -76,7 +76,7 @@ flowchart LR
 - 第一個排序鍵明寫 `總分 IS NULL`，把沒有總分的列排到最後，不依賴 SQLite 對 `NULL` 的預設排序。
 - 最後一個排序鍵是 `職缺代碼`，同樣的資料每次查出來的順序才一致，分頁才不會漏或重複。
 - `limit`、`offset` 是負數時拋出 `ValueError`：SQLite 把負的 `LIMIT` 當成不限筆數，不擋下來會靜默回傳全部。
-- 取出單筆時只查 `job_scores`，不 JOIN `jobs`，查不到時回傳 `None`（實現 FR-detail）。有多列時取評分時間最新的一列。
+- 取出單筆時只查 `job_scores`，不 JOIN `jobs`，查不到時回傳 `None`（實現 FR-detail）。
 - `淘汰` 在列表與單筆都以 `0`／`1` 回傳，不轉成 `bool`。
 
 ## 3. 驗收對照

@@ -1,6 +1,7 @@
 """讀寫評分紀錄（job_scores）：評分紀錄的基本欄位，以及自動評分疊加的欄位。
 
 同一筆職缺可以有多筆評分紀錄：自動評分每次有變化就新增一筆，手動評分每筆職缺最多一筆。
+依分數列出、取出單筆評分紀錄與評分明細時，每筆職缺只用一筆代表的評分：有手動評分用它，否則用最新的自動評分。
 """
 
 import json
@@ -17,14 +18,28 @@ _JOINED_JOB_FIELDS = [name for name, _ in JOB_COLUMNS if name != "職缺代碼"]
 # 評分紀錄的基本欄位（不含職缺代碼）
 _RECORD_FIELDS = ["評分時間", "淘汰", "總分", "評語"]
 
-# 列表要帶的評分欄位：基本欄位加上自動評分的供應商、模型，不含評分明細與快取鍵
-_SCORE_FIELDS = _RECORD_FIELDS + ["供應商", "模型"]
+# 取出單筆評分紀錄要帶的評分欄位：基本欄位加上評分來源
+_CURRENT_FIELDS = _RECORD_FIELDS + ["評分來源"]
+
+# 列表要帶的評分欄位：再加上自動評分的供應商、模型，不含評分明細與快取鍵
+_SCORE_FIELDS = _CURRENT_FIELDS + ["供應商", "模型"]
+
+# 取出一筆職缺所有評分紀錄時的欄位，不含快取鍵
+_HISTORY_FIELDS = ["職缺代碼"] + _SCORE_FIELDS + ["評分明細"]
 
 # 自動評分判斷有沒有變化時比較的欄位：評分時間以外的全部欄位
 _AUTO_FIELDS = ["淘汰", "總分", "評語", "評分明細", "快取鍵", "供應商", "模型"]
 
 # 同一筆職缺的多筆紀錄由新到舊；評分時間只精確到秒，同一秒內的再以評分編號區分先後
 _LATEST_FIRST = 'ORDER BY "評分時間" DESC, "評分編號" DESC'
+
+# 每筆職缺代表的評分：手動評分每筆職缺最多一筆，排在最前；沒有時取最新的自動評分
+_CURRENT = (
+    "(SELECT * FROM ("
+    'SELECT *, ROW_NUMBER() OVER (PARTITION BY "職缺代碼" '
+    """ORDER BY "評分來源" = 'manual' DESC, "評分時間" DESC, "評分編號" DESC) AS _rank """
+    "FROM job_scores) WHERE _rank = 1)"
+)
 
 
 def _check_manual_score(job_no: str, comment: str | None, total: int | None) -> None:
@@ -77,15 +92,15 @@ def save_score(
 
 def get_score(conn: sqlite3.Connection, job_no: str) -> dict[str, Any] | None:
     """
-    取出單筆職缺的評分紀錄；有多筆時取評分時間最新的一筆，不分手動或自動
+    取出單筆職缺代表的評分紀錄：有手動評分用它，否則用最新的自動評分
 
     :param conn: sqlite3.Connection, open_db 開啟的連線
     :param job_no: str, 職缺代碼
-    :return: dict or None, 職缺代碼、評分時間、淘汰、總分、評語；沒有評過這筆職缺時為 None
+    :return: dict or None, 職缺代碼、評分時間、淘汰、總分、評語、評分來源；沒有評過這筆職缺時為 None
     """
-    columns = ", ".join(f'"{name}"' for name in ["職缺代碼"] + _RECORD_FIELDS)
+    columns = ", ".join(f'"{name}"' for name in ["職缺代碼"] + _CURRENT_FIELDS)
     rows = rows_to_dicts(conn.execute(
-        f'SELECT {columns} FROM job_scores WHERE "職缺代碼" = ? {_LATEST_FIRST} LIMIT 1', (job_no,),
+        f'SELECT {columns} FROM {_CURRENT} WHERE "職缺代碼" = ?', (job_no,),
     ))
     return rows[0] if rows else None
 
@@ -160,33 +175,34 @@ def list_scored_jobs(
     offset: int | None = None,
 ) -> list[dict[str, Any]]:
     """
-    列出評過分的職缺，排序為總分由高到低，沒有總分的排在最後；每筆評分紀錄各一列，同一筆職缺可能出現多次。
+    列出評過分的職缺，排序為總分由高到低，沒有總分的排在最後；每筆職缺只列代表的評分一次。
 
     評分時不必先把職缺匯入資料庫，所以查到只有評分、沒有職缺資料的職缺時，職缺欄位為 None。
 
     :param conn: sqlite3.Connection, open_db 開啟的連線
-    :param eliminated: bool or None, True 只列被淘汰的、False 只列沒被淘汰的；None 代表不限
+    :param eliminated: bool or None, 依代表的評分篩選：True 只列被淘汰的、False 只列沒被淘汰的；None 代表不限
     :param limit: int or None, 最多取幾筆；None 代表不限
     :param offset: int or None, 從第幾筆開始；None 代表從頭
-    :return: list[dict], 每筆是職缺欄位加上評分時間、淘汰、總分、評語、供應商、模型
+    :return: list[dict], 每筆是職缺欄位加上評分時間、淘汰、總分、評語、評分來源、供應商、模型
     :raises ValueError: limit 或 offset 是負數
     """
     columns = ", ".join(
-        ['job_scores."職缺代碼"']
+        ['s."職缺代碼"']
         + [f'jobs."{name}"' for name in _JOINED_JOB_FIELDS]
-        + [f'job_scores."{name}"' for name in _SCORE_FIELDS]
+        + [f's."{name}"' for name in _SCORE_FIELDS]
     )
     params: list[Any] = []
     where = ""
+    # 先挑出代表的評分再篩選，淘汰與否以代表的那筆為準
     if eliminated is not None:
-        where = 'WHERE job_scores."淘汰" = ? '
+        where = 'WHERE s."淘汰" = ? '
         params.append(int(eliminated))
     # 總分相同（含沒有總分的 NULL）再比職缺代碼，同樣的資料每次查出來的順序才一致
     sql = (
-        f"SELECT {columns} FROM job_scores "
-        'LEFT JOIN jobs ON jobs."職缺代碼" = job_scores."職缺代碼" '
+        f"SELECT {columns} FROM {_CURRENT} AS s "
+        'LEFT JOIN jobs ON jobs."職缺代碼" = s."職缺代碼" '
         f"{where}"
-        'ORDER BY job_scores."總分" IS NULL, job_scores."總分" DESC, job_scores."職缺代碼"'
+        'ORDER BY s."總分" IS NULL, s."總分" DESC, s."職缺代碼"'
     )
     clause, extra = limit_clause(limit, offset)
     return rows_to_dicts(conn.execute(sql + clause, params + extra))
@@ -194,14 +210,34 @@ def list_scored_jobs(
 
 def get_score_details(conn: sqlite3.Connection, job_no: str) -> dict[str, Any] | None:
     """
-    取出單筆職缺最新一筆自動評分的評分明細，含各維度的分數與理由。
+    取出單筆職缺代表的評分的評分明細，含各維度的分數與理由。
 
     :param conn: sqlite3.Connection, open_db 開啟的連線
     :param job_no: str, 職缺代碼
-    :return: dict or None, 中文鍵名的評分明細；沒有評過這筆職缺，或只有手動評分時為 None
+    :return: dict or None, 中文鍵名的評分明細；沒有評過這筆職缺，或代表的評分是手動評分時為 None
     """
     row = conn.execute(
-        f'SELECT "評分明細" FROM job_scores WHERE "職缺代碼" = ? AND "評分來源" = \'auto\' {_LATEST_FIRST} LIMIT 1',
-        (job_no,),
+        f'SELECT "評分來源", "評分明細" FROM {_CURRENT} WHERE "職缺代碼" = ?', (job_no,),
     ).fetchone()
-    return None if row is None else json.loads(row[0])
+    if row is None or row[0] != "auto":
+        return None
+    return json.loads(row[1])
+
+
+def list_scores(conn: sqlite3.Connection, job_no: str) -> list[dict[str, Any]]:
+    """
+    取出單筆職缺的所有評分紀錄，依評分時間由新到舊，手動與自動都列出。
+
+    :param conn: sqlite3.Connection, open_db 開啟的連線
+    :param job_no: str, 職缺代碼
+    :return: list[dict], 每筆是職缺代碼、評分時間、淘汰、總分、評語、評分來源、供應商、模型、評分明細（中文鍵名的 dict，
+        手動評分為 None）；沒有評過這筆職缺時為空清單
+    """
+    columns = ", ".join(f'"{name}"' for name in _HISTORY_FIELDS)
+    rows = rows_to_dicts(conn.execute(
+        f'SELECT {columns} FROM job_scores WHERE "職缺代碼" = ? {_LATEST_FIRST}', (job_no,),
+    ))
+    for row in rows:
+        if row["評分明細"] is not None:
+            row["評分明細"] = json.loads(row["評分明細"])
+    return rows

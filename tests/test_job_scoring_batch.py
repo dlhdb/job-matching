@@ -3,11 +3,11 @@
 import csv
 import json
 import re
-from datetime import datetime
+from datetime import datetime, timedelta
 
 import pytest
 
-from job_db import get_score_details, list_scored_jobs, save_auto_score, save_score
+from job_db import get_score, get_score_details, list_scored_jobs, list_scores, save_auto_score, save_score
 from job_scoring.batch import score_batch, write_results
 from job_scoring.models import DIMENSIONS
 
@@ -322,3 +322,72 @@ def test_score_batch_history_reuses_any_auto_record(ok_job, prefs, make_batch_cl
     assert len(client.calls) == 2
     assert result.reused
     assert len(_records(db_conn, "ok")) == 3
+
+
+def _save_auto(conn, job_no, scored_at, total):
+    """
+    直接寫入一筆沒被淘汰的自動評分，評分明細以總分區分
+
+    :return: dict, 寫入的評分明細
+    """
+    details = {"職缺代碼": job_no, "總分": total}
+    save_auto_score(
+        conn, job_no=job_no, scored_at=scored_at, eliminated=False, total=total, comment=f"{total} 分的評語",
+        details=details, cache_key=f"鍵-{total}", provider="gemini", model="測試模型",
+    )
+    return details
+
+
+@pytest.fixture
+def current_records(db_conn):
+    """
+    A：兩筆不同時間的自動評分；B：先手動評分（淘汰），再一筆較新、沒被淘汰的自動評分
+
+    :return: dict, A 較新那筆的評分明細
+    """
+    _save_auto(db_conn, "A", datetime(2026, 1, 1, 9, 0, 0), 60)
+    newer = _save_auto(db_conn, "A", datetime(2026, 1, 2, 9, 0, 0), 70)
+    save_score(db_conn, job_no="B", comment="手動的評語", total=40, eliminated=True)
+    # 自動評分的時間晚於手動評分，驗證手動評分不因為較舊就被略過
+    _save_auto(db_conn, "B", datetime.now().replace(microsecond=0) + timedelta(hours=1), 90)
+    return {"A": newer}
+
+
+def test_current_pick_list(db_conn, current_records):
+    rows = list_scored_jobs(db_conn)
+
+    # 每筆職缺只有一筆：A 用較新的自動評分，B 用手動評分
+    assert [(r["職缺代碼"], r["評分來源"], r["總分"]) for r in rows] == [("A", "auto", 70), ("B", "manual", 40)]
+    # 篩選以代表的評分計算：B 的自動評分沒被淘汰，但代表的手動評分被淘汰
+    assert [r["職缺代碼"] for r in list_scored_jobs(db_conn, eliminated=False)] == ["A"]
+    assert [r["職缺代碼"] for r in list_scored_jobs(db_conn, eliminated=True)] == ["B"]
+
+
+def test_current_pick_get_score(db_conn, current_records):
+    listed = {r["職缺代碼"]: r for r in list_scored_jobs(db_conn)}
+
+    for job_no in ("A", "B"):
+        record = get_score(db_conn, job_no)
+        assert record == {name: listed[job_no][name] for name in record}
+    assert get_score(db_conn, "B")["評分來源"] == "manual"
+
+
+def test_current_pick_details(db_conn, current_records):
+    assert get_score_details(db_conn, "A") == current_records["A"]
+    # 代表的評分是手動評分，沒有評分明細
+    assert get_score_details(db_conn, "B") is None
+
+
+def test_current_all(db_conn, current_records):
+    records_a = list_scores(db_conn, "A")
+    records_b = list_scores(db_conn, "B")
+
+    assert [r["總分"] for r in records_a] == [70, 60]
+    assert records_a[0]["評分明細"] == current_records["A"]
+    assert all((r["供應商"], r["模型"]) == ("gemini", "測試模型") for r in records_a)
+    assert all("快取鍵" not in r for r in records_a)
+    # 依評分時間由新到舊：B 的自動評分較新
+    assert [r["評分來源"] for r in records_b] == ["auto", "manual"]
+    assert records_b[1]["評分明細"] is None
+    assert all(r["評分時間"] >= s["評分時間"] for r, s in zip(records_b, records_b[1:]))
+    assert list_scores(db_conn, "沒有這筆") == []
