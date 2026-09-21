@@ -5,6 +5,15 @@ import sqlite3
 from datetime import datetime
 from typing import Any
 
+from job_db._sql import limit_clause, rows_to_dicts
+from job_db.schema import JOB_COLUMNS
+
+# 列表要從 jobs 帶的職缺欄位；職缺代碼改從 job_scores 取，沒匯入職缺資料的職缺才不會連代碼都是 None
+_JOINED_JOB_FIELDS = [name for name, _ in JOB_COLUMNS if name != "職缺代碼"]
+
+# 列表要帶的評分欄位，不含完整評分結果與快取鍵
+_SCORE_FIELDS = ["評分時間", "淘汰", "總分", "評語", "供應商", "模型"]
+
 
 def save_score(
     conn: sqlite3.Connection,
@@ -66,5 +75,59 @@ def load_cached_result(conn: sqlite3.Connection, job_no: str, cache_key: str) ->
     """
     row = conn.execute(
         'SELECT "評分結果" FROM job_scores WHERE "職缺代碼" = ? AND "快取鍵" = ?', (job_no, cache_key),
+    ).fetchone()
+    return None if row is None else json.loads(row[0])
+
+
+def list_scored_jobs(
+    conn: sqlite3.Connection,
+    *,
+    eliminated: bool | None = None,
+    limit: int | None = None,
+    offset: int | None = None,
+) -> list[dict[str, Any]]:
+    """
+    列出評過分的職缺，排序為總分由高到低，被淘汰的職缺沒有總分、排在最後。
+
+    評分時不必先把職缺匯入資料庫，所以查到只有評分、沒有職缺資料的職缺時，職缺欄位為 None。
+
+    :param conn: sqlite3.Connection, open_db 開啟的連線
+    :param eliminated: bool or None, True 只列被淘汰的、False 只列沒被淘汰的；None 代表不限
+    :param limit: int or None, 最多取幾筆；None 代表不限
+    :param offset: int or None, 從第幾筆開始；None 代表從頭
+    :return: list[dict], 每筆是職缺欄位加上評分時間、淘汰、總分、評語、供應商、模型
+    :raises ValueError: limit 或 offset 是負數
+    """
+    columns = ", ".join(
+        ['job_scores."職缺代碼"']
+        + [f'jobs."{name}"' for name in _JOINED_JOB_FIELDS]
+        + [f'job_scores."{name}"' for name in _SCORE_FIELDS]
+    )
+    params: list[Any] = []
+    where = ""
+    if eliminated is not None:
+        where = 'WHERE job_scores."淘汰" = ? '
+        params.append(int(eliminated))
+    # 總分相同（含淘汰時的 NULL）再比職缺代碼，同樣的資料每次查出來的順序才一致
+    sql = (
+        f"SELECT {columns} FROM job_scores "
+        'LEFT JOIN jobs ON jobs."職缺代碼" = job_scores."職缺代碼" '
+        f"{where}"
+        'ORDER BY job_scores."總分" IS NULL, job_scores."總分" DESC, job_scores."職缺代碼"'
+    )
+    clause, extra = limit_clause(limit, offset)
+    return rows_to_dicts(conn.execute(sql + clause, params + extra))
+
+
+def get_score(conn: sqlite3.Connection, job_no: str) -> dict[str, Any] | None:
+    """
+    取出單筆職缺的完整評分結果，含各維度的分數與理由。
+
+    :param conn: sqlite3.Connection, open_db 開啟的連線
+    :param job_no: str, 職缺代碼
+    :return: dict or None, 中文鍵名的完整評分結果；沒有評過這筆職缺時為 None
+    """
+    row = conn.execute(
+        'SELECT "評分結果" FROM job_scores WHERE "職缺代碼" = ?', (job_no,),
     ).fetchone()
     return None if row is None else json.loads(row[0])

@@ -40,7 +40,7 @@ flowchart LR
   - `job_scores`：job-scoring（見 [資料表](tech-design/job-scoring.md#32-job_scores-資料表)）
     - 寫入：評分 CLI
 - 表之間以 `職缺代碼` 關聯，它是 `jobs` 與 `job_scores` 的主鍵。
-- 欄名沿用中文，與[職缺欄位契約](../product/features/job-database.md#621-職缺欄位契約)、評分結果的鍵名一致。
+- 欄名沿用中文，與[職缺欄位契約](../product/features/job-database.md#721-職缺欄位契約)、評分結果的鍵名一致。
 
 檔案：
 

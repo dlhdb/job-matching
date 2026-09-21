@@ -33,12 +33,15 @@ flowchart LR
 - `llm.py`：LLM 供應商抽象層與 Gemini 實作。
 - `scorer.py`：單筆評分流程、總分計算，以及「評分並寫入資料庫」這一步。
 - `batch.py`：整批評分、寫出結果檔。
-- `job_db/scores.py`：把一列寫入 `job_scores`。
+- `job_db/scores.py`：讀寫 `job_scores`，包括寫入一列、快取查詢，以及評分結果的查詢。
 
 依賴限制：
 
 - 只有 `llm.py` 可以 import 特定供應商的 SDK（`google` 開頭的模組）：換供應商或新增供應商時，評分規則的程式都不必改（見 [§4.1](#41-llm-供應商抽象層)）。由[驗收對照](#6-驗收對照)的「供應商隔離」以 `ast` 掃描 import 檢查。
 - `job_db` 不 import 專案內的其他模組（原因見 [job-database 的技術設計](job-database.md#1-總覽)），所以 `job_db/scores.py` 的參數都用基本型別，由 `scorer.py` 把評分結果轉好再傳入。
+- 帶職缺欄位的評分查詢放在 `job_db/scores.py`，不放 `job_db/queries.py`：
+  - `queries.py` 屬於 job-database，job-database 不依賴任何功能，它的查詢不能 JOIN 屬於 job-scoring 的 `job_scores`。
+  - `scores.py` 屬於 job-scoring，job-scoring 本來就依賴 job-database，由它 JOIN `jobs` 不違反依賴方向。
 
 import 路徑：
 
@@ -98,7 +101,7 @@ profile/
 
 ### 3.2 job_scores 資料表
 
-實現 FR-store-write。所有欄位的業務意義見[功能文件的儲存的評分資訊](../../product/features/job-scoring.md#721-儲存的評分資訊)。
+實現 FR-store-write、FR-store-list、FR-store-get。所有欄位的業務意義見[功能文件的儲存的評分資訊](../../product/features/job-scoring.md#721-儲存的評分資訊)。
 
 `job_scores`：每筆職缺最多一列，只保留最新一次成功的評分結果。
 
@@ -128,6 +131,15 @@ profile/
 
 - 每筆職缺的寫入各自是一個 transaction，整批中途中止時已經評完的職缺留在資料庫。
 - 整批評分中途發生 `sqlite3.Error` 時，CLI 回傳 1、不寫結果檔，已寫入的職缺留在資料庫。
+
+查詢：
+
+- 列出評過分的職缺時，以 `job_scores` 為主表 LEFT JOIN `jobs`：
+  - 評分的職缺不一定匯入過 `jobs`（見上方不設外鍵），INNER JOIN 會漏掉這些職缺。
+  - `職缺代碼` 取自 `job_scores`，沒有職缺資料時才不會連代碼都是 `null`。
+- 第一個排序鍵明寫 `總分 IS NULL`，把被淘汰（總分為 `null`）的列排到最後，不依賴 SQLite 對 `NULL` 的預設排序。
+- 淘汰與否的篩選與總分排序都用獨立的欄位，不解析 `評分結果` 的 JSON。
+- 列表不帶 `評分結果` 與 `快取鍵`；要看各維度時以職缺代碼另外取出 `評分結果`。
 
 ### 3.3 快取鍵
 
@@ -224,6 +236,8 @@ AI 必須輸出以下 JSON（Pydantic 模型 `AIAssessment`）：
 - 只列已實作故事的 AC，〔規劃中〕的故事完成後再補上。
 - 除了〔需網路〕的條目，都離線執行，也不需要 API key。
 
+`tests/test_job_db_scores.py` 測評分結果的查詢：資料庫建在 `tmp_path`，評分結果寫在測試碼裡，不經過評分流程。
+
 共用的測試資料放在 `tests/conftest.py`：
 
 - 測試用的偏好檔、經歷檔，以及兩筆職缺：`ok`（不會被淘汰）與 `out`（會被淘汰）。
@@ -237,7 +251,7 @@ AI 必須輸出以下 JSON（Pydantic 模型 `AIAssessment`）：
 一次跑完所有離線驗收：
 
 ```bash
-uv run pytest tests/test_job_scoring_*.py tests/test_score_job_cli.py
+uv run pytest tests/test_job_scoring_*.py tests/test_score_job_cli.py tests/test_job_db_scores.py
 ```
 
 不屬於任何 AC 的檢查：
@@ -270,6 +284,8 @@ uv run pytest tests/test_job_scoring_*.py tests/test_score_job_cli.py
 
 - [AC-store-write](../../product/features/job-scoring.md#ac-store-write評分結果入庫)：`uv run pytest tests/test_job_scoring_batch.py -k store`
 - [AC-store-db-path](../../product/features/job-scoring.md#ac-store-db-path資料庫路徑)：`uv run pytest tests/test_score_job_cli.py -k db_path`
+- [AC-store-list](../../product/features/job-scoring.md#ac-store-list列出評過分的職缺)：`uv run pytest tests/test_job_db_scores.py -k list_scored_jobs`
+- [AC-store-get](../../product/features/job-scoring.md#ac-store-get取出單筆評分結果)：`uv run pytest tests/test_job_db_scores.py -k get_score`
 - [AC-store-real](../../product/features/job-scoring.md#ac-store-real真實評分結果入庫-需網路)〔需網路〕：`uv run pytest -m network -s tests/e2e/test_job_scoring.py -k real`
 
 ### cache

@@ -9,24 +9,30 @@
 flowchart LR
     src["來源功能的進入點"] --> store["job_db/store.py"]
     src --> schema["job_db/schema.py"]
+    reader["查詢的呼叫端"] --> queries["job_db/queries.py"]
     store --> db[("data/jobs.db")]
     schema --> db
+    queries --> db
     scoring["job_scoring"] --> scores["job_db/scores.py"]
     scores --> db
+    queries --> sql["job_db/_sql.py"]
+    scores --> sql
 ```
 
 模組職責：
 
 - `job_db/schema.py`：所有資料表的建表語法，以及開啟資料庫並建立缺少的表（含 job-scoring 的 `job_scores`）。
 - `job_db/store.py`：寫入一批職缺與該次的執行紀錄。
-- `job_db/scores.py`：寫入評分結果，由 job-scoring 呼叫（見 [job-scoring 技術設計](job-scoring.md#32-job_scores-資料表)）。
+- `job_db/queries.py`：查出職缺與執行紀錄。
+- `job_db/scores.py`：讀寫評分結果，由 job-scoring 呼叫（見 [job-scoring 技術設計](job-scoring.md#32-job_scores-資料表)）。
+- `job_db/_sql.py`：查詢共用的 SQL 組裝（欄名轉 dict、`LIMIT`／`OFFSET`），與哪一張表無關，所以 `queries.py` 與 `scores.py` 共用。
 - 呼叫者是各來源功能的進入點，見 [architecture.md 的模組依賴](../architecture.md#模組依賴)。
 
 依賴限制：
 
 - `job_db` 在最底層，不 import 專案內的其他模組。
   - 原因：來源功能會 import `job_db`，反向 import 會形成循環。
-  - `schema.py` 的 `JOB_COLUMNS` 是[職缺欄位契約](../../product/features/job-database.md#621-職缺欄位契約)的實作，來源功能自己的欄名（例如爬蟲的 `CSV_FIELDNAMES`）對齊它，是否一致由來源功能的測試檢查（見 [104-job-scraper 技術設計](104-job-scraper.md#7-驗收對照)）。
+  - `schema.py` 的 `JOB_COLUMNS` 是[職缺欄位契約](../../product/features/job-database.md#721-職缺欄位契約)的實作，來源功能自己的欄名（例如爬蟲的 `CSV_FIELDNAMES`）對齊它，是否一致由來源功能的測試檢查（見 [104-job-scraper 技術設計](104-job-scraper.md#7-驗收對照)）。
   - 其他模組呼叫 `job_db` 時，參數都用基本型別。
 - 使用標準函式庫 `sqlite3`，不新增依賴（選用 SQLite 的理由見 [決策紀錄：資料庫選型](../decisions/database-selection.md)）。
 - 以 `uv run src/<腳本>.py` 執行時，`src/` 在 import 路徑上，來源功能不需要額外設定就能 import `job_db`。
@@ -51,7 +57,7 @@ flowchart LR
 
 ## 3. 資料與儲存
 
-實現 FR-db、FR-save-run。每個欄位的業務意義見[功能文件的保存的資訊](../../product/features/job-database.md#622-保存的資訊)。
+實現 FR-db、FR-save-run。每個欄位的業務意義見[功能文件的保存的資訊](../../product/features/job-database.md#722-保存的資訊)。
 
 ### 3.1 開啟資料庫
 
@@ -64,7 +70,7 @@ flowchart LR
 
 `jobs`：每筆職缺一列。
 
-- [職缺欄位契約](../../product/features/job-database.md#621-職缺欄位契約)的全部欄位：
+- [職缺欄位契約](../../product/features/job-database.md#721-職缺欄位契約)的全部欄位：
   - 欄名、順序與契約相同
   - `職缺代碼` 是主鍵
   - 型態依契約轉換：str → `TEXT`，int → `INTEGER`
@@ -84,7 +90,7 @@ flowchart LR
   - 不是匯入時為 `NULL`，SQLite 的 UNIQUE 允許多個 `NULL`
 - `職缺數`（INTEGER NOT NULL）
 
-`關鍵字`、`地區`、`職缺性質`、`頁數`、`來源檔` 是來源功能提供的寫入條件（見 [job-database §6.2.2](../../product/features/job-database.md#622-保存的資訊)），目前的欄位是唯一的來源 104-job-scraper 留下的形狀。接第二個求職平台時要重新設計（見 [TODO.md](../../../TODO.md#職缺資料庫)）。
+`關鍵字`、`地區`、`職缺性質`、`頁數`、`來源檔` 是來源功能提供的寫入條件（見 [job-database §7.2.2](../../product/features/job-database.md#722-保存的資訊)），目前的欄位是唯一的來源 104-job-scraper 留下的形狀。接第二個求職平台時要重新設計（見 [TODO.md](../../../TODO.md#職缺資料庫)）。
 
 `run_jobs`：一次寫入與其中出現的職缺。
 
@@ -98,11 +104,20 @@ flowchart LR
 
 ### 3.3 查詢
 
-沒有查詢介面，使用者與下游功能直接以 SQL 讀取 `data/jobs.db`：
+實現 FR-query-*。`queries.py` 提供職缺與執行紀錄的查詢，回傳以中文欄名為鍵的 `dict`，鍵就是[職缺欄位契約](../../product/features/job-database.md#721-職缺欄位契約)的欄名，呼叫端不必做欄名對照：
+
+- `list_jobs`：依條件列出職缺，`run_id` 經由 `run_jobs` 篩出某一次寫入出現的職缺。
+- `get_job`：以職缺代碼取單筆，查不到時回傳 `None`，不回傳空 `dict`。
+- `list_runs`：列出執行紀錄。
+
+排序都加上主鍵當最後一個排序鍵（職缺是 `最後出現時間` 後接 `職缺代碼`），同樣的資料每次查出來的順序才一致，分頁才不會漏或重複。
+
+評分結果的查詢不在這裡，在 `scores.py`，理由見 [job-scoring 技術設計的依賴限制](job-scoring.md#1-總覽)。
+
+查詢介面沒有涵蓋的臨時查詢，仍然直接下 SQL：
 
 - 終端機：`sqlite3 data/jobs.db`（開發容器已安裝，見 [devcontainer.md](../ai-coding-setup/devcontainer.md#容器內的工具)）
 - 程式或 notebook：`pandas.read_sql`，中文欄名讀出來就與職缺欄位契約一致
-- 評分結果在 `job_scores`，以 `職缺代碼` JOIN `jobs`（見 [job-scoring 技術設計](job-scoring.md#32-job_scores-資料表)）
 
 ## 4. 驗收對照
 
@@ -124,6 +139,12 @@ uv run pytest tests/test_job_db.py
 - [AC-save-dedup](../../product/features/job-database.md#ac-save-dedup跨次去重與出現時間)：`uv run pytest tests/test_job_db.py -k save_run`
 - [AC-save-keep-detail](../../product/features/job-database.md#ac-save-keep-detailnull-不覆蓋既有內容)：`uv run pytest tests/test_job_db.py -k keeps_detail`
 - [AC-save-run](../../product/features/job-database.md#ac-save-run執行紀錄與整批寫入)：`uv run pytest tests/test_job_db.py -k "save_run and (records or rollback)"`
+
+### query
+
+- [AC-query-list](../../product/features/job-database.md#ac-query-list依條件列出職缺)：`uv run pytest tests/test_job_db.py -k list_jobs`
+- [AC-query-get](../../product/features/job-database.md#ac-query-get取出單筆職缺)：`uv run pytest tests/test_job_db.py -k get_job`
+- [AC-query-runs](../../product/features/job-database.md#ac-query-runs列出執行紀錄)：`uv run pytest tests/test_job_db.py -k list_runs`
 
 ### 共用規則
 

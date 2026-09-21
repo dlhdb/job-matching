@@ -5,7 +5,7 @@ from datetime import datetime
 
 import pytest
 
-from job_db import JOB_COLUMNS, SaveResult, open_db, save_run
+from job_db import JOB_COLUMNS, SaveResult, get_job, list_jobs, list_runs, open_db, save_run
 
 COLUMN_NAMES = [name for name, _ in JOB_COLUMNS]
 
@@ -227,3 +227,105 @@ def test_save_run_rollback_on_error(conn, make_job):
 
     assert {table: dump(conn, table) for table in before} == before
 
+
+# ---------------------------------------------------------------------------
+# 查詢職缺與執行紀錄
+# ---------------------------------------------------------------------------
+
+@pytest.fixture
+def queried(conn, make_job):
+    """
+    兩次寫入：t1 寫 a、b，t2 寫 b、c，所以 b 的最後出現時間是 t2
+
+    :return: dict[str, int], 兩次寫入的執行編號，鍵是 "first"、"second"
+    """
+    save_run(conn, [make_job(職缺代碼="a"), make_job(職缺代碼="b")], T1, "爬蟲", keywords="Python")
+    save_run(conn, [make_job(職缺代碼="b"), make_job(職缺代碼="c")], T2, "匯入", source_file="jobs.json")
+    ids = [row[0] for row in conn.execute('SELECT "執行編號" FROM scrape_runs ORDER BY "執行編號"')]
+    return {"first": ids[0], "second": ids[1]}
+
+
+def test_list_jobs_orders_by_last_seen(conn, queried):
+    rows = list_jobs(conn)
+
+    # b、c 的最後出現時間都是 t2，同時間再比職缺代碼；a 停在 t1，排最後
+    assert [row["職缺代碼"] for row in rows] == ["b", "c", "a"]
+
+
+def test_list_jobs_returns_contract_columns(conn, queried):
+    row = list_jobs(conn)[0]
+
+    assert list(row) == [*COLUMN_NAMES, "首次出現時間", "最後出現時間"]
+    assert row["最後出現時間"] == T2.isoformat(timespec="seconds")
+
+
+def test_list_jobs_filters_by_run(conn, queried):
+    first = list_jobs(conn, run_id=queried["first"])
+    second = list_jobs(conn, run_id=queried["second"])
+
+    assert [row["職缺代碼"] for row in first] == ["b", "a"]
+    assert [row["職缺代碼"] for row in second] == ["b", "c"]
+
+
+def test_list_jobs_unknown_run_is_empty(conn, queried):
+    assert list_jobs(conn, run_id=999) == []
+
+
+def test_list_jobs_empty_db_is_empty(conn):
+    assert list_jobs(conn) == []
+
+
+@pytest.mark.parametrize("limit, offset, expected", [
+    (1, None, ["b"]),
+    (2, None, ["b", "c"]),
+    (None, 1, ["c", "a"]),
+    (1, 2, ["a"]),
+    (5, None, ["b", "c", "a"]),
+], ids=["limit", "limit_2", "offset_only", "limit_offset", "limit_over_total"])
+def test_list_jobs_limit_and_offset(conn, queried, limit, offset, expected):
+    rows = list_jobs(conn, limit=limit, offset=offset)
+
+    assert [row["職缺代碼"] for row in rows] == expected
+
+
+@pytest.mark.parametrize("limit, offset", [(-1, None), (None, -1)], ids=["limit", "offset"])
+def test_list_jobs_negative_limit_or_offset_raises(conn, queried, limit, offset):
+    # SQLite 把負的 LIMIT 當成不限筆數，要擋下來而不是靜默回傳全部
+    with pytest.raises(ValueError):
+        list_jobs(conn, limit=limit, offset=offset)
+
+
+def test_get_job_returns_full_row(conn, queried):
+    job = get_job(conn, "a")
+
+    assert job is not None
+    assert list(job) == [*COLUMN_NAMES, "首次出現時間", "最後出現時間"]
+    assert job["職缺名稱"] == "Python 工程師"
+    assert job["首次出現時間"] == job["最後出現時間"] == T1.isoformat(timespec="seconds")
+
+
+def test_get_job_missing_is_none(conn, queried):
+    assert get_job(conn, "沒有這筆") is None
+
+
+def test_list_runs_orders_by_run_time(conn, queried):
+    runs = list_runs(conn)
+
+    assert [row["來源"] for row in runs] == ["匯入", "爬蟲"]
+    assert [row["職缺數"] for row in runs] == [2, 2]
+
+
+def test_list_runs_keeps_missing_conditions_null(conn, queried):
+    latest, earliest = list_runs(conn)
+
+    # 匯入沒有提供搜尋條件、爬蟲沒有提供來源檔，都不回填
+    assert latest["來源檔"] == "jobs.json" and latest["關鍵字"] is None
+    assert earliest["關鍵字"] == "Python" and earliest["來源檔"] is None
+
+
+def test_list_runs_limit(conn, queried):
+    assert [row["來源"] for row in list_runs(conn, limit=1)] == ["匯入"]
+
+
+def test_list_runs_empty_db_is_empty(conn):
+    assert list_runs(conn) == []

@@ -64,7 +64,7 @@ uv run src/fetch_104_jobs.py -k "後端工程師,Backend,Python" -a 新竹
 - `jobs_104_<關鍵字>_<時間>.csv`：用 Excel 直接開啟篩選，中文不會亂碼
 - `jobs_104_<關鍵字>_<時間>.json`：交給程式或 AI 做後續分析
 
-- 各欄位的意義見 [job-database §6.2.1 職缺欄位契約](docs/product/features/job-database.md#621-職缺欄位契約)。
+- 各欄位的意義見 [job-database §7.2.1 職缺欄位契約](docs/product/features/job-database.md#721-職缺欄位契約)。
 - 完整參數說明見 [§10.2.1](docs/product/features/104-job-scraper.md#1021-cli)。
 - 想做統計或篩選時，打開 [notebooks/analyze_104_jobs.ipynb](notebooks/analyze_104_jobs.ipynb)，kernel 選專案的虛擬環境（devcontainer 內是 `~/.venv/bin/python`）。
 
@@ -81,7 +81,7 @@ uv run src/fetch_104_jobs.py -k "後端工程師,Backend,Python" -a 新竹
 uv run src/import_jobs.py output/104/*.json
 ```
 
-用 `pandas.read_sql` 或任何 SQLite 工具讀取即可，保存的資訊見 [job-database §6.2.2](docs/product/features/job-database.md#622-保存的資訊)，資料表 schema 見 [job-database 技術設計](docs/tech/tech-design/job-database.md#32-資料表)。
+用 `pandas.read_sql` 或任何 SQLite 工具讀取即可，保存的資訊見 [job-database §7.2.2](docs/product/features/job-database.md#722-保存的資訊)，資料表 schema 見 [job-database 技術設計](docs/tech/tech-design/job-database.md#32-資料表)。
 
 ### 我想讓 AI 幫我評估職缺適不適合
 
