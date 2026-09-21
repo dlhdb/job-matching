@@ -51,7 +51,5 @@
 
 ## 文件
 
-- [ ] 在 [documentation.md](docs/conventions/documentation.md#功能文件的結構) 補上「範圍外」要列哪些項目：實作者合理會以為包含、但其實不做的事（屬於相鄰功能、順手會做的下一步、刻意不採用的做法），不是列出所有沒做的事。已寫在 docs/product/overview.md「非目標」的事不重複列
-- [ ] 精簡 [docs/conventions/](docs/conventions/)（documentation.md、development.md，以及 CLAUDE.md 中的流程規則）：刪掉重複、冗長或已是常識的規則，合併相近條目，只留會影響產出、容易做錯的規則。跟上一項一起做，避免補規則時又變長
 - [ ] 在 [development.md](docs/conventions/development.md#測試) 的測試慣例補上：業務規則由離線測試驗證（外部服務以固定回應代替）；需網路的驗收只驗真實串接（API 接得通、回應合格），因外部服務錯誤（逾時、限流、服務中斷）失敗時重跑，不算不通過，也不為此放寬驗收
 - [ ] 產品文件與技術文件的定位寫進慣例：docs/product/ 描述產品「應該有的樣子」，規劃確定就更新（未實作的部分以〔規劃中〕、虛線區分）；只有 docs/tech/ 反映實作現況。要改 CLAUDE.md「所有文件都描述系統的現況」與 [documentation.md](docs/conventions/documentation.md#內容) 的「文件描述系統的現況」，並檢查〔規劃中移除〕保留原文的做法是否還需要
