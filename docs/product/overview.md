@@ -61,8 +61,7 @@
 ```mermaid
 flowchart LR
     scraper["104-job-scraper 104 職缺爬蟲 (UP-01)"] -->|職缺 JSON| db["job-database 職缺資料庫"]
-    scraper -->|職缺 JSON| scoring["job-auto-scoring 職缺自動評分 (UP-02)"]
-    scoring -->|結果檔 JSON / CSV| U(["使用者用表格工具排序、篩選"])
+    db -.->|還沒評分或指定的職缺| scoring["job-auto-scoring 職缺自動評分 (UP-02)"]
     scoring -->|評分結果| scoredb["job-score-database 評分資料庫 (UP-02)"]
     scoredb -->|依分數列出，帶出職缺欄位| U2(["使用者依分數查詢"])
     db -->|職缺欄位| scoredb
@@ -98,7 +97,7 @@ flowchart LR
   - 文件：[job-score-database.md](features/job-score-database.md)
 - job-auto-scoring（職缺自動評分）：依評分方法與提示詞，自動給職缺打分並附上簡短評語，寫進評分資料庫，讓使用者依總分快速判斷哪些值得細看。
   - 解決的使用者問題：UP-02
-  - 狀態：✅ 已完成
+  - 狀態：待規劃
   - 文件：[job-auto-scoring.md](features/job-auto-scoring.md)
 - trend-analysis（趨勢與興趣分佈分析）：從全台、全球角度分析職缺趨勢，並發現自己對職缺或產業的興趣分佈。
   - 解決的使用者問題：UP-04、UP-05
@@ -119,7 +118,6 @@ flowchart LR
     scoredb["job-score-database 評分資料庫"] --> db
     scoring["job-auto-scoring 職缺自動評分"] --> scoredb
     scoring --> db
-    scoring -->|"讀職缺 JSON"| scraper
     trend["trend-analysis 趨勢與興趣分佈"] -.-> db
 
     classDef planned stroke-dasharray: 5 5
@@ -128,7 +126,6 @@ flowchart LR
 
 - job-database 不依賴任何功能：它只定義[職缺欄位契約](features/job-database.md#721-職缺欄位契約)與寫入規則，不需要知道誰在寫它。
 - job-score-database 不需要知道評分怎麼產生：它只定義[評分紀錄契約](features/job-score-database.md#821-評分紀錄契約)，自動評分需要的欄位由 job-auto-scoring 疊加，理由見[決策紀錄：拆分評分資料庫與自動評分](decisions/score-feature-split.md)。
-- job-auto-scoring 對 104-job-scraper 的依賴只剩「評分 CLI 讀爬蟲輸出的 JSON」，改成從職缺資料庫讀取後就會消失（見 [TODO.md](../../TODO.md#職缺自動評分範圍外)）。
 
 ### 現況
 
@@ -179,5 +176,5 @@ flowchart LR
 - AI 維度：由 AI 判斷的三個評分維度（職涯方向契合度、技能匹配度、產業公司吸引力），見 [job-auto-scoring §4.2.4](features/job-auto-scoring.md#424-評分維度)
 - 總分：四個維度加權後換算成的 0–100 分，見 [job-auto-scoring §4.2.7](features/job-auto-scoring.md#427-總分)
   - 未知的維度以 3 分代入
-- 快取鍵：由送給 AI 的內容決定，相同時沿用上次的 AI 評分，見 [job-auto-scoring §8.2.1](features/job-auto-scoring.md#821-快取鍵)
+- 快取鍵：由送給 AI 的內容決定，相同時沿用上次的 AI 評分，見 [job-auto-scoring §8.2.1](features/job-auto-scoring.md#821-快取鍵)〔規劃中移除〕
 - 評分紀錄：一筆職缺的是否淘汰、總分與評語，手動或自動評分都寫成它，見 [job-score-database 的評分紀錄契約](features/job-score-database.md#821-評分紀錄契約)

@@ -47,7 +47,7 @@ flowchart LR
 
 - `output/104/`：爬蟲每次輸出一組 CSV 與 JSON，不進版控（見 [輸出檔](../product/features/104-job-scraper.md#621-輸出檔)）
   - JSON 是評分 CLI 與匯入 CLI 的輸入
-- `output/scores/`：整批評分的結果檔 JSON 與 CSV，不進版控（見 [結果檔](../product/features/job-auto-scoring.md#622-結果檔)）
+- `output/scores/`：整批評分的結果檔 JSON 與 CSV，不進版控（格式見[試跑結果檔](../product/features/job-auto-scoring.md#922-試跑結果檔)）
 - `output/e2e/`：e2e 測試留下供查看的檔案，例如評分測試的資料庫 `jobs.db`，不進版控（見 [測試](../conventions/development.md#測試)）
 - `profile/`：求職偏好與工作經歷（見 [個人資料檔](../product/features/job-auto-scoring.md#421-個人資料檔)）
   - 範本進版控，真實資料不進版控

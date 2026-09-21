@@ -73,7 +73,7 @@ import 路徑：
 - client 以 `client_factory` 傳入，第一次快取沒命中時才建立，之後整批共用；整批都被淘汰或都沿用時就不需要 API key。
 - 每筆結果帶有是否沿用的標記，只供摘要統計與其他入口使用，不寫進結果檔。
 - 每筆都經過 `scorer.score_and_save`，哪些錯誤算單筆失敗見 [§5](#5-cli-與錯誤處理)。
-- `batch.write_results` 依結果寫出 JSON 與 CSV，格式見[功能文件的結果檔](../../product/features/job-auto-scoring.md#622-結果檔)。檔名後綴由呼叫端指定，試跑用 `_dryrun`。
+- `batch.write_results` 依結果寫出 JSON 與 CSV，格式見[功能文件的試跑結果檔](../../product/features/job-auto-scoring.md#922-試跑結果檔)。檔名後綴由呼叫端指定，試跑用 `_dryrun`。
 
 ## 3. 資料與儲存
 
@@ -286,7 +286,7 @@ uv run pytest tests/test_job_scoring_*.py tests/test_score_job_cli.py
 
 - [AC-batch-order](../../product/features/job-auto-scoring.md#ac-batch-order整批評分)：`uv run pytest tests/test_job_scoring_batch.py -k batch_scoring`
 - [AC-batch-failure](../../product/features/job-auto-scoring.md#ac-batch-failure單筆失敗不中斷整批)：`uv run pytest tests/test_job_scoring_batch.py -k failure`
-- [AC-batch-output](../../product/features/job-auto-scoring.md#ac-batch-output結果檔)：`uv run pytest tests/test_job_scoring_batch.py -k output`
+- AC-batch-output（規劃中移除）：`uv run pytest tests/test_job_scoring_batch.py -k output`
 - [AC-batch-cli](../../product/features/job-auto-scoring.md#ac-batch-cli整批-cli-與摘要)：`uv run pytest tests/test_score_job_cli.py -k batch`
 - [AC-batch-real](../../product/features/job-auto-scoring.md#ac-batch-real真實整批評分-需網路)〔需網路〕：`uv run pytest -m network -s tests/e2e/test_job_scoring.py -k real_batch`
 
