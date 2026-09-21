@@ -115,7 +115,7 @@ def main(argv: list[str] | None = None) -> int:
     CLI 進入點。
 
     :param argv: list[str] or None, 命令列參數；None 時使用 sys.argv
-    :return: int, 結束碼；沒有指定檔案或所有檔案都因錯誤而略過時為 1，否則為 0
+    :return: int, 結束碼；沒有指定檔案、無法開啟資料庫，或所有檔案都因錯誤而略過時為 1，否則為 0
     """
     args = parse_args(argv)
     if not args.files:
@@ -123,7 +123,11 @@ def main(argv: list[str] | None = None) -> int:
         return 1
 
     handled = 0
-    conn = open_db(args.db)
+    try:
+        conn = open_db(args.db)
+    except (sqlite3.Error, OSError) as e:
+        log(f"[-] 無法開啟資料庫 {args.db}：{e}")
+        return 1
     try:
         for path in args.files:
             log(f"⏳ 正在匯入 {path.name}")

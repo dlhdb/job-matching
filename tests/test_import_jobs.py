@@ -1,6 +1,8 @@
 """匯入 CLI 的離線測試。JSON 與資料庫都建在 tmp_path。"""
 
 import json
+import sqlite3
+from contextlib import closing
 from datetime import datetime
 
 import pytest
@@ -127,3 +129,16 @@ def test_import_jobs_main_without_files_returns_1(tmp_path, capsys):
 
     assert "[-]" in capsys.readouterr().err
     assert not db.exists()
+
+
+def test_import_jobs_main_unopenable_db_returns_1(tmp_path, files, capsys):
+    db = tmp_path / "jobs.db"
+    # 舊版的評分紀錄資料表，開啟資料庫時會被拒絕
+    with closing(sqlite3.connect(db)) as old:
+        old.execute('CREATE TABLE job_scores ("職缺代碼" TEXT PRIMARY KEY, "評分結果" TEXT)')
+
+    assert import_jobs.main([str(files["old"]), "--db", str(db)]) == 1
+
+    err = capsys.readouterr().err
+    assert "[-]" in err and "刪除資料庫檔後重建" in err
+    assert "Traceback" not in err
