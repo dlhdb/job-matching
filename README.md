@@ -112,7 +112,7 @@ uv run src/import_jobs.py output/104/*.json
 - 結果包含各維度分數、理由與 0–100 總分。
 - 薪資太低、公司或職稱在排除清單中的職缺會直接淘汰，不呼叫 AI。
 - 想換一份偏好、經歷或模型比較結果時，加上 `--dry-run` 試跑：照常呼叫 AI 評分，結果寫到 `output/scores/<檔名>_dryrun.json` 與 `_dryrun.csv`，不影響資料庫中的正式分數。
-- 評分方式見 [job-scoring 評單筆職缺並看懂每個分數](docs/product/features/job-scoring.md#4-評單筆職缺並看懂每個分數score)。
+- 評分方式見 [job-auto-scoring 評單筆職缺並看懂每個分數](docs/product/features/job-auto-scoring.md#4-評單筆職缺並看懂每個分數score)。
 
 ## 在隔離環境中讓 Coding Agent 自主執行
 
@@ -164,13 +164,15 @@ docs/           文件：product/（產品）、tech/（技術）、conventions/
 
 - 產品（為什麼做、做什麼）：
   - [docs/product/overview.md](docs/product/overview.md)：專案總覽（目標、使用者問題、功能清單與現況）
-  - [docs/product/features/job-scoring.md](docs/product/features/job-scoring.md)：職缺評分（需求、評分規則、提示詞、整批評分與結果檔、驗收標準）
+  - [docs/product/features/job-auto-scoring.md](docs/product/features/job-auto-scoring.md)：職缺自動評分（需求、評分規則、提示詞、整批評分與結果檔、驗收標準）
+  - [docs/product/features/job-score-database.md](docs/product/features/job-score-database.md)：評分資料庫（評分紀錄契約、保存規則、依分數查詢、驗收標準）
   - [docs/product/features/104-job-scraper.md](docs/product/features/104-job-scraper.md)：104 爬蟲（需求、CLI、輸出檔、寫入資料庫與匯入、驗收標準）
   - [docs/product/features/job-database.md](docs/product/features/job-database.md)：職缺資料庫（需求、職缺欄位契約、寫入規則、保存的資訊、驗收標準）
   - [docs/product/decisions/](docs/product/decisions/)：產品取捨的決策紀錄
 - 技術（怎麼做）：
   - [docs/tech/architecture.md](docs/tech/architecture.md)：系統架構（模組依賴、資料存放、技術選型）
-  - [docs/tech/tech-design/job-scoring.md](docs/tech/tech-design/job-scoring.md)：模組分工、`job_scores` 資料表、LLM 抽象層、驗收對照
+  - [docs/tech/tech-design/job-auto-scoring.md](docs/tech/tech-design/job-auto-scoring.md)：模組分工、`job_scores` 的自動評分欄位、LLM 抽象層、驗收對照
+  - [docs/tech/tech-design/job-score-database.md](docs/tech/tech-design/job-score-database.md)：`job_scores` 資料表、評分查詢、驗收對照
   - [docs/tech/tech-design/104-job-scraper.md](docs/tech/tech-design/104-job-scraper.md)：104 API 的限制與請求標頭、欄位來源、寫入資料庫與匯入、驗收對照
   - [docs/tech/tech-design/job-database.md](docs/tech/tech-design/job-database.md)：模組依賴、資料表 schema、查詢方式、驗收對照
   - [docs/tech/decisions/](docs/tech/decisions/)：技術取捨的決策紀錄

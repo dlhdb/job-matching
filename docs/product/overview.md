@@ -61,10 +61,13 @@
 ```mermaid
 flowchart LR
     scraper["104-job-scraper 104 職缺爬蟲 (UP-01)"] -->|職缺 JSON| db["job-database 職缺資料庫"]
-    scraper -->|職缺 JSON| scoring["job-scoring 職缺評分 (UP-02)"]
+    scraper -->|職缺 JSON| scoring["job-auto-scoring 職缺自動評分 (UP-02)"]
     scoring -->|結果檔 JSON / CSV| U(["使用者用表格工具排序、篩選"])
-    scoring -->|評分結果| db
-    db -.->|歷次職缺與分數| trend["trend-analysis 趨勢與興趣分佈 (UP-04、UP-05)"]
+    scoring -->|評分結果| scoredb["job-score-database 評分資料庫 (UP-02)"]
+    scoredb -->|依分數列出，帶出職缺欄位| U2(["使用者依分數查詢"])
+    db -->|職缺欄位| scoredb
+    db -.->|歷次職缺| trend["trend-analysis 趨勢與興趣分佈 (UP-04、UP-05)"]
+    scoredb -.->|歷次分數| trend
 
     classDef planned stroke-dasharray: 5 5
     class trend planned
@@ -89,10 +92,14 @@ flowchart LR
   - 解決的使用者問題：UP-01
   - 狀態：✅ 已完成
   - 文件：[job-database.md](features/job-database.md)
-- job-scoring（職缺評分）：依評分方法與提示詞，自動給職缺打分並附上簡短評語，讓使用者依總分快速判斷哪些值得細看。
+- job-score-database（評分資料庫）：保存每筆職缺的評分紀錄（是否淘汰、總分、評語），依分數列出並帶出職缺欄位，不管評分怎麼產生。
   - 解決的使用者問題：UP-02
-  - 狀態：✅ 已完成
-  - 文件：[job-scoring.md](features/job-scoring.md)
+  - 狀態：待規劃
+  - 文件：[job-score-database.md](features/job-score-database.md)
+- job-auto-scoring（職缺自動評分）：依評分方法與提示詞，自動給職缺打分並附上簡短評語，寫進評分資料庫，讓使用者依總分快速判斷哪些值得細看。
+  - 解決的使用者問題：UP-02
+  - 狀態：待規劃
+  - 文件：[job-auto-scoring.md](features/job-auto-scoring.md)
 - trend-analysis（趨勢與興趣分佈分析）：從全台、全球角度分析職缺趨勢，並發現自己對職缺或產業的興趣分佈。
   - 解決的使用者問題：UP-04、UP-05
   - 狀態：待規劃
@@ -109,7 +116,9 @@ flowchart LR
 ```mermaid
 flowchart LR
     scraper["104-job-scraper 104 職缺爬蟲"] --> db["job-database 職缺資料庫"]
-    scoring["job-scoring 職缺評分"] --> db
+    scoredb["job-score-database 評分資料庫"] --> db
+    scoring["job-auto-scoring 職缺自動評分"] --> scoredb
+    scoring --> db
     scoring -->|"讀職缺 JSON"| scraper
     trend["trend-analysis 趨勢與興趣分佈"] -.-> db
 
@@ -118,7 +127,8 @@ flowchart LR
 ```
 
 - job-database 不依賴任何功能：它只定義[職缺欄位契約](features/job-database.md#721-職缺欄位契約)與寫入規則，不需要知道誰在寫它。
-- job-scoring 對 104-job-scraper 的依賴只剩「評分 CLI 讀爬蟲輸出的 JSON」，改成從職缺資料庫讀取後就會消失（見 [TODO.md](../../TODO.md#職缺評分範圍外)）。
+- job-score-database 不需要知道評分怎麼產生：它只定義[評分紀錄契約](features/job-score-database.md#821-評分紀錄契約)，自動評分需要的欄位由 job-auto-scoring 疊加，理由見[決策紀錄：拆分評分資料庫與自動評分](decisions/score-feature-split.md)。
+- job-auto-scoring 對 104-job-scraper 的依賴只剩「評分 CLI 讀爬蟲輸出的 JSON」，改成從職缺資料庫讀取後就會消失（見 [TODO.md](../../TODO.md#職缺自動評分範圍外)）。
 
 ### 現況
 
@@ -133,12 +143,15 @@ flowchart LR
   - 記錄每筆職缺第一次與最後一次出現的時間，以及每次寫入的條件。
   - 定義職缺欄位契約，下游依它讀取職缺欄位。
   - 可以依條件列出累積下來的職缺、取出單筆的完整內容，也能列出每次寫入的紀錄，不必自己下 SQL。
-- job-scoring：
+- job-score-database：
+  - 每筆職缺的評分紀錄（是否淘汰、總分、評語）保存在職缺資料庫，每筆職缺只留最新一次。
+  - 可以列出評過分的職缺（含職缺欄位與分數），依總分由高到低排序、只看淘汰或只看未淘汰。
+  - 還不能手動填分。
+- job-auto-scoring：
   - 可對單筆或整批職缺評分，依職涯方向、技能、產業公司、薪資四個維度給出 0–100 總分與評語。
   - 薪資低於底線、公司或職稱在排除清單中的職缺直接淘汰。
   - 整批評分時單筆失敗不中斷，結果寫成 JSON 與 CSV，可用表格工具排序、篩選。
-  - 單筆與整批的評分結果都寫入職缺資料庫，每筆職缺只留最新一次。
-  - 可以列出評過分的職缺（含職缺欄位與分數），依總分由高到低排序、只看淘汰或只看未淘汰，也能取出單筆各維度的分數與理由。
+  - 單筆與整批的評分結果都寫進評分資料庫，包含各維度的分數與理由，可以依職缺代碼取出。
   - 重跑時，送給 AI 的內容沒變的職缺沿用上次的 AI 評分，不重複付費；薪資、權重等程式端的計算照常重算。
   - 可以換一份偏好、經歷或模型試跑：照常呼叫 AI 評分並寫成另一組結果檔，不影響資料庫中的正式分數與正式的結果檔。
 - trend-analysis：尚無。
@@ -157,9 +170,10 @@ flowchart LR
 - 決策紀錄（ADR）：有替代方案的取捨，寫出不採用的原因，依性質放在產品、技術或慣例的 `decisions/`，見 [documentation.md](../conventions/documentation.md#決策紀錄)
 - 職缺代碼：求職平台的職缺識別碼（104 是 `jobNo`），見 [job-database 的職缺欄位契約](features/job-database.md#721-職缺欄位契約)
   - 用於去重，也用來識別職缺資料庫中的職缺
-- 淘汰：職缺符合硬性淘汰條件（公司、職稱關鍵字、薪資低於底線），見 [job-scoring §5.2.1](features/job-scoring.md#521-硬性淘汰規則)
+- 淘汰：職缺符合硬性淘汰條件（公司、職稱關鍵字、薪資低於底線），見 [job-auto-scoring §5.2.1](features/job-auto-scoring.md#521-硬性淘汰規則)
   - 被淘汰的職缺不呼叫 AI、沒有總分
-- AI 維度：由 AI 判斷的三個評分維度（職涯方向契合度、技能匹配度、產業公司吸引力），見 [job-scoring §4.2.4](features/job-scoring.md#424-評分維度)
-- 總分：四個維度加權後換算成的 0–100 分，見 [job-scoring §4.2.7](features/job-scoring.md#427-總分)
+- AI 維度：由 AI 判斷的三個評分維度（職涯方向契合度、技能匹配度、產業公司吸引力），見 [job-auto-scoring §4.2.4](features/job-auto-scoring.md#424-評分維度)
+- 總分：四個維度加權後換算成的 0–100 分，見 [job-auto-scoring §4.2.7](features/job-auto-scoring.md#427-總分)
   - 未知的維度以 3 分代入
-- 快取鍵：由送給 AI 的內容決定，相同時沿用上次的 AI 評分，見 [job-scoring §8.2.1](features/job-scoring.md#821-快取鍵)
+- 快取鍵：由送給 AI 的內容決定，相同時沿用上次的 AI 評分，見 [job-auto-scoring §8.2.1](features/job-auto-scoring.md#821-快取鍵)
+- 評分紀錄：一筆職缺的是否淘汰、總分與評語，手動或自動評分都寫成它，見 [job-score-database 的評分紀錄契約](features/job-score-database.md#821-評分紀錄契約)

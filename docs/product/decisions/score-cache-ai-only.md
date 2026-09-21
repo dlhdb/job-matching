@@ -18,4 +18,4 @@
 - 快取只涵蓋 AI 的三個維度與評語。
 - 快取鍵只由送給 AI 的東西組成：供應商、模型、給 AI 的指示與送給 AI 的資料。
 - 硬性淘汰、薪資分數與加權總分每次都重算，沿用時也覆寫該筆評分結果。
-- 詳細設計見 [job-scoring §8.2.1](../features/job-scoring.md#821-快取鍵)。
+- 詳細設計見 [job-auto-scoring §8.2.1](../features/job-auto-scoring.md#821-快取鍵)。

@@ -133,3 +133,18 @@ def test_get_score_returns_full_result(conn):
 
 def test_get_score_missing_is_none(conn, scored):
     assert get_score(conn, "沒有這筆") is None
+
+
+def test_record_round_trip_and_overwrite(conn):
+    write_score(conn, "kept", total=75)
+    write_score(conn, "out", eliminated=True)
+
+    rows = {row["職缺代碼"]: row for row in list_scored_jobs(conn)}
+    assert (rows["kept"]["淘汰"], rows["kept"]["總分"], rows["kept"]["評語"]) == (0, 75, "kept 的評語")
+    assert (rows["out"]["淘汰"], rows["out"]["總分"]) == (1, None)
+    assert rows["kept"]["評分時間"] == T.isoformat(timespec="seconds")
+
+    # 同一個職缺代碼再寫一次，只剩一筆，內容是新的值
+    write_score(conn, "kept", total=50)
+    kept = [row for row in list_scored_jobs(conn) if row["職缺代碼"] == "kept"]
+    assert len(kept) == 1 and kept[0]["總分"] == 50

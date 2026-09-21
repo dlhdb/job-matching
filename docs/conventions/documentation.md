@@ -75,7 +75,7 @@ docs/ 依讀者分成三區，理由見[決策紀錄：產品文件與技術文�
   - 寫「一筆會被淘汰的職缺」「不實際呼叫 AI」，不寫 fixture、假物件、`tmp_path` 或函式名稱。
   - 驗證指令寫在技術設計的[驗收對照](#技術設計的結構)。
 
-功能 ID 同樣用英文簡短描述（kebab-case，例如 `job-scoring`），也是功能文件與技術設計的檔名 `<功能 ID>.md`，理由見 [決策紀錄：功能不再分組，ID 用英文簡稱](../product/decisions/flat-feature-list.md)。
+功能 ID 同樣用英文簡短描述（kebab-case，例如 `job-auto-scoring`），也是功能文件與技術設計的檔名 `<功能 ID>.md`，理由見 [決策紀錄：功能不再分組，ID 用英文簡稱](../product/decisions/flat-feature-list.md)。
 
 FR 與 AC 的 ID 用英文簡短描述，不用流水號：`FR-<故事 slug>-<重點>`、`AC-<故事 slug>-<重點>`，非功能需求用 `NFR-<重點>`、`AC-nfr-<重點>`。AC 驗的就是同名 FR 時沿用同一個重點名稱。故事只有一條需求時，可以省略 `-<重點>`。這樣讀到 ID 就知道它屬於哪個故事、在講什麼，插入新條目也不必重編既有編號。
 

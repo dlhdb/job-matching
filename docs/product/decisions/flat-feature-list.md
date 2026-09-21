@@ -28,7 +28,7 @@
 
 - 功能是系統中一個獨立且可交付的大型功能模組，不再歸屬於任何分組。
   - 功能的定義、解決的使用者問題與現況，直接寫在 [專案總覽的功能清單](../overview.md#功能清單)。
-- 功能 ID 比照 FR／AC，用英文簡短描述（kebab-case，例如 `job-scoring`）。
+- 功能 ID 比照 FR／AC，用英文簡短描述（kebab-case，例如 `job-auto-scoring`）。
   - 功能 ID 也是功能文件的檔名 `<功能 ID>.md`。
   - 規則見 [documentation.md「功能文件的結構」](../../conventions/documentation.md#功能文件的結構)。
 - 104 爬蟲與職缺資料庫仍分成兩個功能，因為各自可以單獨交付。

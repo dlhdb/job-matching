@@ -34,8 +34,10 @@ uv add <pkg>                 # 新增依賴
 - 104 API 的請求標頭與限制、欄位來源、寫入資料庫與匯入的模組分工、測試指令：[docs/tech/tech-design/104-job-scraper.md](docs/tech/tech-design/104-job-scraper.md)
 - 職缺欄位契約、職缺資料庫保存的資訊、跨次去重與出現時間的寫入規則：[docs/product/features/job-database.md](docs/product/features/job-database.md)
 - 職缺資料庫的模組依賴、資料表 schema、測試指令：[docs/tech/tech-design/job-database.md](docs/tech/tech-design/job-database.md)
-- 工作評分的維度、淘汰與薪資規則、偏好檔格式、提示詞內容、輸出欄位：[docs/product/features/job-scoring.md](docs/product/features/job-scoring.md)
-- 工作評分的模組分工、`job_scores` 資料表、快取鍵計算、LLM 抽象層與 Gemini 的限制、測試指令：[docs/tech/tech-design/job-scoring.md](docs/tech/tech-design/job-scoring.md)
+- 自動評分的維度、淘汰與薪資規則、偏好檔格式、提示詞內容、輸出欄位、寫進評分資料庫的欄位：[docs/product/features/job-auto-scoring.md](docs/product/features/job-auto-scoring.md)
+- 自動評分的模組分工、`job_scores` 的自動評分欄位、快取鍵計算、LLM 抽象層與 Gemini 的限制、測試指令：[docs/tech/tech-design/job-auto-scoring.md](docs/tech/tech-design/job-auto-scoring.md)
+- 評分紀錄契約、保存規則、依分數查詢評分、手動評分：[docs/product/features/job-score-database.md](docs/product/features/job-score-database.md)
+- 評分資料庫的 `job_scores` 資料表、查詢設計、測試指令：[docs/tech/tech-design/job-score-database.md](docs/tech/tech-design/job-score-database.md)
 - 文件撰寫規範（內容、功能文件與技術設計的結構、FR／AC 命名、決策紀錄、格式、繪圖）：[docs/conventions/documentation.md](docs/conventions/documentation.md)
 - 程式碼風格、docstring 格式、終端輸出慣例、依賴管理、測試慣例、防禦性設計：[docs/conventions/development.md](docs/conventions/development.md)
 - 過去的取捨、考慮過但不採用的做法與原因（決策紀錄，依性質分三處）：
@@ -57,7 +59,7 @@ uv add <pkg>                 # 新增依賴
 
 需要使用者做決定時，不在對話中逐一詢問，改寫成問卷放在 `to-be-confirm/<主題>.md`，使用者填完後會通知你：
 
-- 每題一個標題，寫出位置、問題與建議改法。位置與參考來源一律用相對於問卷的 markdown 超連結，指到行號（`[job-scoring 第 63 行](../docs/product/features/job-scoring.md#L63)`）或章節錨點，方便使用者跳轉查看。
+- 每題一個標題，寫出位置、問題與建議改法。位置與參考來源一律用相對於問卷的 markdown 超連結，指到行號（`[job-auto-scoring 第 63 行](../docs/product/features/job-auto-scoring.md#L63)`）或章節錨點，方便使用者跳轉查看。
 - 選項用 `- [ ]` 列出，建議的選項標上「（建議）」，每題最後留一行「備註：」。
 - 使用者通知填完後：
   - 讀取整份問卷再依答案處理，答案或備註不清楚時先問清楚再動手
