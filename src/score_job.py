@@ -5,7 +5,7 @@
 讀取爬蟲輸出的職缺 JSON 與 profile/ 的個人資料，對職缺評分。
 - 單筆：把 JobScore JSON 印到 stdout。
 - 整批：結果寫成 output/scores/ 下的 JSON 與 CSV，stdout 不輸出。
-單筆與整批的結果都寫入資料庫（預設 data/jobs.db）的 job_scores，每筆職缺只留最新一次。
+單筆與整批的結果都寫入資料庫（預設 data/jobs.db）的 job_scores，每次有變化就新增一筆，保留歷次的評分。
 送給 AI 的內容與上次相同的職缺，沿用資料庫中上次的 AI 評分，不再呼叫 AI。
 試跑（--dry-run）照常評分，但不讀寫資料庫；單筆與整批都寫成 output/scores/ 下的 _dryrun 結果檔。
 進度、摘要與錯誤訊息印到 stderr，可以把 stdout 直接導向檔案。

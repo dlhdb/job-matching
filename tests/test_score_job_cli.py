@@ -8,6 +8,7 @@ from pathlib import Path
 
 import pytest
 
+import job_db
 import score_job
 from job_db import open_db, save_run
 from job_scoring.llm import get_client
@@ -218,13 +219,14 @@ def counted_client(fake_client, monkeypatch):
 
 def _stored_result(db, job_no):
     """
-    取出資料庫中某筆職缺的總分與完整評分結果
+    取出資料庫中某筆職缺最新一筆自動評分的總分與評分明細
 
     :return: tuple (int or None, dict)
     """
     with closing(open_db(db)) as conn:
         total, result = conn.execute(
-            'SELECT "總分", "評分結果" FROM job_scores WHERE "職缺代碼" = ?', (job_no,)).fetchone()
+            'SELECT "總分", "評分明細" FROM job_scores WHERE "職缺代碼" = ? AND "評分來源" = \'auto\' '
+            'ORDER BY "評分編號" DESC LIMIT 1', (job_no,)).fetchone()
     return total, json.loads(result)
 
 
@@ -392,3 +394,24 @@ def test_main_dry_run_no_db_created(tmp_path, jobs_file, profile_dir, counted_cl
     assert code == 0
     assert not db.exists()
     assert not db.parent.exists()
+
+
+def test_main_history_no_delete(jobs_file, profile_dir, fake_client, isolate_db, monkeypatch, capsys):
+    monkeypatch.setattr(score_job, "get_client", lambda provider, model: fake_client)
+    with pytest.raises(SystemExit):
+        score_job.main(["--help"])
+    help_text = capsys.readouterr().out.lower()
+
+    # 評分資料庫與評分 CLI 都沒有刪除評分紀錄的操作
+    forbidden = ("delete", "remove", "clear", "reset", "purge", "drop", "刪除", "清除", "清掉")
+    assert not [name for name in job_db.__all__ if any(word in name.lower() for word in forbidden)]
+    assert not [word for word in forbidden if word in help_text]
+
+    # 重跑整批後，原本的評分紀錄都還在
+    assert _run(jobs_file, profile_dir) == 0
+    with closing(open_db(isolate_db)) as conn:
+        before = conn.execute('SELECT * FROM job_scores ORDER BY "評分編號"').fetchall()
+    assert _run(jobs_file, profile_dir) == 0
+    with closing(open_db(isolate_db)) as conn:
+        after = conn.execute('SELECT * FROM job_scores ORDER BY "評分編號"').fetchall()
+    assert before and after[:len(before)] == before

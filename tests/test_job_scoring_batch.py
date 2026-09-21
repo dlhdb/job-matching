@@ -3,11 +3,13 @@
 import csv
 import json
 import re
+import sqlite3
+from contextlib import closing
 from datetime import datetime
 
 import pytest
 
-from job_db import get_score_result, list_scored_jobs, save_auto_score, save_score
+from job_db import get_score_details, list_scored_jobs, open_db, save_auto_score, save_score
 from job_scoring.batch import score_batch, write_results
 from job_scoring.models import DIMENSIONS
 
@@ -112,13 +114,13 @@ def test_score_batch_client_created_lazily(out_job, prefs, db_conn):
 
 def _score_rows(conn):
     """
-    以職缺代碼為鍵取出 job_scores 表
+    以職缺代碼為鍵取出 job_scores 表，同一筆職缺有多筆時取最新寫入的一筆
 
     :return: dict[str, dict]
     """
-    cursor = conn.execute("SELECT * FROM job_scores")
+    cursor = conn.execute('SELECT * FROM job_scores ORDER BY "評分編號"')
     names = [d[0] for d in cursor.description]
-    return {row[0]: dict(zip(names, row)) for row in cursor}
+    return {row["職缺代碼"]: row for row in (dict(zip(names, values)) for values in cursor)}
 
 
 def test_score_batch_store_write(make_job, prefs, make_batch_client, db_conn):
@@ -129,7 +131,7 @@ def test_score_batch_store_write(make_job, prefs, make_batch_client, db_conn):
     ]
     save_auto_score(
         db_conn, job_no="c", scored_at=datetime(2026, 9, 1, 10, 0, 0), eliminated=False, total=60,
-        comment="舊評語", result={"職缺代碼": "c", "總分": 60}, cache_key="舊鍵", provider="gemini", model="舊模型",
+        comment="舊評語", details={"職缺代碼": "c", "總分": 60}, cache_key="舊鍵", provider="gemini", model="舊模型",
     )
     old_row = _score_rows(db_conn)["c"]
     client = make_batch_client({"甲職缺": {}, "丙職缺": "llm_error"})
@@ -140,7 +142,7 @@ def test_score_batch_store_write(make_job, prefs, make_batch_client, db_conn):
     assert set(rows) == {"a", "b", "c"}
     for job_no, result in (("a", results[0]), ("b", results[1])):
         row = rows[job_no]
-        stored = json.loads(row["評分結果"])
+        stored = json.loads(row["評分明細"])
         assert list(stored) == ["職缺代碼", "淘汰", "淘汰原因", "維度", "總分", "未知維度", "評語"]
         assert stored["職缺代碼"] == job_no
         assert row["淘汰"] == int(stored["淘汰"])
@@ -156,18 +158,18 @@ def test_score_batch_store_write(make_job, prefs, make_batch_client, db_conn):
     assert rows["b"]["淘汰"] == 1
     assert rows["b"]["總分"] is None
     assert rows["b"]["快取鍵"] is None
-    assert json.loads(rows["b"]["評分結果"])["淘汰原因"]
+    assert json.loads(rows["b"]["評分明細"])["淘汰原因"]
 
     assert results[2].failure
     assert rows["c"] == old_row
 
 
-def test_get_score_result_returns_stored_result(make_job, prefs, make_batch_client, db_conn):
+def test_get_score_details_returns_stored_result(make_job, prefs, make_batch_client, db_conn):
     jobs = [make_job(**{"職缺代碼": "a", "職缺名稱": "甲職缺"})]
     client = make_batch_client({"甲職缺": {}})
     results = score_batch(jobs, prefs, "經歷", lambda: client, _no_progress, **_store(db_conn))
 
-    stored = get_score_result(db_conn, "a")
+    stored = get_score_details(db_conn, "a")
 
     assert list(stored) == ["職缺代碼", "淘汰", "淘汰原因", "維度", "總分", "未知維度", "評語"]
     assert list(stored["維度"]) == list(DIMENSIONS)
@@ -175,15 +177,15 @@ def test_get_score_result_returns_stored_result(make_job, prefs, make_batch_clie
     assert (stored["總分"], stored["評語"]) == (results[0].total, results[0].comment)
 
 
-def test_get_score_result_missing_is_none(db_conn):
-    assert get_score_result(db_conn, "沒有這筆") is None
+def test_get_score_details_missing_is_none(db_conn):
+    assert get_score_details(db_conn, "沒有這筆") is None
 
 
-def test_get_score_result_manual_only_is_none(db_conn):
+def test_get_score_details_manual_only_is_none(db_conn):
     save_score(db_conn, job_no="a", comment="手動的評語", total=70)
 
     # 只有手動評分、沒有自動評分的結果，視為查不到
-    assert get_score_result(db_conn, "a") is None
+    assert get_score_details(db_conn, "a") is None
 
 
 def test_list_scored_jobs_adds_provider_and_model(make_job, prefs, make_batch_client, db_conn):
@@ -198,7 +200,7 @@ def test_list_scored_jobs_adds_provider_and_model(make_job, prefs, make_batch_cl
 
     assert (rows["a"]["供應商"], rows["a"]["模型"]) == ("gemini", "測試模型")
     assert (rows["b"]["供應商"], rows["b"]["模型"]) == (None, None)
-    assert all("評分結果" not in row for row in rows.values())
+    assert all("評分明細" not in row for row in rows.values())
 
 
 def test_write_results_output_files(five_results, tmp_path):
@@ -244,4 +246,123 @@ def test_score_batch_filter_comment(make_job, prefs, db_conn, tmp_path):
     with open(csv_path, newline="", encoding="utf-8-sig") as f:
         assert next(csv.DictReader(f))["評語"] == expected
     row = _score_rows(db_conn)["out"]
-    assert row["評語"] == json.loads(row["評分結果"])["評語"] == expected
+    assert row["評語"] == json.loads(row["評分明細"])["評語"] == expected
+
+
+def _records(conn, job_no):
+    """
+    取出一筆職缺的所有評分紀錄，依寫入順序
+
+    :return: list[dict]
+    """
+    cursor = conn.execute('SELECT * FROM job_scores WHERE "職缺代碼" = ? ORDER BY "評分編號"', (job_no,))
+    names = [d[0] for d in cursor.description]
+    return [dict(zip(names, values)) for values in cursor]
+
+
+# 升級前的 job_scores：每筆職缺一列，沒有評分來源，完整評分結果存在「評分結果」，手動評分時為 NULL
+_OLD_JOB_SCORES_DDL = """
+CREATE TABLE job_scores (
+    "職缺代碼" TEXT PRIMARY KEY,
+    "評分時間" TEXT NOT NULL,
+    "淘汰" INTEGER NOT NULL,
+    "總分" INTEGER,
+    "評語" TEXT,
+    "評分結果" TEXT,
+    "快取鍵" TEXT,
+    "供應商" TEXT,
+    "模型" TEXT
+)
+"""
+
+
+def test_score_batch_history_source(tmp_path, ok_job, out_job, prefs, make_batch_client):
+    db = tmp_path / "old.db"
+    old_result = {"職缺代碼": "old", "總分": 60, "評語": "舊評語"}
+    with closing(sqlite3.connect(db)) as old:
+        old.execute(_OLD_JOB_SCORES_DDL)
+        old.execute(
+            "INSERT INTO job_scores VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)",
+            ("old", "2026-09-01T10:00:00", 0, 60, "舊評語", json.dumps(old_result, ensure_ascii=False),
+             "舊鍵", "gemini", "舊模型"),
+        )
+        old.execute(
+            "INSERT INTO job_scores VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)",
+            ("old-manual", "2026-09-01T11:00:00", 0, 80, "舊的手動評語", None, None, None, None),
+        )
+        old.commit()
+
+    with closing(open_db(db)) as conn:
+        score_batch([ok_job, out_job], prefs, "經歷", lambda: make_batch_client({}), _no_progress, **_store(conn))
+        save_score(conn, job_no="ok", comment="手動的評語", total=90)
+
+        [migrated] = _records(conn, "old")
+        save_score(conn, job_no="old-manual", comment="新的手動評語", total=85)
+        [migrated_manual] = _records(conn, "old-manual")
+        manual_details = get_score_details(conn, "old-manual")
+        auto_ok, manual_ok = _records(conn, "ok")
+        [auto_out] = _records(conn, "out")
+
+    assert migrated["評分來源"] == "auto"
+    assert json.loads(migrated["評分明細"]) == old_result
+    assert (migrated["評分時間"], migrated["總分"], migrated["快取鍵"]) == ("2026-09-01T10:00:00", 60, "舊鍵")
+    # 升級前的手動評分沒有評分結果，視為手動評分，之後的手動評分會覆寫它
+    assert (migrated_manual["評分來源"], migrated_manual["評語"]) == ("manual", "新的手動評語")
+    assert manual_details is None
+    assert (auto_ok["評分來源"], auto_ok["供應商"], auto_ok["模型"]) == ("auto", "gemini", "測試模型")
+    assert (auto_out["評分來源"], auto_out["供應商"], auto_out["模型"]) == ("auto", None, None)
+    assert (manual_ok["評分來源"], manual_ok["供應商"], manual_ok["模型"]) == ("manual", None, None)
+
+
+def test_score_batch_history_append(ok_job, prefs, make_batch_client, db_conn):
+    client = make_batch_client({})
+
+    # (a) 職缺與設定都不變，第二次和最新一筆相同，不新增
+    score_batch([ok_job], prefs, "經歷", lambda: client, _no_progress, **_store(db_conn))
+    score_batch([ok_job], prefs, "經歷", lambda: client, _no_progress, **_store(db_conn))
+    [first] = _records(db_conn, "ok")
+
+    # (b) 權重改變讓總分不同，新增一筆
+    weights = {"職涯方向契合度": 0.1, "技能匹配度": 0.1, "產業公司吸引力": 0.1, "薪資水準": 0.7}
+    new_prefs = prefs.model_copy(update={"weights": weights})
+    score_batch([ok_job], new_prefs, "經歷", lambda: client, _no_progress, **_store(db_conn))
+    records = _records(db_conn, "ok")
+
+    assert first["評分來源"] == "auto"
+    assert len(records) == 2
+    assert records[0] == first
+    assert records[1]["評分來源"] == "auto"
+    assert records[1]["總分"] != first["總分"]
+    assert len(client.calls) == 1
+
+
+def test_score_batch_history_coexist(ok_job, prefs, make_batch_client, db_conn):
+    score_batch([ok_job], prefs, "經歷", lambda: make_batch_client({}), _no_progress, **_store(db_conn))
+    [auto] = _records(db_conn, "ok")
+
+    # (a) 手動評分不覆寫自動評分
+    save_score(db_conn, job_no="ok", comment="手動的評語", total=90)
+    after_manual = _records(db_conn, "ok")
+
+    # (b) 換了經歷，AI 給出不同的評語，自動評分不覆寫手動評分
+    client = make_batch_client({"Python 工程師": {"comment": "新的總評"}})
+    score_batch([ok_job], prefs, "新的經歷", lambda: client, _no_progress, **_store(db_conn))
+    after_auto = _records(db_conn, "ok")
+
+    assert after_manual[0] == auto
+    assert [r["評分來源"] for r in after_manual] == ["auto", "manual"]
+    assert after_auto[:2] == after_manual
+    assert [r["評分來源"] for r in after_auto] == ["auto", "manual", "auto"]
+    assert after_auto[2]["評語"] == "新的總評"
+
+
+def test_score_batch_history_reuses_any_auto_record(ok_job, prefs, make_batch_client, db_conn):
+    client = make_batch_client({})
+
+    # 經歷 A → B → A：第三次和第一次送給 AI 的內容相同，沿用第一次的 AI 評分
+    for experience in ("經歷 A", "經歷 B", "經歷 A"):
+        [result] = score_batch([ok_job], prefs, experience, lambda: client, _no_progress, **_store(db_conn))
+
+    assert len(client.calls) == 2
+    assert result.reused
+    assert len(_records(db_conn, "ok")) == 3

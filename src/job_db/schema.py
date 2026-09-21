@@ -63,21 +63,53 @@ SCHEMA = [
         PRIMARY KEY ("執行編號", "職缺代碼")
     )
     """,
-    # 評分結果，每筆職缺只留最新一次；不設外鍵，評分的職缺不一定匯入過 jobs
+    # 評分紀錄，同一筆職缺可以有多筆：自動評分每次新增一筆，手動評分每筆職缺最多一筆；
+    # 不設外鍵，評分的職缺不一定匯入過 jobs
     """
     CREATE TABLE IF NOT EXISTS job_scores (
-        "職缺代碼" TEXT PRIMARY KEY,
+        "評分編號" INTEGER PRIMARY KEY AUTOINCREMENT,
+        "職缺代碼" TEXT NOT NULL,
+        "評分來源" TEXT NOT NULL CHECK ("評分來源" IN ('auto', 'manual')),
         "評分時間" TEXT NOT NULL,
         "淘汰" INTEGER NOT NULL,
         "總分" INTEGER,
         "評語" TEXT,
-        "評分結果" TEXT,
+        "評分明細" TEXT,
         "快取鍵" TEXT,
         "供應商" TEXT,
         "模型" TEXT
     )
     """,
+    """
+    CREATE UNIQUE INDEX IF NOT EXISTS job_scores_manual
+        ON job_scores("職缺代碼") WHERE "評分來源" = 'manual'
+    """,
+    'CREATE INDEX IF NOT EXISTS job_scores_job ON job_scores("職缺代碼", "評分時間")',
 ]
+
+
+def _migrate_job_scores(conn: sqlite3.Connection) -> None:
+    """
+    把舊版的 job_scores（每筆職缺一列、沒有評分來源）重建成新版，保留原有資料；需在交易中呼叫。
+
+    舊版只有自動評分會寫入評分結果，所以有評分結果的列視為自動評分、沒有的視為手動評分；評分結果搬到評分明細。
+    沒有 job_scores 或已經是新版時不做任何事。
+
+    :param conn: sqlite3.Connection, 開啟中的連線
+    """
+    columns = {row[1] for row in conn.execute("PRAGMA table_info(job_scores)")}
+    if not columns or "評分來源" in columns:
+        return
+    conn.execute("ALTER TABLE job_scores RENAME TO job_scores_old")
+    for ddl in SCHEMA:
+        conn.execute(ddl)
+    conn.execute(
+        'INSERT INTO job_scores ("職缺代碼", "評分來源", "評分時間", "淘汰", "總分", "評語", '
+        '"評分明細", "快取鍵", "供應商", "模型") '
+        'SELECT "職缺代碼", CASE WHEN "評分結果" IS NULL THEN \'manual\' ELSE \'auto\' END, "評分時間", "淘汰", "總分", "評語", "評分結果", "快取鍵", "供應商", "模型" '
+        "FROM job_scores_old"
+    )
+    conn.execute("DROP TABLE job_scores_old")
 
 
 def open_db(path: str | Path = DEFAULT_DB_PATH) -> sqlite3.Connection:
@@ -94,6 +126,7 @@ def open_db(path: str | Path = DEFAULT_DB_PATH) -> sqlite3.Connection:
     conn.execute("PRAGMA foreign_keys = ON")
     conn.autocommit = False
     with conn:
+        _migrate_job_scores(conn)
         for ddl in SCHEMA:
             conn.execute(ddl)
     return conn

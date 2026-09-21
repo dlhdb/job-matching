@@ -134,7 +134,7 @@ def score_and_save(
     model: str,
 ) -> tuple[JobScore, bool]:
     """
-    對單筆職缺評分並寫入 job_scores；評分失敗時例外直接往外拋，資料庫中原本的列不變。
+    對單筆職缺評分並新增一筆自動評分紀錄（與最新一筆相同時不新增）；評分失敗時例外直接往外拋，不寫入。
 
     送給 AI 的內容與上次相同（快取鍵相同）時，沿用上次的 AI 維度與評語，不呼叫 AI；
     淘汰、薪資分數與總分每次都重算。
@@ -183,7 +183,7 @@ def score_and_save(
         eliminated=score.eliminated,
         total=score.total,
         comment=score.comment,
-        result=score.model_dump(by_alias=True),
+        details=score.model_dump(by_alias=True),
         cache_key=key,
         provider=used_provider,
         model=used_model,

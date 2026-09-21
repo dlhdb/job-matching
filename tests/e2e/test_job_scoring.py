@@ -45,15 +45,15 @@ def e2e_db():
 
 def _score_rows(db):
     """
-    以職缺代碼為鍵取出 job_scores 表
+    以職缺代碼為鍵取出 job_scores 表，同一筆職缺有多筆時取最新寫入的一筆
 
     :param db: Path, 資料庫檔
     :return: dict[str, dict]
     """
     with closing(sqlite3.connect(db)) as conn:
-        cursor = conn.execute("SELECT * FROM job_scores")
+        cursor = conn.execute('SELECT * FROM job_scores ORDER BY "評分編號"')
         names = [d[0] for d in cursor.description]
-        return {row[0]: dict(zip(names, row)) for row in cursor}
+        return {row["職缺代碼"]: row for row in (dict(zip(names, values)) for values in cursor)}
 
 
 def _assert_scored_row(row, data):
@@ -63,7 +63,7 @@ def _assert_scored_row(row, data):
     :param row: dict, job_scores 的一列
     :param data: dict, 輸出的評分結果（中文鍵名）
     """
-    assert json.loads(row["評分結果"]) == data
+    assert json.loads(row["評分明細"]) == data
     assert row["淘汰"] == 0
     assert row["總分"] == data["總分"]
     assert row["評語"] == data["評語"]
@@ -139,7 +139,7 @@ def test_real_batch_scoring(e2e_db, tmp_path, monkeypatch, capsys):
         if record["淘汰"]:
             assert row["淘汰"] == 1
             assert (row["總分"], row["快取鍵"], row["供應商"], row["模型"]) == (None, None, None, None)
-            assert json.loads(row["評分結果"])["淘汰原因"] == record["淘汰原因"]
+            assert json.loads(row["評分明細"])["淘汰原因"] == record["淘汰原因"]
         else:
             data = {k: v for k, v in record.items() if k not in ("職缺名稱", "公司名稱", "薪資待遇", "職缺連結", "失敗原因")}
             _assert_scored_row(row, data)
