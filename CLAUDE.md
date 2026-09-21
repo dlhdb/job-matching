@@ -76,3 +76,8 @@ uv add <pkg>                 # 新增依賴
 3. 完成後依技術設計的「驗收對照」，逐條執行該使用者故事的每一條驗收，回報 ✅ / ❌ 與實際輸出。全部通過後：
    - 移除〔規劃中〕標記，把功能文件與 docs/product/overview.md 的狀態改為 ✅ 已完成，並更新 docs/product/overview.md 中該功能的「現況」。
    - 把會長期留下的設計更新到技術設計對應的元件章節，並在驗收對照補上新的 AC。
+4. commit 前先審查修改：
+   - 用獨立的指令 `git add` 要 commit 的檔案，再執行 `/code-review medium`。
+   - 修正發現的問題並重跑測試，有改動就重新暫存；不修的問題向使用者說明原因。
+   - 暫存區定案後執行 `.claude/hooks/require-review.sh --mark`，再單獨執行 `git commit`（不用 `-a`）。
+   - 暫存區含非 Markdown 檔卻沒有 `--mark`，或 `--mark` 之後暫存區又有變動，commit 會被 PreToolUse hook 擋下。只改 Markdown 的 commit 不必審查。

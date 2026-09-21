@@ -25,3 +25,6 @@ data/
 
 # Questionnaires awaiting the user's answers
 to-be-confirm/
+
+# Claude Code review marker (see .claude/hooks/require-review.sh)
+.claude/.reviewed-diff
