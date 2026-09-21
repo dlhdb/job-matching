@@ -7,7 +7,7 @@ from datetime import datetime
 
 import pytest
 
-from job_db import save_score
+from job_db import get_score, list_scored_jobs, save_score
 from job_scoring.batch import score_batch, write_results
 from job_scoring.models import DIMENSIONS
 
@@ -160,6 +160,38 @@ def test_score_batch_store_write(make_job, prefs, make_batch_client, db_conn):
 
     assert results[2].failure
     assert rows["c"] == old_row
+
+
+def test_get_score_returns_stored_result(make_job, prefs, make_batch_client, db_conn):
+    jobs = [make_job(**{"職缺代碼": "a", "職缺名稱": "甲職缺"})]
+    client = make_batch_client({"甲職缺": {}})
+    results = score_batch(jobs, prefs, "經歷", lambda: client, _no_progress, **_store(db_conn))
+
+    stored = get_score(db_conn, "a")
+
+    assert list(stored) == ["職缺代碼", "淘汰", "淘汰原因", "維度", "總分", "未知維度", "評語"]
+    assert list(stored["維度"]) == list(DIMENSIONS)
+    assert all(dim["理由"] for dim in stored["維度"].values())
+    assert (stored["總分"], stored["評語"]) == (results[0].total, results[0].comment)
+
+
+def test_get_score_missing_is_none(db_conn):
+    assert get_score(db_conn, "沒有這筆") is None
+
+
+def test_list_scored_jobs_adds_provider_and_model(make_job, prefs, make_batch_client, db_conn):
+    jobs = [
+        make_job(**{"職缺代碼": "a", "職缺名稱": "甲職缺"}),
+        make_job(**{"職缺代碼": "b", "職缺名稱": "業務專員"}),
+    ]
+    client = make_batch_client({"甲職缺": {}})
+    score_batch(jobs, prefs, "經歷", lambda: client, _no_progress, **_store(db_conn))
+
+    rows = {row["職缺代碼"]: row for row in list_scored_jobs(db_conn)}
+
+    assert (rows["a"]["供應商"], rows["a"]["模型"]) == ("gemini", "測試模型")
+    assert (rows["b"]["供應商"], rows["b"]["模型"]) == (None, None)
+    assert all("評分結果" not in row for row in rows.values())
 
 
 def test_write_results_output_files(five_results, tmp_path):

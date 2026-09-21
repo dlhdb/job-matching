@@ -13,19 +13,15 @@ flowchart LR
     store --> db[("data/jobs.db")]
     schema --> db
     queries --> db
-    scoring["評分的呼叫端"] --> scores["job_db/scores.py"]
-    scores --> db
     queries --> sql["job_db/_sql.py"]
-    scores --> sql
 ```
 
 模組職責：
 
-- `job_db/schema.py`：所有資料表的建表語法，以及開啟資料庫並建立缺少的表（含 job-score-database 的 `job_scores`）。
+- `job_db/schema.py`：所有資料表的建表語法，以及開啟資料庫並建立缺少的表。其他功能的表也在這裡建立，見各功能的技術設計。
 - `job_db/store.py`：寫入一批職缺與該次的執行紀錄。
 - `job_db/queries.py`：查出職缺與執行紀錄。
-- `job_db/scores.py`：讀寫評分紀錄，屬於 job-score-database（見 [job-score-database 技術設計](job-score-database.md#1-總覽)）。
-- `job_db/_sql.py`：查詢共用的 SQL 組裝（欄名轉 dict、`LIMIT`／`OFFSET`），與哪一張表無關，所以 `queries.py` 與 `scores.py` 共用。
+- `job_db/_sql.py`：查詢共用的 SQL 組裝（欄名轉 dict、`LIMIT`／`OFFSET`），與哪一張表無關，其他功能放在 `job_db` 的查詢模組也可以共用。
 - 呼叫者是各來源功能的進入點，見 [architecture.md 的模組依賴](../architecture.md#模組依賴)。
 
 依賴限制：
@@ -99,7 +95,7 @@ flowchart LR
 
 設計理由：
 
-- 欄名沿用中文，讓 `pandas.read_sql` 讀出來的欄位與職缺欄位契約一致，job-auto-scoring 不需要做欄名對照。
+- 欄名沿用中文，讓 `pandas.read_sql` 讀出來的欄位與職缺欄位契約一致，下游不需要做欄名對照。
 - 時間存成 ISO 8601 字串，字串比較的結果與時間先後相同，寫入規則可以直接比較。
 
 ### 3.3 查詢
@@ -111,8 +107,6 @@ flowchart LR
 - `list_runs`：列出執行紀錄。
 
 排序都加上主鍵當最後一個排序鍵（職缺是 `最後出現時間` 後接 `職缺代碼`），同樣的資料每次查出來的順序才一致，分頁才不會漏或重複。
-
-評分結果的查詢不在這裡，在 `scores.py`，理由見 [job-score-database 技術設計的依賴限制](job-score-database.md#1-總覽)。
 
 查詢介面沒有涵蓋的臨時查詢，仍然直接下 SQL：
 

@@ -48,7 +48,6 @@
     - 手動與自動評分並存、保留歷史
 - 評分來源用一個欄位存 `manual`／`auto`，`供應商`、`模型` 各自一欄。
 - 標記不共用評分紀錄，由之後的標記功能另外保存（見 [TODO.md](../../../TODO.md#web-app)）。
-- 程式碼維持在 `job_db` 套件：同一個套件管理整份資料庫的連線與 schema。
 - 影響的文件：
   - [job-score-database.md](../features/job-score-database.md)、[job-auto-scoring.md](../features/job-auto-scoring.md)
   - [overview.md](../overview.md)

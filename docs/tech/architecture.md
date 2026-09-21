@@ -11,7 +11,7 @@
 - 每個進入點都是 `src/` 下的一支腳本，以 `uv run src/<腳本>.py` 執行：
   - `fetch_104_jobs.py`：抓取 104 職缺（見 [104-job-scraper 的 CLI](../product/features/104-job-scraper.md#1021-cli)）
   - `import_jobs.py`：把既有的職缺 JSON 匯入資料庫（見 [104-job-scraper 的匯入 CLI](../product/features/104-job-scraper.md#822-匯入-cli)）
-  - `score_job.py`：評分單筆或整批職缺（見 [job-auto-scoring 的 CLI](../product/features/job-auto-scoring.md#1322-cli)）
+  - `score_job.py`：評分單筆或整批職缺（見 [job-auto-scoring 的 CLI](../product/features/job-auto-scoring.md#1422-cli)）
 
 ## 模組依賴
 

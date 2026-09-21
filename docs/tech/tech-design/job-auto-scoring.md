@@ -33,7 +33,7 @@ flowchart LR
 - `llm.py`：LLM 供應商抽象層與 Gemini 實作。
 - `scorer.py`：單筆評分流程、總分計算，以及「評分並寫入資料庫」這一步。
 - `batch.py`：整批評分、寫出結果檔。
-- `job_db/scores.py`：屬於 job-score-database（見 [job-score-database 技術設計](job-score-database.md#1-總覽)），本功能用它寫入一列與查快取。
+- `job_db/scores.py`：屬於 job-score-database（見 [job-score-database 技術設計](job-score-database.md#1-總覽)），本功能用它寫入一列、查快取、取出評分結果，並在依分數列出時多帶欄位。
 
 依賴限制：
 
@@ -98,7 +98,7 @@ profile/
 
 ### 3.2 job_scores 的自動評分欄位
 
-實現 FR-store-write、FR-store-db-path、FR-store-get。`job_scores` 的基本欄位、查詢與設計理由見 [job-score-database 技術設計](job-score-database.md#21-job_scores-資料表)，業務意義見[功能文件的寫入的評分紀錄](../../product/features/job-auto-scoring.md#721-寫入的評分紀錄)。
+實現 FR-store-write、FR-store-db-path、FR-store-get、FR-list。`job_scores` 的基本欄位、查詢與設計理由見 [job-score-database 技術設計](job-score-database.md#21-job_scores-資料表)，業務意義見[功能文件的寫入的評分紀錄](../../product/features/job-auto-scoring.md#721-寫入的評分紀錄)。
 
 本功能寫入時：
 
@@ -108,6 +108,13 @@ profile/
   - `評分結果`（TEXT NOT NULL）：以 `json.dumps(ensure_ascii=False)` 存成字串，`job_db/scores.py` 取出時以 `json.loads` 還原
   - `快取鍵`（TEXT | null）：見 [§3.3](#33-快取鍵)，被淘汰時為 `null`
   - `供應商`、`模型`（TEXT | null）：被淘汰時為 `null`
+- `淘汰`、`總分`、`評語` 與 `評分結果` 中的值重複：另外成欄是為了讓 SQL 可以直接篩選與排序，不解析 JSON。
+
+查詢（都在 `job_db/scores.py`）：
+
+- 快取查詢：見 [§3.3](#33-快取鍵)。
+- 取出單筆：以 `職缺代碼` 取出 `評分結果`，以 `json.loads` 還原。
+- 依分數列出時多帶 `供應商`、`模型`，不帶 `評分結果` 與 `快取鍵`；要看各維度時以職缺代碼另外取出。
 
 寫入：
 
@@ -164,7 +171,7 @@ AI 必須輸出以下 JSON（Pydantic 模型 `AIAssessment`）：
 
 - 欄位使用英文名稱，讓 schema 對各家模型都比較穩定。
 - 由 `scorer.py` 轉成評分結果（`JobScore`）的中文鍵名。
-  - `JobScore` 以 alias 定義中文鍵名，`model_dump(by_alias=True)` 的結果就是[功能文件的評分結果格式](../../product/features/job-auto-scoring.md#1321-評分結果格式)。
+  - `JobScore` 以 alias 定義中文鍵名，`model_dump(by_alias=True)` 的結果就是[功能文件的評分結果格式](../../product/features/job-auto-scoring.md#1421-評分結果格式)。
 - 不通過驗證時拋出 `ValidationError`，視為評分失敗，不自行修正分數。
 
 ## 5. CLI 與錯誤處理
@@ -203,7 +210,7 @@ AI 必須輸出以下 JSON（Pydantic 模型 `AIAssessment`）：
 
 - `0`：成功，包括被淘汰
   - 整批評分時，即使有職缺評分失敗也回傳 0
-- `1`：印出 `[-]` 並結束，情況見[功能文件的 CLI](../../product/features/job-auto-scoring.md#1322-cli)
+- `1`：印出 `[-]` 並結束，情況見[功能文件的 CLI](../../product/features/job-auto-scoring.md#1422-cli)
 
 ## 6. 驗收對照
 
@@ -224,7 +231,6 @@ AI 必須輸出以下 JSON（Pydantic 模型 `AIAssessment`）：
 
 ```bash
 uv run pytest tests/test_job_scoring_*.py tests/test_score_job_cli.py
-uv run pytest tests/test_job_db_scores.py -k get_score
 ```
 
 不屬於任何 AC 的檢查：
@@ -256,7 +262,7 @@ uv run pytest tests/test_job_db_scores.py -k get_score
 ### store
 
 - [AC-store-write](../../product/features/job-auto-scoring.md#ac-store-write評分結果入庫)：`uv run pytest tests/test_job_scoring_batch.py -k store`
-- [AC-store-get](../../product/features/job-auto-scoring.md#ac-store-get取出單筆評分結果)：`uv run pytest tests/test_job_db_scores.py -k get_score`
+- [AC-store-get](../../product/features/job-auto-scoring.md#ac-store-get取出單筆評分結果)：`uv run pytest tests/test_job_scoring_batch.py -k get_score`
 - [AC-store-db-path](../../product/features/job-auto-scoring.md#ac-store-db-path資料庫路徑)：`uv run pytest tests/test_score_job_cli.py -k db_path`
 - [AC-store-real](../../product/features/job-auto-scoring.md#ac-store-real真實評分結果入庫-需網路)〔需網路〕：`uv run pytest -m network -s tests/e2e/test_job_scoring.py -k real`
 
@@ -267,6 +273,10 @@ uv run pytest tests/test_job_db_scores.py -k get_score
 ### dry-run
 
 - [AC-dry-run](../../product/features/job-auto-scoring.md#ac-dry-rundry-run-試跑)：`uv run pytest tests/test_score_job_cli.py -k dry_run`
+
+### list
+
+- [AC-list](../../product/features/job-auto-scoring.md#ac-list列表多帶供應商與模型)：`uv run pytest tests/test_job_scoring_batch.py -k list_scored_jobs`
 
 ### 共用規則
 

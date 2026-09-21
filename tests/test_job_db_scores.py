@@ -1,13 +1,13 @@
-"""評分結果查詢的離線測試。資料庫建在 tmp_path，評分結果寫在測試碼裡。"""
+"""評分紀錄保存與查詢的離線測試。資料庫建在 tmp_path，評分紀錄寫在測試碼裡。"""
 
 from datetime import datetime
 
 import pytest
 
-from job_db import JOB_COLUMNS, get_score, list_scored_jobs, open_db, save_run, save_score
+from job_db import JOB_COLUMNS, list_scored_jobs, open_db, save_run, save_score
 
 COLUMN_NAMES = [name for name, _ in JOB_COLUMNS]
-SCORE_NAMES = ["評分時間", "淘汰", "總分", "評語", "供應商", "模型"]
+SCORE_NAMES = ["職缺代碼", "評分時間", "淘汰", "總分", "評語"]
 
 T = datetime(2026, 9, 17, 10, 15, 0)
 
@@ -24,15 +24,14 @@ def conn(tmp_path):
     connection.close()
 
 
-def write_score(conn, job_no, *, total=None, eliminated=False, result=None):
+def write_score(conn, job_no, *, total=None, eliminated=False):
     """
-    寫入一筆評分結果，內容以職缺代碼區分
+    寫入一筆評分紀錄，內容以職缺代碼區分
 
     :param conn: sqlite3.Connection, 已開啟的連線
     :param job_no: str, 職缺代碼
     :param total: int or None, 總分；被淘汰時為 None
     :param eliminated: bool, 是否被硬性淘汰
-    :param result: dict or None, 完整評分結果；None 時以職缺代碼組一份
     """
     save_score(
         conn,
@@ -41,7 +40,7 @@ def write_score(conn, job_no, *, total=None, eliminated=False, result=None):
         eliminated=eliminated,
         total=total,
         comment=None if eliminated else f"{job_no} 的評語",
-        result=result if result is not None else {"職缺代碼": job_no, "總分": total},
+        result={"職缺代碼": job_no, "總分": total},
         cache_key=None if eliminated else f"key-{job_no}",
         provider=None if eliminated else "gemini",
         model=None if eliminated else "gemini-3.8-flash",
@@ -72,7 +71,8 @@ def test_list_scored_jobs_orders_by_total(conn, scored):
 def test_list_scored_jobs_returns_job_and_score_columns(conn, scored):
     row = list_scored_jobs(conn)[0]
 
-    assert list(row) == [*COLUMN_NAMES, *SCORE_NAMES]
+    # 只驗基本欄位都在，產生評分的功能可以在列表疊加欄位
+    assert set(COLUMN_NAMES) | set(SCORE_NAMES) <= set(row)
     assert row["職缺名稱"] == "Python 工程師"
     assert row["評分時間"] == T.isoformat(timespec="seconds")
     assert row["評語"] == "high 的評語"
@@ -117,22 +117,6 @@ def test_list_scored_jobs_negative_limit_or_offset_raises(conn, scored, limit, o
 
 def test_list_scored_jobs_empty_db_is_empty(conn):
     assert list_scored_jobs(conn) == []
-
-
-def test_get_score_returns_full_result(conn):
-    result = {
-        "職缺代碼": "ok",
-        "總分": 80,
-        "維度": {"職涯方向契合度": {"分數": 5, "理由": "職涯理由"}},
-        "評語": "總評",
-    }
-    write_score(conn, "ok", total=80, result=result)
-
-    assert get_score(conn, "ok") == result
-
-
-def test_get_score_missing_is_none(conn, scored):
-    assert get_score(conn, "沒有這筆") is None
 
 
 def test_record_round_trip_and_overwrite(conn):
