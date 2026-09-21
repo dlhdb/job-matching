@@ -88,28 +88,18 @@ SCHEMA = [
 ]
 
 
-def _migrate_job_scores(conn: sqlite3.Connection) -> None:
+def _check_job_scores(conn: sqlite3.Connection) -> None:
     """
-    把舊版的 job_scores（每筆職缺一列、沒有評分來源）重建成新版，保留原有資料；需在交易中呼叫。
+    檢查既有的 job_scores 不是舊版（沒有評分來源）；舊版不遷移，要刪除資料庫後重建
 
-    舊版只有自動評分會寫入評分結果，所以有評分結果的列視為自動評分、沒有的視為手動評分；評分結果搬到評分明細。
-    沒有 job_scores 或已經是新版時不做任何事。
+    SQLite 把找不到的雙引號欄名當成字串，不先擋下的話，查詢會靜默查不到、寫入到最後才失敗。
 
     :param conn: sqlite3.Connection, 開啟中的連線
+    :raises sqlite3.DatabaseError: job_scores 是舊版
     """
     columns = {row[1] for row in conn.execute("PRAGMA table_info(job_scores)")}
-    if not columns or "評分來源" in columns:
-        return
-    conn.execute("ALTER TABLE job_scores RENAME TO job_scores_old")
-    for ddl in SCHEMA:
-        conn.execute(ddl)
-    conn.execute(
-        'INSERT INTO job_scores ("職缺代碼", "評分來源", "評分時間", "淘汰", "總分", "評語", '
-        '"評分明細", "快取鍵", "供應商", "模型") '
-        'SELECT "職缺代碼", CASE WHEN "評分結果" IS NULL THEN \'manual\' ELSE \'auto\' END, "評分時間", "淘汰", "總分", "評語", "評分結果", "快取鍵", "供應商", "模型" '
-        "FROM job_scores_old"
-    )
-    conn.execute("DROP TABLE job_scores_old")
+    if columns and "評分來源" not in columns:
+        raise sqlite3.DatabaseError("評分紀錄的資料表是舊版，不支援遷移，請刪除資料庫檔後重建")
 
 
 def open_db(path: str | Path = DEFAULT_DB_PATH) -> sqlite3.Connection:
@@ -118,6 +108,7 @@ def open_db(path: str | Path = DEFAULT_DB_PATH) -> sqlite3.Connection:
 
     :param path: str or Path, 資料庫檔路徑，預設為專案根目錄的 data/jobs.db
     :return: sqlite3.Connection, 交易需以 commit 或 with 區塊結束
+    :raises sqlite3.DatabaseError: 評分紀錄的資料表是舊版
     """
     path = Path(path)
     path.parent.mkdir(parents=True, exist_ok=True)
@@ -125,8 +116,12 @@ def open_db(path: str | Path = DEFAULT_DB_PATH) -> sqlite3.Connection:
     # 交易中設定 foreign_keys 不會生效，必須在切換成手動交易前設定
     conn.execute("PRAGMA foreign_keys = ON")
     conn.autocommit = False
-    with conn:
-        _migrate_job_scores(conn)
-        for ddl in SCHEMA:
-            conn.execute(ddl)
+    try:
+        _check_job_scores(conn)
+        with conn:
+            for ddl in SCHEMA:
+                conn.execute(ddl)
+    except BaseException:
+        conn.close()
+        raise
     return conn

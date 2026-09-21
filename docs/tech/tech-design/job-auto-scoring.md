@@ -132,11 +132,13 @@ profile/
 - 整批評分中途發生 `sqlite3.Error` 時，CLI 回傳 1、不寫結果檔，已寫入的職缺留在資料庫。
 - 職缺內容更新不代表要重新呼叫 AI，是否重問由快取鍵決定，所以評分和 `jobs` 分開存放（見 [job-score-database 技術設計](job-score-database.md#21-job_scores-資料表)）。
 
-遷移（`job_db/schema.py` 的 `open_db`）：
+舊版資料庫（`job_scores` 以 `職缺代碼` 為主鍵、欄名是 `評分結果`）不遷移，要刪除後重建：
 
-- `job_scores` 已經存在、但沒有 `評分來源` 欄位時，視為舊版（`職缺代碼` 是主鍵、欄名是 `評分結果`）。
-- 在建表的同一個 transaction 裡把舊表改名、建新表、搬資料、刪舊表：舊版只有自動評分會寫入 `評分結果`，所以有值的列填 `auto`、`NULL` 的填 `manual`，`評分結果` 搬到 `評分明細`。
-- `open_db` 只用 `CREATE TABLE IF NOT EXISTS`，不會修改既有的表，所以改主鍵與改欄名只能重建。重建後新表的 `評分明細` 可為 `null`，更早的版本裡 `評分結果` 是 `NOT NULL` 的問題也一併解決。
+- `open_db` 只用 `CREATE TABLE IF NOT EXISTS`，不會修改既有的表。
+- 所以 `open_db` 建表前先檢查：`job_scores` 已存在但沒有 `評分來源` 欄位時，拋出 `sqlite3.DatabaseError`，提示刪除資料庫檔後重建，評分 CLI 印出 `[-]` 並回傳 1。
+  - 不擋下的話，SQLite 會把找不到的雙引號欄名當成字串：查詢靜默查不到、快取一定沒命中，呼叫 AI 付了費用之後寫入才失敗。
+  - 爬蟲與匯入 CLI 也經過 `open_db`，同樣會被擋下。
+- 遷移的做法見 [TODO.md](../../../TODO.md#評分資料庫)。
 
 查詢（都在 `job_db/scores.py`）：
 

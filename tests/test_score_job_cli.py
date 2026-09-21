@@ -2,6 +2,7 @@
 
 import ast
 import json
+import sqlite3
 from contextlib import closing
 from datetime import datetime
 from pathlib import Path
@@ -415,3 +416,21 @@ def test_main_history_no_delete(jobs_file, profile_dir, fake_client, isolate_db,
     with closing(open_db(isolate_db)) as conn:
         after = conn.execute('SELECT * FROM job_scores ORDER BY "評分編號"').fetchall()
     assert before and after[:len(before)] == before
+
+
+def test_main_old_db_error(tmp_path, jobs_file, profile_dir, forbid_client, capsys):
+    db = tmp_path / "old.db"
+    # 評分紀錄的資料表是舊版：以職缺代碼為主鍵，沒有評分來源
+    with closing(sqlite3.connect(db)) as old:
+        old.execute(
+            'CREATE TABLE job_scores ("職缺代碼" TEXT PRIMARY KEY, "評分時間" TEXT NOT NULL, '
+            '"淘汰" INTEGER NOT NULL, "總分" INTEGER, "評語" TEXT, "評分結果" TEXT, '
+            '"快取鍵" TEXT, "供應商" TEXT, "模型" TEXT)'
+        )
+
+    code = _run(jobs_file, profile_dir, "--job-no", "ok", "--db", str(db))
+
+    assert code == 1
+    assert "刪除資料庫檔後重建" in capsys.readouterr().err
+    with closing(sqlite3.connect(db)) as conn:
+        assert conn.execute("SELECT name FROM sqlite_master WHERE type = 'index' AND name = 'job_scores_manual'").fetchone() is None
