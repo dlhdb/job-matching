@@ -90,9 +90,13 @@ def _progress_order(err, names):
 # filter
 # ---------------------------------------------------------------------------
 
-def test_main_eliminated_needs_no_api_key(jobs_db, profile_dir, forbid_client, capsys):
-    code = _run(jobs_db, profile_dir, "--job-no", "out")
-    details = _details(jobs_db, "out")
+def test_main_eliminated_needs_no_api_key(tmp_path, profile_dir, out_job, forbid_client, capsys):
+    db = tmp_path / "only_out.db"
+    with closing(open_db(db)) as conn:
+        save_run(conn, [out_job], datetime(2026, 9, 1, 10, 0, 0), "匯入")
+
+    code = _run(db, profile_dir)
+    details = _details(db, "out")
 
     assert code == 0
     assert capsys.readouterr().out == ""
@@ -170,6 +174,22 @@ def test_main_job_nos(tmp_path, profile_dir, make_job, counted_client, capsys):
     assert _auto_count(db, "c") == 3
 
 
+def test_main_rescore_failure_keeps_old_score(jobs_db, profile_dir, make_batch_client, monkeypatch, capsys):
+    with closing(open_db(jobs_db)) as conn:
+        save_auto_score(conn, job_no="ok", scored_at=datetime(2026, 9, 2), eliminated=False, total=70,
+                        comment="舊評語", details={"職缺代碼": "ok"}, provider="gemini", model="舊模型")
+    rows_before = _score_rows(jobs_db)
+    client = make_batch_client({"Python 工程師": "llm_error"})
+    monkeypatch.setattr(score_job, "get_client", lambda provider, model: client)
+
+    code = _run(jobs_db, profile_dir, "--job-no", "ok")
+    err = capsys.readouterr().err
+
+    assert code == 0
+    assert "[!] ok Python 工程師：模擬的 API 錯誤" in err
+    assert _score_rows(jobs_db) == rows_before
+
+
 def test_main_batch_summary_no_files(jobs_db, profile_dir, counted_client, scores_dir, capsys):
     code = _run(jobs_db, profile_dir)
     captured = capsys.readouterr()
@@ -230,7 +250,7 @@ def test_main_db_path(tmp_path, profile_dir, out_job, forbid_client):
     jobs_before = conn.execute("SELECT * FROM jobs").fetchall()
     conn.close()
 
-    code = _run(db, profile_dir, "--job-no", "out")
+    code = _run(db, profile_dir)
 
     assert code == 0
     with closing(open_db(db)) as conn:

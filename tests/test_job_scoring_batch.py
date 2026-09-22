@@ -141,17 +141,12 @@ def test_score_batch_store_write(make_job, prefs, make_batch_client, db_conn):
         make_job(**{"職缺代碼": "b", "職缺名稱": "業務專員"}),
         make_job(**{"職缺代碼": "c", "職缺名稱": "丙職缺"}),
     ]
-    save_auto_score(
-        db_conn, job_no="c", scored_at=datetime(2026, 9, 1, 10, 0, 0), eliminated=False, total=60,
-        comment="舊評語", details={"職缺代碼": "c", "總分": 60}, provider="gemini", model="舊模型",
-    )
-    old_row = _score_rows(db_conn)["c"]
     client = make_batch_client({"甲職缺": {}, "丙職缺": "llm_error"})
 
     results = score_batch(jobs, prefs, "經歷", lambda: client, _no_progress, **_store(db_conn))
     rows = _score_rows(db_conn)
 
-    assert set(rows) == {"a", "b", "c"}
+    assert set(rows) == {"a", "b"}
     for job_no, result in (("a", results[0]), ("b", results[1])):
         row = rows[job_no]
         stored = json.loads(row["評分明細"])
@@ -172,7 +167,6 @@ def test_score_batch_store_write(make_job, prefs, make_batch_client, db_conn):
     assert json.loads(rows["b"]["評分明細"])["淘汰原因"]
 
     assert results[2].failure
-    assert rows["c"] == old_row
 
 
 def test_get_score_details_returns_stored_result(make_job, prefs, make_batch_client, db_conn):

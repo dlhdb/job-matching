@@ -11,7 +11,7 @@
 - 每個進入點都是 `src/` 下的一支腳本，以 `uv run src/<腳本>.py` 執行：
   - `fetch_104_jobs.py`：抓取 104 職缺（見 [104-job-scraper 的 CLI](../product/features/104-job-scraper.md#1021-cli)）
   - `import_jobs.py`：把既有的職缺 JSON 匯入資料庫（見 [104-job-scraper 的匯入 CLI](../product/features/104-job-scraper.md#822-匯入-cli)）
-  - `score_job.py`：評分還沒評分或指定的職缺（見 [job-auto-scoring 的 CLI](../product/features/job-auto-scoring.md#1422-cli)）
+  - `score_job.py`：評分還沒評分或指定的職缺（見 [job-auto-scoring 的 CLI](../product/features/job-auto-scoring.md#1022-cli)）
 
 ## 模組依賴
 
@@ -47,7 +47,7 @@ flowchart LR
 
 - `output/104/`：爬蟲每次輸出一組 CSV 與 JSON，不進版控（見 [輸出檔](../product/features/104-job-scraper.md#621-輸出檔)）
   - JSON 是匯入 CLI 的輸入
-- `output/scores/`：試跑評分的結果檔 JSON 與 CSV，不進版控（格式見[試跑結果檔](../product/features/job-auto-scoring.md#922-試跑結果檔)）
+- `output/scores/`：試跑評分的結果檔 JSON 與 CSV，不進版控（格式見[試跑結果檔](../product/features/job-auto-scoring.md#722-試跑結果檔)）
 - `output/e2e/`：e2e 測試留下供查看的檔案，例如評分測試的資料庫 `jobs.db`，不進版控（見 [測試](../conventions/development.md#測試)）
 - `profile/`：求職偏好與工作經歷（見 [個人資料檔](../product/features/job-auto-scoring.md#421-個人資料檔)）
   - 範本進版控，真實資料不進版控

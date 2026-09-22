@@ -1,4 +1,4 @@
-"""工作評分需要網路的測試：把固定的測試職缺匯入測試資料庫，以 Gemini API 評分單筆與整批職缺，並檢查寫入資料庫的結果。"""
+"""工作評分需要網路的測試：把固定的測試職缺匯入測試資料庫，以 Gemini API 評所有還沒評分的職缺，並檢查寫入資料庫的結果。"""
 
 import json
 import os
@@ -20,7 +20,7 @@ PROJECT_ROOT = Path(__file__).resolve().parents[2]
 DATA_DIR = Path(__file__).resolve().parent / "data"
 PROFILE_DIR = DATA_DIR / "profile"
 JOBS_FILE = DATA_DIR / "104" / "jobs.json"
-# 單筆與整批共用的測試資料庫，放在專案內方便跑完直接打開查看（output/ 不進版控）
+# 測試資料庫放在專案內，方便跑完直接打開查看（output/ 不進版控）
 E2E_DB = PROJECT_ROOT / "output" / "e2e" / "jobs.db"
 
 
@@ -70,11 +70,18 @@ def _score_rows(db):
 
 def _assert_scored_row(row):
     """
-    確認沒被淘汰的職缺在 job_scores 中的列：總分、評語與評分明細中的值一致
+    確認沒被淘汰的職缺在 job_scores 中的列：評分明細的格式、各維度的分數與理由，以及總分、評語與評分明細中的值一致
 
     :param row: dict, job_scores 的一列
     """
     details = json.loads(row["評分明細"])
+    assert list(details) == ["職缺代碼", "淘汰", "淘汰原因", "維度", "總分", "未知維度", "評語"]
+    assert list(details["維度"]) == list(DIMENSIONS)
+    for name, dim in details["維度"].items():
+        assert dim["理由"].strip(), f"{name} 沒有理由"
+        assert dim["分數"] is None or 1 <= dim["分數"] <= 5
+    assert 0 <= details["總分"] <= 100
+    assert details["評語"]
     assert row["淘汰"] == 0
     assert row["總分"] == details["總分"]
     assert row["評語"] == details["評語"]
@@ -96,55 +103,34 @@ def _pick_job():
 
 @pytest.mark.network
 def test_real_scoring(e2e_db, capsys):
-    job = _pick_job()
-    job_no = str(job["職缺代碼"])
-
-    code = score_job.main(["--profile-dir", str(PROFILE_DIR), "--job-no", job_no, "--db", str(e2e_db)])
-    captured = capsys.readouterr()
-    with closing(open_db(e2e_db)) as conn:
-        data = get_score_details(conn, job_no)
-    with capsys.disabled():
-        print(f"\n職缺：{job['職缺名稱']}｜{job['公司名稱']}")
-        print(captured.err)
-        print(json.dumps(data, ensure_ascii=False, indent=2))
-        print(f"[i] 資料庫：{e2e_db}")
-
-    assert code == 0
-    assert list(data) == ["職缺代碼", "淘汰", "淘汰原因", "維度", "總分", "未知維度", "評語"]
-    assert data["淘汰"] is False
-    assert list(data["維度"]) == list(DIMENSIONS)
-    for name, dim in data["維度"].items():
-        assert dim["理由"].strip(), f"{name} 沒有理由"
-        assert dim["分數"] is None or 1 <= dim["分數"] <= 5
-    assert 0 <= data["總分"] <= 100
-    assert data["評語"]
-
-    _assert_scored_row(_score_rows(e2e_db)[job_no])
-
-
-@pytest.mark.network
-def test_real_batch_scoring(e2e_db, capsys):
     code = score_job.main(["--profile-dir", str(PROFILE_DIR), "--db", str(e2e_db)])
     captured = capsys.readouterr()
+    job = _pick_job()
+    job_no = str(job["職缺代碼"])
     with closing(open_db(e2e_db)) as conn:
         ranked = list_scored_jobs(conn, eliminated=False)
+        data = get_score_details(conn, job_no)
     with capsys.disabled():
         print(f"\n{captured.err}")
         for r in ranked[:3]:
             print(f"{r['總分']:>3}｜{r['職缺名稱']}｜{r['公司名稱']}：{r['評語']}")
+        print(f"\n職缺：{job['職缺名稱']}｜{job['公司名稱']}")
+        print(json.dumps(data, ensure_ascii=False, indent=2))
         print(f"[i] 資料庫：{e2e_db}")
 
     assert code == 0
     assert "評分完成" in captured.err
+    # 挑出的那筆要評分成功，使用者才有理由可以閱讀
+    assert data is not None and data["淘汰"] is False
 
-    # 評分成功與被淘汰的職缺都有評分紀錄。評分失敗的職缺不檢查：資料庫與單筆評分共用，
-    # 可能留有單筆評分寫入的列（失敗不寫入由離線測試驗證）
+    # 評分成功與被淘汰的職缺都有評分紀錄，評分失敗的職缺沒有
     prefs = load_preferences(PROFILE_DIR / "preferences.yaml")
     failed = {line.split()[1] for line in captured.err.splitlines() if line.startswith("[!] ")}
     rows = _score_rows(e2e_db)
     for job in _load_jobs():
         job_no = str(job["職缺代碼"])
         if job_no in failed:
+            assert job_no not in rows
             continue
         row = rows[job_no]
         if check_hard_filters(job, prefs):
