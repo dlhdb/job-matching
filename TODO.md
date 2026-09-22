@@ -4,7 +4,7 @@
 
 ## 實際使用前
 
-- [ ] `profile/preferences.yaml` 與 `profile/experience.md` 目前是測試用的虛構資料，執行 job-auto-scoring AC-score-real（真實評分）前要換成自己的偏好與經歷，才能判斷 AI 的理由是否與自己的判斷相符
+- [ ] `profile/preferences.yaml` 與 `profile/experience.md` 目前是測試用的虛構資料，執行 job-auto-scoring AC-score-ai（理由引用職缺內容、分數符合判斷）前要換成自己的偏好與經歷，才能判斷 AI 的理由是否與自己的判斷相符
 
 ## web app
 
@@ -51,5 +51,9 @@
 
 ## 文件
 
-- [ ] 在 [development.md](docs/conventions/development.md#測試) 的測試慣例補上：業務規則由離線測試驗證（外部服務以固定回應代替）；需網路的驗收只驗真實串接（API 接得通、回應合格），因外部服務錯誤（逾時、限流、服務中斷）失敗時重跑，不算不通過，也不為此放寬驗收
+- [ ] 104-job-scraper 的驗收改成不寫測試手法（見[決策紀錄：驗收不寫測試手法](docs/conventions/decisions/acceptance-without-test-method.md)）：
+  - 6 處「不實際連線到 104」「以固定的搜尋結果代替」「不實際抓取」「記錄每個送出的請求」等改成情境描述
+  - 刪掉 AC-search-real，對 104 的實際抓取改成技術設計「不屬於任何 AC 的檢查」中的整合檢查〔需網路〕，e2e 測試與技術設計的驗收對照跟著調整
+
+- [ ] 在 [development.md](docs/conventions/development.md#測試) 的測試慣例補上：業務規則由離線測試驗證（外部服務以固定回應代替）；需網路的測試只驗真實串接（API 接得通、回應合格），因外部服務錯誤（逾時、限流、服務中斷）失敗時重跑，不算不通過，也不為此放寬驗收
 - [ ] 產品文件與技術文件的定位寫進慣例：docs/product/ 描述產品「應該有的樣子」，規劃確定就更新（未實作的部分以〔規劃中〕、虛線區分）；只有 docs/tech/ 反映實作現況。要改 CLAUDE.md「所有文件都描述系統的現況」與 [documentation.md](docs/conventions/documentation.md#內容) 的「文件描述系統的現況」，並檢查〔規劃中移除〕保留原文的做法是否還需要

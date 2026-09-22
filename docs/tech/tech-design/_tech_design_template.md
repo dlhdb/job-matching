@@ -53,7 +53,8 @@ flowchart LR
 
 - 依使用者故事分組，順序同功能文件，當作核對故事是否完成的清單。
 - 每條 AC 一項，寫驗證指令。已實作故事的每條 AC 都要有一項，反之亦然。〔規劃中〕的故事完成時再補上。
-- 型別檢查這類不屬於任何 AC 的檢查，也寫在這裡。
+- 功能文件的驗收不寫測試手法，這裡寫出各 AC 以固定回應代替外部服務，還是連到真的外部服務驗證。
+- 型別檢查這類不屬於任何 AC 的檢查，也寫在這裡。只驗與外部服務串接、不對應任何 AC 的檢查也一樣。
 - 需要網路的條目標註〔需網路〕，測試放在 `tests/e2e/` 並加上 `@pytest.mark.network`（見 [development.md](../../conventions/development.md#測試)）。
 - 共用的測試資料只簡述用途，細節看測試程式。
 
@@ -66,4 +67,4 @@ uv run pytest tests/test_<模組>*.py
 ### <故事 slug>
 
 - [AC-<slug>-<重點>](../../product/features/_feature_template.md#ac-slug-重點標題)：`uv run pytest tests/test_<模組>.py -k <函式名>`
-- [AC-<slug>-real](../../product/features/_feature_template.md#ac-slug-重點標題)〔需網路〕：`uv run pytest -m network tests/e2e/test_<模組>.py -k real`
+- [AC-<slug>-<重點>](../../product/features/_feature_template.md#ac-slug-重點標題)〔需網路〕：`uv run pytest -m network tests/e2e/test_<模組>.py -k <函式名>`

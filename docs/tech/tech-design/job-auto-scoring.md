@@ -231,7 +231,8 @@ AI 必須輸出以下 JSON（Pydantic 模型 `AIAssessment`）：
 ## 6. 驗收對照
 
 - 只列已實作故事的 AC，〔規劃中〕的故事完成後再補上。
-- 除了〔需網路〕的條目，都離線執行，也不需要 API key。
+- 除了〔需網路〕的條目，都離線執行，也不需要 API key：AI 的回應以假的 LLM client 代替（見下方共用的測試資料）。
+- 只有 [AC-score-ai](../../product/features/job-auto-scoring.md#ac-score-ai理由引用職缺內容分數符合判斷) 呼叫真的 Gemini，因為要看 AI 實際給出的理由。
 
 共用的測試資料放在 `tests/conftest.py`：
 
@@ -262,7 +263,10 @@ uv run pytest tests/test_job_scoring_*.py tests/test_score_job_cli.py
 - [AC-score-salary](../../product/features/job-auto-scoring.md#ac-score-salary薪資計分)：`uv run pytest tests/test_job_scoring_rules.py -k score_salary`
 - [AC-score-total](../../product/features/job-auto-scoring.md#ac-score-total總分計算)：`uv run pytest tests/test_job_scoring_scorer.py -k compute_total`
 - [AC-score-flow](../../product/features/job-auto-scoring.md#ac-score-flow評分流程與-ai-回應處理)：`uv run pytest tests/test_job_scoring_scorer.py -k score_job`
-- [AC-score-real](../../product/features/job-auto-scoring.md#ac-score-real真實評分-需網路)〔需網路〕：`uv run pytest -m network -s tests/e2e/test_job_scoring.py -k real_scoring`
+- [AC-score-ai](../../product/features/job-auto-scoring.md#ac-score-ai理由引用職缺內容分數符合判斷)〔需網路〕：`uv run pytest -m network -s tests/e2e/test_job_scoring.py -k ai_scoring`
+  - 以 e2e 的固定輸入評所有還沒評分的職缺，沒有設定 `GEMINI_API_KEY` 時跳過並說明原因。
+  - 自動檢查：正常結束；每一筆有工作內容、而且沒被淘汰的職缺都評分成功，評分明細的格式、各維度的理由與分數範圍、供應商與模型都正確。
+  - 印出摘要、這些職缺的評分明細，以及測試資料庫的路徑，給使用者閱讀理由。
 - [AC-score-store](../../product/features/job-auto-scoring.md#ac-score-store評分結果入庫)：`uv run pytest tests/test_job_scoring_batch.py -k store`
 - [AC-score-get](../../product/features/job-auto-scoring.md#ac-score-get取出單筆評分結果)：`uv run pytest tests/test_job_scoring_batch.py -k get_score_details`
 - [AC-score-db-path](../../product/features/job-auto-scoring.md#ac-score-db-path資料庫路徑)：`uv run pytest tests/test_score_job_cli.py -k db_path`
