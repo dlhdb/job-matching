@@ -112,7 +112,7 @@ uv run src/import_jobs.py output/104/*.json
 - 評分結果以 `pandas.read_sql` 或任何 SQLite 工具讀取 `job_scores` 表，各維度的分數與理由在 `評分明細` 欄（JSON）。
 - 薪資太低、公司或職稱在排除清單中的職缺會直接淘汰，不呼叫 AI。
 - 想換一份偏好、經歷或模型比較結果時，加上 `--dry-run` 試跑（必須搭配 `--job-no`）：照常呼叫 AI 評分，結果寫到 `output/scores/dryrun_<開始時間>.json` 與 `.csv`，不寫入資料庫。
-- 評分方式見 [job-auto-scoring 評單筆職缺並看懂每個分數](docs/product/features/job-auto-scoring.md#4-評單筆職缺並看懂每個分數score)。
+- 評分方式見 [job-auto-scoring 依偏好與經歷評分並看懂每個分數](docs/product/features/job-auto-scoring.md#4-依偏好與經歷評分並看懂每個分數score)。
 
 ## 在隔離環境中讓 Coding Agent 自主執行
 

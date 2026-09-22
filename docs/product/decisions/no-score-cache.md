@@ -4,7 +4,7 @@
 
 評分結果寫進資料庫後，重評同一筆職缺時，要不要沿用上次的 AI 評分來省下 AI 費用？
 
-不指定 `--job-no` 時，自動評分只評還沒評分的職缺（見 [job-auto-scoring §6.2.1](../features/job-auto-scoring.md#621-要評哪些職缺)）。所以只有使用者用 `--job-no` 指定已經評過的職缺時，才會重評。
+不指定 `--job-no` 時，自動評分只評還沒評分的職缺（見 [job-auto-scoring §6.2.1](../features/job-auto-scoring.md#621-要評哪些職缺)）。所以只有使用者用 `--job-no` 指定已經評過的職缺時，才會重評（見 [job-auto-scoring §7](../features/job-auto-scoring.md#7-重評指定的職缺rescore)）。
 
 ## 考慮過的替代方案
 
@@ -20,4 +20,4 @@
 
 - 不做快取：每次評分都呼叫 AI，被淘汰的職缺除外。
 - 代價：只改了權重或薪資門檻、想重算總分時，用 `--job-no` 重評也會呼叫 AI，AI 的分數可能跟上次不同。
-- 影響 [job-auto-scoring](../features/job-auto-scoring.md) 的 `batch`、`store`、`history` 與 `cache` 故事：`cache` 整章移除。
+- 影響 [job-auto-scoring](../features/job-auto-scoring.md) 的 `unscored`、`rescore`、`store`、`history` 與 `cache` 故事：`cache` 整章移除。
