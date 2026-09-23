@@ -2,10 +2,6 @@
 
 尚未要做、但已經確認之後要處理的事項。開始做某項時，從這裡移除，並依 CLAUDE.md 的功能開發流程進行。
 
-## 實際使用前
-
-- [ ] `profile/preferences.yaml` 與 `profile/experience.md` 目前是測試用的虛構資料，執行 job-auto-scoring AC-score-ai（理由引用職缺內容、分數符合判斷）前要換成自己的偏好與經歷，才能判斷 AI 的理由是否與自己的判斷相符
-
 ## web app
 
 介面形式與階段順序見 [決策紀錄：介面形式選型](docs/product/decisions/interface-selection.md)，以下是第 2 階段之後的項目，各自開工時才寫功能文件。

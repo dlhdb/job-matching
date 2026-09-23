@@ -28,3 +28,7 @@ to-be-confirm/
 
 # Claude Code review marker (see .claude/hooks/require-review.sh)
 .claude/.reviewed-diff
+
+*.local.*
+
+*.DS_Store
