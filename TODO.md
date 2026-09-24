@@ -36,7 +36,13 @@
     - 手動評分的寫入與檢查、`評分來源` 欄，以及評分資料庫「評分的職缺不必先寫進職缺資料庫」的處理（見[補上評分紀錄的遷移](#補上評分紀錄的遷移)）
     - job-score-database 的技術設計併進 job-auto-scoring 的技術設計；architecture.md 的模組、資料表歸屬與 `profile/` 的資料存放位置跟著改
     - 技術設計與 architecture.md 中連到 job-auto-scoring、job-score-database 功能文件的章節與 AC 連結：錨點斷掉的要改，錨點還在但內容已改成網頁版的 AC（例如 AC-score-store、AC-score-failure、AC-history-current）也要重新對照驗證方式
-  - README.md：評分 CLI 的使用說明、複製範本到 `profile/` 的設定步驟，以及專案結構的 `profile/`
+  - 104-job-scraper：
+    - 抓取 CLI（`fetch_104_jobs.py` 的參數、互動模式、Ctrl+C 的處理、`--db`、`--no-db`）與縣市名稱的模糊比對：抓取頁完成時拿掉
+    - CSV 與 JSON 輸出檔（`output/104/`）與檔名規則，以及寫入資料庫失敗時因為檔案已寫出而不中斷的處理
+    - 匯入 CLI（`import_jobs.py`）與它的測試
+    - AC-search-real 改成技術設計「不屬於任何 AC 的檢查」中的整合檢查〔需網路〕，e2e 測試跟著調整
+    - 技術設計與 architecture.md 中連到已刪章節與 AC（output、import、CLI、AC-store 等）的連結改掉，驗收對照改成新的 AC
+  - README.md：抓取與評分 CLI 的使用說明、輸出檔與匯入 JSON 的說明、複製範本到 `profile/` 的設定步驟，以及專案結構的 `profile/`、`output/`
 
 ### 補上評分紀錄的遷移
 
@@ -95,15 +101,6 @@
 - 為什麼：沒寫清楚的話，需網路的測試因外部服務出錯而失敗時，容易被當成不通過，或為此放寬驗收。
 - 做法：在 [development.md](docs/conventions/development.md#測試) 的測試慣例補上：業務規則由離線測試驗證（外部服務以固定回應代替）；需網路的測試只驗真實串接（API 接得通、回應合格），因外部服務錯誤（逾時、限流、服務中斷）失敗時重跑，不算不通過，也不為此放寬驗收
 
-### 把 104-job-scraper 的驗收改成不寫測試手法
-
-- 類型：文件｜相關：104-job-scraper
-- 為什麼：其他功能文件已改成不寫測試手法（見[決策紀錄：驗收不寫測試手法](docs/conventions/decisions/acceptance-without-test-method.md)），只剩這份不一致。
-- 可以和依原型改寫 104-job-scraper 的功能文件一起做，那時 output、匯入等故事也要拿掉
-- 做法：
-  - 6 處「不實際連線到 104」「以固定的搜尋結果代替」「不實際抓取」「記錄每個送出的請求」等改成情境描述
-  - 刪掉 AC-search-real，對 104 的實際抓取改成技術設計「不屬於任何 AC 的檢查」中的整合檢查〔需網路〕，e2e 測試與技術設計的驗收對照跟著調整
-
 ### 標出過時的評分
 
 - 類型：功能｜相關：job-database、job-auto-scoring
@@ -121,6 +118,20 @@
 - 類型：修正｜相關：104-job-scraper、job-database
 - 為什麼：104 本來就分開提供縣市行政區與街道地址，爬蟲卻用空白合成 `地區` 一欄，名稱也和內容不符；職缺表的地區篩選因此也會比對到街道名稱。
 - 做法：把 `地區` 拆成 `縣市行政區` 與 `街道地址`，web app 的地區篩選改成只比對縣市行政區，既有資料用「先備份再遷移」處理
+
+### 把 commit 前審查做成 skill
+
+- 類型：改善｜相關：無
+- 條件：依 web app 原型改寫產品文件的 commit 都完成
+- 為什麼：commit 前審查是每次都要照走的多步驟流程，細節散在 CLAUDE.md 功能開發流程第 4 步與 Claude 的記憶（doc-review-threshold）。記憶不進版控，也只在想起來時才用得上；依原型改 job-database 時審查跑了 7 輪，就是因為沒先列出已決定的項目、修正門檻也不清楚。
+- 做法：新增專案 skill（`.claude/skills/`），寫下整個流程：
+  - 用獨立的指令 `git add` → 呼叫 `/code-review` 時附上已決定、不要再報的項目（使用者決定不修的、之後的 commit 才處理的暫時不一致）→ 逐點判斷修或不修 → 修正後重新暫存再審查，最多三輪 → `.claude/hooks/require-review.sh --mark` → 單獨執行 `git commit`
+  - 每一輪的審查結果與判斷（修／不修與理由）寫在一般訊息裡，不只放在詢問的選項前面
+  - 修正需要使用者決定、或第三輪後仍有問題時，停下來詢問
+- 開工時要決定：
+  - 修正門檻怎麼分：文件只修錯誤或互相矛盾（「可以寫得更細」只在會讓實作做錯時才補），程式碼照樣修所有 bug
+  - CLAUDE.md 第 4 步改成只寫「用這個 skill 審查」，細節只留在 skill；記憶 doc-review-threshold 改成只指向 skill
+  - 要不要寫一份 `docs/conventions/decisions/` 的決策紀錄，說明為什麼從 CLAUDE.md 搬到 skill
 
 ### 做趨勢圖表
 

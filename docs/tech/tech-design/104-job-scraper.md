@@ -94,7 +94,7 @@ flowchart LR
 
 頻率：
 
-- 詳情請求不加延遲會被 104 拒絕，延遲的區間見[功能文件的非功能需求](../../product/features/104-job-scraper.md#9-非功能需求)。
+- 詳情請求不加延遲會被 104 拒絕，延遲的區間見[功能文件的非功能需求](../../product/features/104-job-scraper.md#7-非功能需求)。
 
 ## 6. 錯誤處理與結束碼
 
@@ -138,7 +138,7 @@ uv run pytest tests/test_fetch_104_jobs.py tests/test_import_jobs.py
 ### search
 
 - [AC-search-keyword](../../product/features/104-job-scraper.md#ac-search-keyword關鍵字拆分)：`uv run pytest tests/test_fetch_104_jobs.py -k parse_keywords`
-- [AC-search-area](../../product/features/104-job-scraper.md#ac-search-area地區解析)：`uv run pytest tests/test_fetch_104_jobs.py -k resolve_area`
+- [AC-search-area](../../product/features/104-job-scraper.md#ac-search-area縣市)：`uv run pytest tests/test_fetch_104_jobs.py -k resolve_area`
 - [AC-search-dedup](../../product/features/104-job-scraper.md#ac-search-dedup去重與分頁)：`uv run pytest tests/test_fetch_104_jobs.py -k "dedups or stops_on_empty_page or respects_page_limit or accepts_single_string"`
 - [AC-search-request](../../product/features/104-job-scraper.md#ac-search-request請求與錯誤處理)：`uv run pytest tests/test_fetch_104_jobs.py -k fetch_job`
 - [AC-search-real](../../product/features/104-job-scraper.md#ac-search-real實際抓取與輸出-需網路)〔需網路〕：`uv run pytest -m network tests/e2e/test_fetch_104_jobs.py`
@@ -150,7 +150,7 @@ uv run pytest tests/test_fetch_104_jobs.py tests/test_import_jobs.py
 ### output
 
 - [AC-output-files](../../product/features/104-job-scraper.md#ac-output-files輸出檔)：`uv run pytest tests/test_fetch_104_jobs.py -k "save or execute_scraping_filename or execute_scraping_no_jobs"`
-- [AC-output-format](../../product/features/104-job-scraper.md#ac-output-format欄位格式正規化)：`uv run pytest tests/test_fetch_104_jobs.py -k "format_date or normalize_url"`
+- [AC-detail-format](../../product/features/104-job-scraper.md#ac-detail-format欄位格式正規化)：`uv run pytest tests/test_fetch_104_jobs.py -k "format_date or normalize_url"`
 
 ### store
 

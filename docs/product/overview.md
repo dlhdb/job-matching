@@ -60,7 +60,7 @@
 
 ```mermaid
 flowchart LR
-    scraper["104-job-scraper 104 職缺爬蟲 (UP-01)"] -->|職缺 JSON| db["job-database 職缺資料庫"]
+    scraper["104-job-scraper 104 職缺爬蟲 (UP-01)"] -->|預覽後存入的職缺| db["job-database 職缺資料庫"]
     db -->|要評的職缺| scoring["job-auto-scoring 職缺自動評分 (UP-02)"]
     scoring -->|依分數列出，帶出職缺欄位| U2(["使用者依分數查詢"])
     db -.->|歷次職缺| trend["trend-analysis 趨勢與興趣分佈 (UP-04、UP-05)"]
@@ -81,9 +81,9 @@ flowchart LR
 
 功能：
 
-- 104-job-scraper（104 職缺爬蟲）：從 104 擷取職缺，轉換成結構化資料供 AI 分析，並存進職缺資料庫。
+- 104-job-scraper（104 職缺爬蟲）：從 104 擷取職缺，轉換成結構化資料，預覽後存進職缺資料庫。
   - 解決的使用者問題：UP-01
-  - 狀態：✅ 已完成
+  - 狀態：待實作
   - 文件：[104-job-scraper.md](features/104-job-scraper.md)
 - job-database（職缺資料庫）：保管所有寫進來的職缺，跨次去重並記錄出現時間，定義職缺欄位契約，並在職缺表上瀏覽、篩選累積下來的職缺。
   - 解決的使用者問題：UP-01
