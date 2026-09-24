@@ -58,7 +58,7 @@
 - 選好的欄位、篩選與排序記在瀏覽器，下次打開沿用；記不住時退回預設。
 - 點一列展開，顯示完整的職缺欄位、工作內容、出現時間，以及職缺頁與公司頁的連結。
 
-篩選，加在 [query 故事](features/job-database.md#5-查出累積下來的職缺query)：
+篩選，加在 [query 故事](features/job-database.md#5-在職缺表瀏覽篩選累積下來的職缺query)：
 
 - 關鍵字：比對職缺名稱、公司名稱、工作內容、電腦專長。
 - 地區：比對 `地區` 是否包含輸入的文字，可以篩到縣市或行政區，例如 `台北市`、`內湖`。
@@ -296,7 +296,6 @@
   - [store 故事](features/104-job-scraper.md#7-抓完的職缺自動存進職缺資料庫store)：改成預覽後整批存入，`執行時間` 用抓完或停止的時間；「寫入資料庫失敗時不中斷，因為 CSV／JSON 已經寫出」的理由不再成立。
   - [匯入故事](features/104-job-scraper.md#8-把過去抓好的-json-匯進來import)與互動模式：抓取頁完成時和 CLI 一起拿掉。
   - [CLI](features/104-job-scraper.md#1021-cli)：抓取頁完成時拿掉。
-- job-database：範圍外的「互動式瀏覽介面」。
 - 產品文件以外，實作時一起改：
   - README.md：CLI 使用說明、複製範本到 `profile/` 的設定步驟，以及專案結構的 `profile/`。
   - architecture.md：模組與資料表的歸屬，以及 `profile/` 的資料存放位置。

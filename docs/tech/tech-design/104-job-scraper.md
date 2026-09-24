@@ -54,7 +54,7 @@ flowchart LR
   - `特色標籤` ← `tags` 的 `desc`
   - `職缺連結` ← `link.job`
   - `公司連結` ← `link.cust`
-- 欄位由 [job-database 的職缺欄位契約](../../product/features/job-database.md#721-職缺欄位契約)決定，`job_db` 的 `JOB_COLUMNS` 是它的實作，本功能的 `CSV_FIELDNAMES` 對齊它。
+- 欄位由 [job-database 的職缺欄位契約](../../product/features/job-database.md#821-職缺欄位契約)決定，`job_db` 的 `JOB_COLUMNS` 是它的實作，本功能的 `CSV_FIELDNAMES` 對齊它。
 - 新增欄位時要同步修改：
   - 職缺欄位契約與 `job_db` 的 `JOB_COLUMNS`
   - `parse_jobs()` 與 `CSV_FIELDNAMES`：`job_db` 不 import 爬蟲，兩份欄名是否一致由本功能的測試檢查（見 [§7](#7-驗收對照)）

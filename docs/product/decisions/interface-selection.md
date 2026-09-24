@@ -27,7 +27,7 @@
 - 瀏覽介面做成本機 web app：單人、只跑在本機，不做帳號系統，也不對外公開，符合[非目標](../overview.md#非目標)。
 - 抓取與評分維持 CLI，介面只負責看。
 - 分階段推進，每一階段自己就有價值：
-  1. 職缺資料庫的查詢介面，見 [job-database §5](../features/job-database.md#5-查出累積下來的職缺query) 與 [job-score-database §4](../features/job-score-database.md#4-依分數查詢評分query)。
+  1. 職缺資料庫的查詢介面，見 [job-database §5](../features/job-database.md#5-在職缺表瀏覽篩選累積下來的職缺query) 與 [job-score-database §4](../features/job-score-database.md#4-依分數查詢評分query)。
   2. 唯讀的職缺瀏覽頁。
   3. 標記（已讀、想投、略過），開始為 UP-05 累積資料。
   4. 趨勢圖表，trend-analysis 的交付形式屆時再定。

@@ -87,9 +87,9 @@ flowchart LR
   - 解決的使用者問題：UP-01
   - 狀態：✅ 已完成
   - 文件：[104-job-scraper.md](features/104-job-scraper.md)
-- job-database（職缺資料庫）：保管所有寫進來的職缺，跨次去重並記錄出現時間，定義職缺欄位契約。
+- job-database（職缺資料庫）：保管所有寫進來的職缺，跨次去重並記錄出現時間，定義職缺欄位契約，並在職缺表上瀏覽、篩選累積下來的職缺。
   - 解決的使用者問題：UP-01
-  - 狀態：✅ 已完成
+  - 狀態：待實作
   - 文件：[job-database.md](features/job-database.md)
 - job-score-database（評分資料庫）：保存每筆職缺的評分紀錄（是否淘汰、總分、評語），依分數列出並帶出職缺欄位，不管評分怎麼產生。
   - 解決的使用者問題：UP-02
@@ -124,7 +124,7 @@ flowchart LR
     class trend planned
 ```
 
-- job-database 不依賴任何功能：它只定義[職缺欄位契約](features/job-database.md#721-職缺欄位契約)與寫入規則，不需要知道誰在寫它。
+- job-database 不依賴任何功能：它只定義[職缺欄位契約](features/job-database.md#821-職缺欄位契約)與寫入規則，不需要知道誰在寫它。
 - job-score-database 不需要知道評分怎麼產生：它只定義[評分紀錄契約](features/job-score-database.md#821-評分紀錄契約)，自動評分需要的欄位由 job-auto-scoring 疊加，理由見[決策紀錄：拆分評分資料庫與自動評分](decisions/score-feature-split.md)。
 
 ### 現況
@@ -168,7 +168,7 @@ flowchart LR
 - 〔規劃中〕：標在尚未實作的使用者故事或被改到的那一行，見 [documentation.md](../conventions/documentation.md#功能文件的結構)
 - 現況：某個功能目前讓使用者做得到的事，見 [現況](#現況)
 - 決策紀錄（ADR）：有替代方案的取捨，寫出不採用的原因，依性質放在產品、技術或慣例的 `decisions/`，見 [documentation.md](../conventions/documentation.md#決策紀錄)
-- 職缺代碼：求職平台的職缺識別碼（104 是 `jobNo`），見 [job-database 的職缺欄位契約](features/job-database.md#721-職缺欄位契約)
+- 職缺代碼：求職平台的職缺識別碼（104 是 `jobNo`），見 [job-database 的職缺欄位契約](features/job-database.md#821-職缺欄位契約)
   - 用於去重，也用來識別職缺資料庫中的職缺
 - 淘汰：職缺符合硬性淘汰條件（公司、職稱關鍵字、薪資低於底線），見 [job-auto-scoring §5.2.1](features/job-auto-scoring.md#521-硬性淘汰規則)
   - 被淘汰的職缺不呼叫 AI、沒有總分

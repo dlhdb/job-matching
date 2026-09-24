@@ -28,7 +28,7 @@ flowchart LR
 
 - `job_db` 在最底層，不 import 專案內的其他模組。
   - 原因：來源功能會 import `job_db`，反向 import 會形成循環。
-  - `schema.py` 的 `JOB_COLUMNS` 是[職缺欄位契約](../../product/features/job-database.md#721-職缺欄位契約)的實作，來源功能自己的欄名（例如爬蟲的 `CSV_FIELDNAMES`）對齊它，是否一致由來源功能的測試檢查（見 [104-job-scraper 技術設計](104-job-scraper.md#7-驗收對照)）。
+  - `schema.py` 的 `JOB_COLUMNS` 是[職缺欄位契約](../../product/features/job-database.md#821-職缺欄位契約)的實作，來源功能自己的欄名（例如爬蟲的 `CSV_FIELDNAMES`）對齊它，是否一致由來源功能的測試檢查（見 [104-job-scraper 技術設計](104-job-scraper.md#7-驗收對照)）。
   - 其他模組呼叫 `job_db` 時，參數都用基本型別。
 - 使用標準函式庫 `sqlite3`，不新增依賴（選用 SQLite 的理由見 [決策紀錄：資料庫選型](../decisions/database-selection.md)）。
 - 以 `uv run src/<腳本>.py` 執行時，`src/` 在 import 路徑上，來源功能不需要額外設定就能 import `job_db`。
@@ -53,7 +53,7 @@ flowchart LR
 
 ## 3. 資料與儲存
 
-實現 FR-db、FR-save-run。每個欄位的業務意義見[功能文件的保存的資訊](../../product/features/job-database.md#722-保存的資訊)。
+實現 FR-db、FR-save-run。每個欄位的業務意義見[功能文件的保存的資訊](../../product/features/job-database.md#822-保存的資訊)。
 
 ### 3.1 開啟資料庫
 
@@ -66,7 +66,7 @@ flowchart LR
 
 `jobs`：每筆職缺一列。
 
-- [職缺欄位契約](../../product/features/job-database.md#721-職缺欄位契約)的全部欄位：
+- [職缺欄位契約](../../product/features/job-database.md#821-職缺欄位契約)的全部欄位：
   - 欄名、順序與契約相同
   - `職缺代碼` 是主鍵
   - 型態依契約轉換：str → `TEXT`，int → `INTEGER`
@@ -86,7 +86,7 @@ flowchart LR
   - 不是匯入時為 `NULL`，SQLite 的 UNIQUE 允許多個 `NULL`
 - `職缺數`（INTEGER NOT NULL）
 
-`關鍵字`、`地區`、`職缺性質`、`頁數`、`來源檔` 是來源功能提供的寫入條件（見 [job-database §7.2.2](../../product/features/job-database.md#722-保存的資訊)），目前的欄位是唯一的來源 104-job-scraper 留下的形狀。接第二個求職平台時要重新設計（見 [TODO.md](../../../TODO.md#把職缺欄位契約改成平台中立)）。
+`關鍵字`、`地區`、`職缺性質`、`頁數`、`來源檔` 是來源功能提供的寫入條件（見 [job-database §8.2.2](../../product/features/job-database.md#822-保存的資訊)），目前的欄位是唯一的來源 104-job-scraper 留下的形狀。接第二個求職平台時要重新設計（見 [TODO.md](../../../TODO.md#把職缺欄位契約改成平台中立)）。
 
 `run_jobs`：一次寫入與其中出現的職缺。
 
@@ -100,7 +100,7 @@ flowchart LR
 
 ### 3.3 查詢
 
-實現 FR-query-*。`queries.py` 提供職缺與執行紀錄的查詢，回傳以中文欄名為鍵的 `dict`，鍵就是[職缺欄位契約](../../product/features/job-database.md#721-職缺欄位契約)的欄名，呼叫端不必做欄名對照：
+實現 FR-query-*。`queries.py` 提供職缺與執行紀錄的查詢，回傳以中文欄名為鍵的 `dict`，鍵就是[職缺欄位契約](../../product/features/job-database.md#821-職缺欄位契約)的欄名，呼叫端不必做欄名對照：
 
 - `list_jobs`：依條件列出職缺，`run_id` 經由 `run_jobs` 篩出某一次寫入出現的職缺。
 - `get_job`：以職缺代碼取單筆，查不到時回傳 `None`，不回傳空 `dict`。
