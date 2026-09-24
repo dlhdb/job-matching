@@ -22,7 +22,7 @@
 
 - 類型：功能｜相關：104-job-scraper、job-database、job-auto-scoring
 - 為什麼：撈完職缺之後的排序、篩選、逐筆判讀，目前沒有一個地方做得完（見[決策紀錄：介面形式選型](docs/product/decisions/interface-selection.md)）。
-- 範圍：職缺表（篩選、排序、點一列展開）、抓取頁（抓取、預覽、存入）、從介面送去評分、設定編輯與試跑。設計見 [web-app-prototype.md](docs/product/web-app-prototype.md)，開工前先依它的第 6 章改功能文件。
+- 範圍：職缺表（篩選、排序、點一列展開）、抓取頁（抓取、預覽、存入）、從介面送去評分、設定編輯與試跑。需求見各功能文件：[job-database](docs/product/features/job-database.md)、[104-job-scraper](docs/product/features/104-job-scraper.md)、[job-auto-scoring](docs/product/features/job-auto-scoring.md)，標〔規劃中〕的部分；介面的分工見[決策紀錄：介面形式選型](docs/product/decisions/interface-selection.md)。原型在 `prototypes/job-table/`。
 - 技術選型暫定 FastAPI + Jinja2 + HTMX：伺服器端渲染、無前端 build 步驟。替代方案是 Streamlit，做得快但每次互動整頁重跑，上百筆職缺的逐筆判讀會卡、也無法做鍵盤操作。開工時把這個取捨寫成 `docs/tech/decisions/` 的技術決策紀錄
 - 實作時要一起移除或修改的程式、測試與技術設計（功能文件已先改好）：
   - job-database：
@@ -48,7 +48,7 @@
 
 - 類型：功能｜相關：job-database、job-auto-scoring
 - 為什麼：目前舊版資料庫要刪除後重建，評分紀錄不保留。第 2 階段要改 `job_scores`（記錄設定的版本與送評時的職缺內容快照、拿掉 `評分來源`），設定的版本也要存進資料庫，而且不再輸出 JSON，職缺也無法再從 JSON 重新匯入，改版前要能保留資料。
-- 做法：依原型的定案，改成先備份資料庫再遷移，遷移失敗時用備份還原
+- 做法：先備份資料庫再遷移，遷移失敗時用備份還原（需求見 [job-auto-scoring 的 NFR-migration](docs/product/features/job-auto-scoring.md#121-需求)）
   - 偵測舊版 schema（沒有 `評分來源`，`職缺代碼` 是主鍵）後重建 `job_scores`，舊的 `評分結果` 搬到 `評分明細`
   - 舊版 schema 中手動評分寫入的列沒有 `評分結果`，新結構拿掉手動評分後無法表示這種列：遷移時略過，並在遷移結果列出略過的筆數。本機資料庫已經是有 `評分來源` 的版本，而且都是 `auto`，實際不會遇到
   - 更早的版本 `評分結果` 是 `NOT NULL`，自動評分淘汰時寫入的列 `評語` 是 `NULL`
@@ -110,7 +110,7 @@
   - 正規化後比對（NFKC、合併空白與換行，可忽略標點），排除空白、全半形這類變動
   - 工作內容看改動量（`difflib.SequenceMatcher`），低於門檻就忽略；短欄位正規化後有差異就算。字少但意思大變的改動（「3 年」改「8 年」、「不需加班」改「需配合加班」）要另外擋，例如改動片段含數字或否定、要求用詞就算顯著
 - 做法：`jobs` 加「內容變更時間」欄（`ALTER TABLE ADD COLUMN`），職缺表標出「最新評分早於內容變更時間」的職缺，並能篩選出來勾選重評。上線前的變更不會被記到，JSON 匯入拿掉後就無法補上
-- 開工時要決定比對的基準：跟上次抓到的內容比最簡單，但連續小改會一直低於門檻；跟評分當時的內容比較準。web app 的評分紀錄會存送評時的職缺內容快照（2026-09-24 審查原型時決定，欄位是上面「影響評分的欄位」再加上薪資待遇，見 [web app 原型設計](docs/product/web-app-prototype.md#33-job-auto-scoring)），跟評分當時比就有資料可用，只有之前的評分沒有快照
+- 開工時要決定比對的基準：跟上次抓到的內容比最簡單，但連續小改會一直低於門檻；跟評分當時的內容比較準。web app 的評分紀錄會存送評時的職缺內容快照（2026-09-24 審查原型時決定，欄位是上面「影響評分的欄位」再加上薪資待遇，見 [job-auto-scoring 的 basis 故事](docs/product/features/job-auto-scoring.md#11-看得出每個分數依據什麼評的basis)），跟評分當時比就有資料可用，只有之前的評分沒有快照
 - 門檻先用 `output/104/` 的歷史檔統計同一職缺代碼的內容實際變動多少再定
 
 ### 拆開地區欄位

@@ -6,7 +6,6 @@
   - [product/overview.md](product/overview.md)：產品總覽，包括目標與成功指標、使用者問題、非目標、使用者旅程、功能清單與現況、名詞定義
   - [product/features/](product/features/)：單一功能的功能文件，包括需求、業務規則與驗收標準，一個功能一份
   - [product/decisions/](product/decisions/)：產品取捨的決策紀錄
-  - [product/web-app-prototype.md](product/web-app-prototype.md)：web app 原型已定案的設計與待決事項，是過渡文件，設計改進功能文件後刪除
 - [tech/](tech/)：技術文件，寫怎麼做，讀者是工程師
   - [tech/architecture.md](tech/architecture.md)：跨功能的技術總覽，包括模組依賴、資料存放與技術選型
   - [tech/tech-design/](tech/tech-design/)：單一功能的技術設計，一個功能一份，檔名與功能文件相同
