@@ -18,14 +18,6 @@
 
 ## P0：影響核心價值或擋住主線
 
-### 寫清楚產品文件與技術文件的定位
-
-- 類型：文件｜相關：全部
-- 為什麼：CLAUDE.md 與 documentation.md 寫「文件描述系統的現況」，但現在的做法是規劃確定就改產品文件。依 web app 原型改功能文件之前要先定，否則每次改都會卡在這條規則。
-- 做法：寫進慣例：docs/product/ 描述產品「應該有的樣子」，規劃確定就更新（未實作的部分以〔規劃中〕、虛線區分）；只有 docs/tech/ 反映實作現況
-  - 要改 CLAUDE.md「所有文件都描述系統的現況」與 [documentation.md](docs/conventions/documentation.md#內容) 的「文件描述系統的現況」
-  - 檢查〔規劃中移除〕保留原文的做法是否還需要
-
 ### 做出 web app 第 2 階段
 
 - 類型：功能｜相關：104-job-scraper、job-database、job-auto-scoring

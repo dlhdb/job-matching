@@ -1,6 +1,6 @@
 # 文件導覽 — 求職雷達
 
-所有文件都描述系統的現況，需求或實作改變時就直接更新。文件依讀者分成三區（理由見[決策紀錄：產品文件與技術文件分目錄](conventions/decisions/product-tech-directories.md)）：
+產品文件寫產品應有的樣子，規劃確定就更新；技術文件只寫已實作的現況，見 [documentation.md 的文件分區](conventions/documentation.md#文件分區)。文件依讀者分成三區（理由見[決策紀錄：產品文件與技術文件分目錄](conventions/decisions/product-tech-directories.md)）：
 
 - [product/](product/)：產品文件，寫為什麼做、做什麼，讀者是 PM、設計師、架構師與工程師
   - [product/overview.md](product/overview.md)：產品總覽，包括目標與成功指標、使用者問題、非目標、使用者旅程、功能清單與現況、名詞定義
@@ -30,6 +30,7 @@
      - 擴大處理量，例如單筆改成批次
      - 只是規則或結果改變
    - 修改時，新增或修改的使用者故事標上[〔規劃中〕](conventions/documentation.md#功能文件的結構)，狀態退回 `待規劃`，該功能的「現況」維持不變。
+   - 要拿掉的故事或規則直接刪除，實作時要一起移除的部分記到 TODO.md。
 2. 範圍外的每一項都要有去處（功能清單、TODO.md 或非目標），寫法見[功能文件範本](product/features/_feature_template.md)的「範圍」。
 3. 定稿：「待決問題」清空後，狀態改為 `待實作`。還有待決問題的功能，不要開始實作。
 4. 實作：狀態改為 `實作中`。
