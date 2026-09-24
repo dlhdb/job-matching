@@ -28,6 +28,7 @@ uv add <pkg>                 # 新增依賴
 - 跨功能的模組依賴、資料存放位置與各資料表的負責功能、技術選型總覽：[docs/tech/architecture.md](docs/tech/architecture.md)
 - 單一功能的為什麼做、做什麼（需求、範圍、業務規則、驗收標準、CLI 參數）：`docs/product/features/<功能 ID>.md`，功能 ID 見 overview 的功能清單
 - 單一功能怎麼做（系統輪廓、模組分工、資料表、外部系統的技術限制、驗收對應的測試指令）：`docs/tech/tech-design/<功能 ID>.md`
+- web app 原型已定案的設計與待決事項（改功能文件前的過渡文件）：[docs/product/web-app-prototype.md](docs/product/web-app-prototype.md)
 - 功能文件、技術設計各章的寫法：[docs/product/features/_feature_template.md](docs/product/features/_feature_template.md)、[docs/tech/tech-design/_tech_design_template.md](docs/tech/tech-design/_tech_design_template.md)
 - 專案檔案結構：[README.md](README.md) 的「專案結構」
 - 文件撰寫規範（跨文件的規則、〔規劃中〕、FR／AC 命名、決策紀錄、格式）：[docs/conventions/documentation.md](docs/conventions/documentation.md)

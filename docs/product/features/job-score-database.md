@@ -27,9 +27,9 @@
 
 範圍外（實作時不要做）：
 
-- 手動填分的 CLI 或介面：本功能只提供寫入的方式，入口見 [TODO.md](../../../TODO.md#web-app)
-- 已讀、想投、略過等標記：屬之後的標記功能，另外保存，不共用評分紀錄（見 [TODO.md](../../../TODO.md#web-app)、[決策紀錄：拆分評分資料庫與自動評分](../decisions/score-feature-split.md)）
-- 互動式瀏覽介面：本功能只提供查詢，介面見 [TODO.md](../../../TODO.md#web-app)，介面形式見[決策紀錄：介面形式選型](../decisions/interface-selection.md)
+- 手動填分的 CLI 或介面：本功能只提供寫入的方式，已決定拿掉手動評分，見 [web app 原型的設計](../web-app-prototype.md#33-job-auto-scoring)
+- 已讀、想投、略過等標記：屬之後的標記功能，另外保存，不共用評分紀錄（見 [TODO.md](../../../TODO.md#標記職缺)、[決策紀錄：拆分評分資料庫與自動評分](../decisions/score-feature-split.md)）
+- 互動式瀏覽介面：本功能只提供查詢，介面見 [TODO.md](../../../TODO.md#做出-web-app-第-2-階段)，介面形式見[決策紀錄：介面形式選型](../decisions/interface-selection.md)
 
 ## 3. 輸入與輸出
 

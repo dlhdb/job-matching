@@ -32,3 +32,5 @@ to-be-confirm/
 *.local.*
 
 *.DS_Store
+
+plans/

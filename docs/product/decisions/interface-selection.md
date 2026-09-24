@@ -20,7 +20,7 @@
   - web app 開一個 port 由編輯器轉發就能用，沒有這些成本。
 - 把抓取與評分也搬進介面：
   - 這兩件事是有頻率限制、會花錢的一次性批次作業，需要背景作業、進度回報與失敗重試。
-  - 在那之前，執行一次 CLI 再重新整理頁面就夠用（見 [TODO.md](../../../TODO.md#web-app)）。
+  - 在那之前，執行一次 CLI 再重新整理頁面就夠用。
 
 ## 最終決策
 
@@ -32,6 +32,6 @@
   3. 標記（已讀、想投、略過），開始為 UP-05 累積資料。
   4. 趨勢圖表，trend-analysis 的交付形式屆時再定。
   5. 從介面觸發抓取與評分。
-  - 第 2 階段之後的項目記在 [TODO.md](../../../TODO.md#web-app)，各自開工時才寫功能文件。
-- web app 用哪一套框架屬技術選型，等第 2 階段開工時再寫成技術決策紀錄，暫定的選擇記在 [TODO.md](../../../TODO.md#web-app)。
+  - 第 2 階段之後的項目記在 [TODO.md](../../../TODO.md)，各自開工時才寫功能文件。
+- web app 用哪一套框架屬技術選型，等第 2 階段開工時再寫成技術決策紀錄，暫定的選擇記在 [TODO.md](../../../TODO.md#做出-web-app-第-2-階段)。
 - 影響的文件：[job-database.md](../features/job-database.md)、[job-score-database.md](../features/job-score-database.md)、[overview.md](../overview.md)、[TODO.md](../../../TODO.md)。

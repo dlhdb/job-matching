@@ -151,6 +151,7 @@ src/            程式碼：爬蟲、職缺資料庫、評分 CLI 與評分邏�
 tests/          測試
 notebooks/      分析資料的 Jupyter notebook
 scripts/        工具腳本
+prototypes/     介面原型（假資料，確認介面用）
 profile/        使用者的求職偏好與工作經歷（真實資料不進版控）
 output/         應用程式輸出結果（不進版控）
 data/           職缺資料庫 jobs.db（不進版控）

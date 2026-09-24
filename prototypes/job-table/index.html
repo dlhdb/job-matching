@@ -1,0 +1,2257 @@
+<!doctype html>
+<html lang="zh-Hant">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>求職雷達職缺表</title>
+<style>
+:root {
+  --bg: #f6f7f9;
+  --surface: #ffffff;
+  --surface-2: #f0f2f5;
+  --border: #d9dde3;
+  --text: #1c2026;
+  --muted: #5f6873;
+  --accent: #2458c6;
+  --accent-soft: #e5ecfb;
+  --danger: #b3261e;
+  --danger-soft: #fbe9e7;
+  --ok: #1d7a46;
+  --ok-soft: #e3f4ea;
+  --warn-soft: #fff4d6;
+  --owner-scraper: #1d7a46;
+  --owner-db: #2458c6;
+  --owner-auto: #6b3fa0;
+  --row-hover: #f3f6fb;
+  --row-open: #eaf0fb;
+  --overlay: rgba(20, 24, 31, .45);
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --bg: #121418;
+    --surface: #1b1e24;
+    --surface-2: #23272e;
+    --border: #353a43;
+    --text: #e6e8eb;
+    --muted: #9aa3ad;
+    --accent: #7ea6ff;
+    --accent-soft: #22304d;
+    --danger: #ff8a80;
+    --danger-soft: #3a1f1d;
+    --ok: #6fd39a;
+    --ok-soft: #1c3326;
+    --warn-soft: #3a3220;
+    --owner-scraper: #6fd39a;
+    --owner-db: #7ea6ff;
+    --owner-auto: #c3a1f0;
+    --row-hover: #20252d;
+    --row-open: #1f2a3d;
+    --overlay: rgba(0, 0, 0, .6);
+  }
+}
+:root[data-theme="dark"] {
+  --bg: #121418;
+  --surface: #1b1e24;
+  --surface-2: #23272e;
+  --border: #353a43;
+  --text: #e6e8eb;
+  --muted: #9aa3ad;
+  --accent: #7ea6ff;
+  --accent-soft: #22304d;
+  --danger: #ff8a80;
+  --danger-soft: #3a1f1d;
+  --ok: #6fd39a;
+  --ok-soft: #1c3326;
+  --warn-soft: #3a3220;
+  --owner-scraper: #6fd39a;
+  --owner-db: #7ea6ff;
+  --owner-auto: #c3a1f0;
+  --row-hover: #20252d;
+  --row-open: #1f2a3d;
+  --overlay: rgba(0, 0, 0, .6);
+}
+
+* { box-sizing: border-box; }
+body {
+  margin: 0;
+  background: var(--bg);
+  color: var(--text);
+  font: 14px/1.5 system-ui, -apple-system, "Noto Sans TC", "PingFang TC", "Microsoft JhengHei", sans-serif;
+}
+button, input, select, textarea { font: inherit; color: inherit; }
+a { color: var(--accent); }
+[hidden] { display: none !important; }
+
+header {
+  display: flex; flex-wrap: wrap; align-items: center; gap: 8px 16px;
+  padding: 10px 16px;
+  background: var(--surface);
+  border-bottom: 1px solid var(--border);
+  position: sticky; top: 0; z-index: 20;
+}
+header h1 { font-size: 17px; margin: 0; }
+header .proto { font-size: 12px; color: var(--muted); }
+header .spacer { flex: 1; }
+nav.tabs { display: flex; gap: 4px; }
+nav.tabs button {
+  border: 1px solid transparent; background: none; padding: 5px 12px; border-radius: 6px; cursor: pointer;
+}
+nav.tabs button[aria-selected="true"] { background: var(--accent-soft); color: var(--accent); border-color: var(--accent); }
+.job-indicator {
+  display: inline-flex; align-items: center; gap: 8px; font-size: 13px;
+  background: var(--warn-soft); padding: 3px 10px; border-radius: 999px; cursor: pointer; border: 0;
+}
+.job-indicator .bar { width: 80px; height: 6px; background: var(--border); border-radius: 3px; overflow: hidden; }
+.job-indicator .bar > span { display: block; height: 100%; background: var(--accent); }
+
+main { padding: 12px 16px 40px; max-width: 1600px; margin: 0 auto; }
+
+.btn {
+  border: 1px solid var(--border); background: var(--surface);
+  padding: 5px 10px; border-radius: 6px; cursor: pointer;
+}
+.btn:hover:not(:disabled) { border-color: var(--accent); }
+.btn:disabled { opacity: .45; cursor: not-allowed; }
+.btn.primary { background: var(--accent); border-color: var(--accent); color: var(--surface); }
+.btn.danger { color: var(--danger); border-color: var(--danger); }
+.toggle { display: inline-flex; align-items: center; gap: 6px; cursor: pointer; user-select: none; }
+
+.card {
+  background: var(--surface); border: 1px solid var(--border); border-radius: 8px; padding: 12px;
+}
+.filters, .crawl-form { display: flex; flex-wrap: wrap; gap: 12px 20px; align-items: flex-end; }
+.field { display: flex; flex-direction: column; gap: 4px; min-width: 0; }
+.field > label, .field > .label { font-size: 12px; color: var(--muted); }
+.field input[type="search"], .field input.wide { width: 260px; max-width: 100%; }
+.field input, .field select, .field textarea {
+  border: 1px solid var(--border); background: var(--surface); border-radius: 6px; padding: 5px 8px;
+}
+.field .hint { font-size: 12px; color: var(--muted); }
+.field input:disabled, .field select:disabled { opacity: .45; cursor: not-allowed; }
+.field .err { color: var(--danger); font-size: 12px; }
+.range { display: flex; align-items: center; gap: 6px; }
+.range input { width: 72px; }
+.filter-tag {
+  display: inline-flex; align-items: center; gap: 6px; padding: 3px 4px 3px 10px; border-radius: 999px;
+  background: var(--accent-soft); color: var(--accent); border: 1px solid var(--accent); font-size: 13px;
+}
+.filter-tag button { border: 0; background: none; color: inherit; cursor: pointer; padding: 0 6px; font-size: 14px; line-height: 1; }
+
+.progress { margin-top: 12px; display: flex; flex-direction: column; gap: 6px; }
+.progress .bar { height: 8px; background: var(--surface-2); border-radius: 4px; overflow: hidden; }
+.progress .bar > span { display: block; height: 100%; background: var(--accent); transition: width .2s; }
+.progress .msg { font-size: 13px; }
+.notice { margin-top: 12px; padding: 8px 12px; border-radius: 6px; background: var(--ok-soft); }
+.notice.warn { background: var(--warn-soft); }
+.notice { display: flex; flex-wrap: wrap; gap: 8px 12px; align-items: center; }
+.notice .spacer { flex: 1; }
+.notice .close { border: 0; background: none; cursor: pointer; font-size: 16px; line-height: 1; padding: 0 4px; color: inherit; }
+
+.toolbar {
+  display: flex; flex-wrap: wrap; align-items: center; gap: 8px 12px; margin: 12px 0 8px;
+}
+.count { color: var(--muted); }
+.toolbar .spacer { flex: 1; }
+.selbar { display: inline-flex; flex-wrap: wrap; align-items: center; gap: 6px; }
+
+.popover-wrap { position: relative; }
+.popover {
+  position: absolute; right: 0; top: calc(100% + 6px); z-index: 10;
+  width: min(560px, calc(100vw - 32px));
+  background: var(--surface); border: 1px solid var(--border); border-radius: 8px;
+  box-shadow: 0 8px 24px rgba(0,0,0,.15); padding: 12px;
+}
+.col-group + .col-group { margin-top: 10px; }
+.col-group h3 { font-size: 12px; color: var(--muted); margin: 0 0 6px; font-weight: 600; }
+.col-list { display: grid; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: 4px 12px; }
+.col-list label { display: flex; gap: 6px; align-items: center; cursor: pointer; }
+
+.table-wrap {
+  overflow-x: auto; background: var(--surface);
+  border: 1px solid var(--border); border-radius: 8px;
+}
+table { border-collapse: collapse; width: 100%; }
+th, td { padding: 7px 10px; text-align: left; border-bottom: 1px solid var(--border); vertical-align: top; }
+thead th {
+  background: var(--surface-2); font-weight: 600; font-size: 13px;
+  white-space: nowrap; cursor: pointer; user-select: none;
+}
+thead th:hover { color: var(--accent); }
+thead th.sel, td.sel { width: 1%; cursor: default; white-space: nowrap; }
+th .arrow { color: var(--accent); margin-left: 4px; }
+th.num, td.num { text-align: right; }
+tbody tr.row { cursor: pointer; }
+tbody tr.row:hover { background: var(--row-hover); }
+tbody tr.row.open { background: var(--row-open); }
+tbody tr.row:focus-visible { outline: 2px solid var(--accent); outline-offset: -2px; }
+tbody tr.row.appear { animation: appear .6s ease-out; }
+@keyframes appear { from { background: var(--ok-soft); } to { background: transparent; } }
+td.clip { max-width: 320px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+td.nowrap { white-space: nowrap; }
+.null { color: var(--muted); }
+.tag {
+  display: inline-block; padding: 0 7px; border-radius: 4px; font-size: 12px; white-space: nowrap;
+}
+.tag.out { background: var(--danger-soft); color: var(--danger); }
+.tag.in { color: var(--muted); }
+.tag.new { background: var(--ok-soft); color: var(--ok); }
+.tag.queued { background: var(--surface-2); color: var(--muted); }
+.tag.scoring { background: var(--warn-soft); }
+.tag.failed { background: var(--danger-soft); color: var(--danger); }
+.score { font-weight: 600; font-variant-numeric: tabular-nums; }
+.empty { padding: 32px; text-align: center; color: var(--muted); }
+
+tr.detail > td { background: var(--row-open); padding: 12px; cursor: default; }
+.detail-grid {
+  display: grid; gap: 12px;
+  grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+}
+.panel {
+  background: var(--surface); border: 1px solid var(--border); border-radius: 8px; padding: 12px; min-width: 0;
+}
+.panel.wide { grid-column: 1 / -1; }
+.panel h3 { margin: 0 0 8px; font-size: 14px; display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
+.viewing {
+  background: var(--warn-soft); border-radius: 6px; padding: 6px 10px; margin-bottom: 8px; font-size: 13px;
+  display: flex; flex-wrap: wrap; gap: 8px; align-items: center;
+}
+.linkbtn { background: none; border: 0; color: var(--accent); cursor: pointer; padding: 0; text-decoration: underline; }
+.kv { display: grid; grid-template-columns: max-content 1fr; gap: 3px 12px; margin: 0; }
+.kv dt { color: var(--muted); }
+.kv dd { margin: 0; overflow-wrap: anywhere; }
+.content { white-space: pre-wrap; max-height: 320px; overflow: auto; background: var(--surface-2); padding: 8px; border-radius: 6px; margin: 8px 0 0; font: inherit; }
+.dims { list-style: none; padding: 0; margin: 0; display: flex; flex-direction: column; gap: 8px; }
+.dims li { display: grid; grid-template-columns: 110px 36px 1fr; gap: 8px; align-items: baseline; }
+.dims .reason { color: var(--muted); }
+.history { width: 100%; font-size: 13px; }
+.history th { cursor: default; background: none; }
+.history th:hover { color: inherit; }
+.history tbody tr { cursor: pointer; }
+.history tbody tr:hover { background: var(--row-hover); }
+.history tbody tr.shown { background: var(--accent-soft); }
+.history .cur-mark { font-size: 11px; color: var(--accent); }
+details.basis > summary { cursor: pointer; font-weight: 600; }
+.basis-tabs { display: flex; gap: 4px; margin-top: 8px; flex-wrap: wrap; }
+.basis-tabs button { border: 1px solid var(--border); background: var(--surface); padding: 3px 10px; border-radius: 6px; cursor: pointer; }
+.basis-tabs button[aria-selected="true"] { background: var(--accent-soft); border-color: var(--accent); color: var(--accent); }
+pre.basis-body { white-space: pre-wrap; overflow-wrap: anywhere; max-height: 420px; overflow: auto; background: var(--surface-2); padding: 10px; border-radius: 6px; margin: 8px 0 0; font: 13px/1.5 ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; }
+
+.modal-backdrop {
+  position: fixed; inset: 0; background: var(--overlay); z-index: 50;
+  display: flex; align-items: center; justify-content: center; padding: 16px;
+}
+.modal {
+  background: var(--surface); border: 1px solid var(--border); border-radius: 10px; padding: 18px;
+  width: min(460px, 100%); display: flex; flex-direction: column; gap: 12px;
+}
+.modal h2 { margin: 0; font-size: 16px; }
+.modal ul { margin: 0; padding-left: 20px; }
+.modal .actions { display: flex; justify-content: flex-end; gap: 8px; }
+.modal .errors { color: var(--danger); background: var(--danger-soft); border-radius: 6px; padding: 8px 12px 8px 28px; }
+.modal .check { display: flex; gap: 6px; align-items: flex-start; cursor: pointer; }
+
+.settings-grid { display: grid; gap: 12px; grid-template-columns: minmax(0, 1fr) 280px; margin-top: 12px; }
+@media (max-width: 820px) { .settings-grid { grid-template-columns: minmax(0, 1fr); } }
+textarea.editor {
+  width: 100%; min-height: 360px; resize: vertical; border: 1px solid var(--border); border-radius: 6px;
+  background: var(--surface); padding: 10px; font: 13px/1.5 ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+}
+.set-status { font-size: 13px; margin-bottom: 8px; display: flex; flex-wrap: wrap; gap: 6px 10px; align-items: center; }
+.tag.draft { background: var(--warn-soft); }
+.tag.default { background: var(--danger-soft); color: var(--danger); }
+.msgs { margin: 8px 0 0; padding-left: 20px; font-size: 13px; }
+.msgs .error { color: var(--danger); }
+.msgs .warning { color: var(--muted); }
+.set-actions { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; margin-top: 10px; }
+.set-actions .spacer { flex: 1; }
+.versions { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 4px; }
+.versions button {
+  width: 100%; text-align: left; border: 1px solid var(--border); background: var(--surface);
+  border-radius: 6px; padding: 5px 8px; cursor: pointer; font-size: 13px;
+}
+.versions button[aria-pressed="true"] { background: var(--accent-soft); border-color: var(--accent); }
+.versions .cur-mark { font-size: 11px; color: var(--accent); }
+.versions .ver-name { font-weight: 600; }
+.versions .ver-desc { display: block; color: var(--muted); font-size: 12px; }
+.versions .linkbtn { font-size: 12px; margin: 2px 0 0 8px; }
+.compare { display: grid; gap: 12px; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); }
+.pick-list { max-height: 260px; overflow: auto; }
+.diff-up { color: var(--ok); }
+.diff-down { color: var(--danger); }
+
+.toast {
+  position: fixed; bottom: 16px; left: 50%; transform: translateX(-50%); z-index: 60;
+  background: var(--text); color: var(--bg); padding: 8px 14px; border-radius: 8px; max-width: calc(100vw - 32px);
+}
+
+.owner {
+  display: none; font-size: 10px; font-weight: 600; padding: 0 5px; border-radius: 4px;
+  border: 1px solid currentColor; white-space: nowrap; vertical-align: middle; margin-left: 4px;
+}
+body.show-owner .owner { display: inline-block; }
+.owner.scraper { color: var(--owner-scraper); }
+.owner.db { color: var(--owner-db); }
+.owner.auto { color: var(--owner-auto); }
+</style>
+</head>
+<body>
+<header>
+  <h1>求職雷達</h1>
+  <nav class="tabs" role="tablist">
+    <button type="button" role="tab" data-page="table" aria-selected="true">職缺表</button>
+    <button type="button" role="tab" data-page="crawl" aria-selected="false">抓取</button>
+    <button type="button" role="tab" data-page="settings" aria-selected="false">設定</button>
+  </nav>
+  <button type="button" class="job-indicator" id="jobIndicator" hidden></button>
+  <button type="button" class="btn danger" id="jobStop" hidden>停止</button>
+  <span class="spacer"></span>
+  <span class="proto">原型：假資料，重新整理後抓取、評分、設定的變動都會消失</span>
+  <label class="toggle"><input type="checkbox" id="noKeyToggle"> 模擬沒有 API key</label>
+  <label class="toggle"><input type="checkbox" id="ownerToggle"> 顯示功能歸屬</label>
+</header>
+
+<main>
+  <section id="page-table">
+    <div class="card filters" aria-label="篩選">
+      <div class="field">
+        <label for="fKeyword">關鍵字 <span class="owner db">job-database</span></label>
+        <input type="search" id="fKeyword" placeholder="職缺名稱、公司、工作內容、電腦專長">
+        <span class="hint">多個關鍵字用逗號分隔，符合任一個就算</span>
+      </div>
+      <div class="field">
+        <label for="fArea">地區 <span class="owner db">job-database</span></label>
+        <input type="search" id="fArea" placeholder="例如 台北市, 內湖">
+        <span class="hint">多個地名用逗號分隔，「臺」視為「台」</span>
+      </div>
+      <div class="field">
+        <span class="label">總分 <span class="owner auto">job-auto-scoring</span></span>
+        <div class="range">
+          <input type="number" id="fMin" min="0" max="100" placeholder="最低" aria-label="總分最低">
+          <span>–</span>
+          <input type="number" id="fMax" min="0" max="100" placeholder="最高" aria-label="總分最高">
+        </div>
+        <span class="hint">設了範圍時，排除沒有總分的職缺</span>
+      </div>
+      <div class="field">
+        <label for="fStatus">評分狀態 <span class="owner auto">job-auto-scoring</span></label>
+        <select id="fStatus">
+          <option value="all">全部</option>
+          <option value="kept">未淘汰</option>
+          <option value="out">淘汰</option>
+          <option value="none">未評分</option>
+        </select>
+        <span class="hint">&nbsp;</span>
+      </div>
+      <div class="field" id="fJustSavedWrap" hidden>
+        <span class="label">暫時篩選 <span class="owner db">job-database</span></span>
+        <span class="filter-tag"><span id="fJustSaved"></span><button type="button" id="fJustSavedClear" aria-label="取消「剛存入」篩選">×</button></span>
+        <span class="hint">其他篩選暫停，關掉標籤後才能調整</span>
+      </div>
+      <div class="field">
+        <span class="label">&nbsp;</span>
+        <button class="btn" id="clearFilters" type="button">清除篩選</button>
+        <span class="hint">&nbsp;</span>
+      </div>
+    </div>
+    <div class="notice" id="scoreNotice" hidden></div>
+    <div id="mainTable"></div>
+  </section>
+
+  <section id="page-crawl" hidden>
+    <form class="card" id="crawlForm" novalidate>
+      <div class="crawl-form">
+        <div class="field">
+          <label for="cKeyword">關鍵字 <span class="owner scraper">104-job-scraper</span></label>
+          <input class="wide" id="cKeyword" name="keyword" placeholder="例如 python, 資料工程師">
+          <span class="hint">多個關鍵字用逗號分隔</span>
+          <span class="err" id="cKeywordErr"></span>
+        </div>
+        <div class="field">
+          <label for="cArea">縣市</label>
+          <select id="cArea" name="area"></select>
+          <span class="hint">不選代表全台灣</span>
+        </div>
+        <div class="field">
+          <label for="cPages">每個關鍵字抓幾頁</label>
+          <input type="number" id="cPages" name="pages" min="1" max="10" value="3" style="width:80px">
+          <span class="hint">每頁 30 筆</span>
+        </div>
+        <div class="field">
+          <label for="cType">職缺性質</label>
+          <select id="cType" name="type">
+            <option value="0">全部</option>
+            <option value="1">全職</option>
+            <option value="2">兼職／工讀</option>
+          </select>
+          <span class="hint">&nbsp;</span>
+        </div>
+        <div class="field">
+          <span class="label">&nbsp;</span>
+          <div style="display:flex; gap:8px">
+            <button class="btn primary" type="submit" id="crawlStart">開始抓取</button>
+            <button class="btn danger" type="button" id="crawlStop" hidden>停止</button>
+          </div>
+          <span class="hint">&nbsp;</span>
+        </div>
+      </div>
+      <div class="progress" id="crawlProgress" hidden>
+        <div class="bar"><span id="crawlBar" style="width:0"></span></div>
+        <div class="msg" id="crawlMsg"></div>
+      </div>
+      <div class="notice" id="crawlNotice" hidden></div>
+    </form>
+    <div id="crawlTable"></div>
+  </section>
+
+  <section id="page-settings" hidden>
+    <div class="card">
+      <div class="basis-tabs" role="tablist" id="setTabs">
+        <button type="button" role="tab" data-kind="偏好">偏好</button>
+        <button type="button" role="tab" data-kind="經歷">經歷</button>
+        <button type="button" role="tab" data-kind="模板">提示詞模板</button>
+        <span class="owner auto">job-auto-scoring</span>
+      </div>
+      <div class="settings-grid">
+        <div>
+          <div class="set-status" id="setStatus"></div>
+          <textarea class="editor" id="setEditor" spellcheck="false" aria-label="編輯草稿"></textarea>
+          <ul class="msgs" id="setMsgs"></ul>
+          <div class="set-actions">
+            <button class="btn" type="button" id="setDefault">還原預設</button>
+            <button class="btn" type="button" id="setDiscard">捨棄修改</button>
+            <button class="btn primary" type="button" id="setApply"></button>
+            <span class="spacer"></span>
+            <button class="btn primary" type="button" id="setTrial">試跑</button>
+          </div>
+          <p class="null" style="font-size:12px;margin:8px 0 0" id="setHint"></p>
+        </div>
+        <aside class="panel">
+          <h3>版本紀錄</h3>
+          <p class="null" style="margin:0 0 6px;font-size:12px">點一版載入編輯區，可以直接套用，或改過後儲存成新版本</p>
+          <ol class="versions" id="setVersions"></ol>
+        </aside>
+      </div>
+    </div>
+    <div class="card" id="trialList" style="margin-top:12px"></div>
+  </section>
+</main>
+
+<div class="modal-backdrop" id="scoreModal" hidden>
+  <div class="modal" role="dialog" aria-modal="true" aria-labelledby="scoreModalTitle">
+    <h2 id="scoreModalTitle"></h2>
+    <ul id="scoreModalSummary"></ul>
+    <label class="check" id="mRescoreWrap"><input type="checkbox" id="mRescore"> <span>包含已評過的職缺（重評）：已評過的也評，各新增一筆評分紀錄</span></label>
+    <ul class="errors" id="scoreModalErrors" hidden></ul>
+    <div class="field">
+      <label for="mProvider">供應商</label>
+      <select id="mProvider"><option value="gemini">gemini</option></select>
+    </div>
+    <div class="field">
+      <label for="mModel">模型</label>
+      <select id="mModel">
+        <option value="gemini-3.8-flash">gemini-3.8-flash</option>
+        <option value="gemini-3.8-pro">gemini-3.8-pro</option>
+      </select>
+    </div>
+    <div class="actions">
+      <button class="btn" type="button" id="mCancel">取消</button>
+      <button class="btn primary" type="button" id="mStart"></button>
+    </div>
+  </div>
+</div>
+
+<div class="modal-backdrop" id="saveModal" hidden>
+  <div class="modal" role="dialog" aria-modal="true" aria-labelledby="saveModalTitle">
+    <h2 id="saveModalTitle"></h2>
+    <p class="null" style="margin:0" id="saveModalNote"></p>
+    <div class="field">
+      <label for="svName">名稱（必填）</label>
+      <input id="svName" maxlength="40" placeholder="例如：加上 MLOps">
+    </div>
+    <div class="field">
+      <label for="svDesc">描述</label>
+      <textarea id="svDesc" rows="3" placeholder="改了什麼、為什麼改"></textarea>
+    </div>
+    <div class="actions">
+      <button class="btn" type="button" id="svCancel">取消</button>
+      <button class="btn primary" type="button" id="svOk">儲存並套用</button>
+    </div>
+  </div>
+</div>
+
+<div class="modal-backdrop" id="confirmModal" hidden>
+  <div class="modal" role="alertdialog" aria-modal="true" aria-labelledby="confirmMsg">
+    <p id="confirmMsg" style="margin:0"></p>
+    <div class="actions">
+      <button class="btn" type="button" id="confirmNo">取消</button>
+      <button class="btn primary" type="button" id="confirmYes"></button>
+    </div>
+  </div>
+</div>
+
+<div class="toast" id="toast" role="status" hidden></div>
+
+<script>
+"use strict";
+
+// ================= 假資料 =================
+
+function mulberry32(seed) {
+  return function () {
+    seed |= 0; seed = seed + 0x6D2B79F5 | 0;
+    let t = Math.imul(seed ^ seed >>> 15, 1 | seed);
+    t = t + Math.imul(t ^ t >>> 7, 61 | t) ^ t;
+    return ((t ^ t >>> 14) >>> 0) / 4294967296;
+  };
+}
+const rand = mulberry32(20260923);
+const pick = arr => arr[Math.floor(rand() * arr.length)];
+const between = (a, b) => a + Math.floor(rand() * (b - a + 1));
+const sample = (arr, n) => arr.slice().sort(() => rand() - 0.5).slice(0, n);
+
+const pad = n => String(n).padStart(2, "0");
+function iso(d) {
+  return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}:${pad(d.getSeconds())}`;
+}
+function dayOffset(base, days, hour) {
+  const d = new Date(base);
+  d.setDate(d.getDate() + days);
+  d.setHours(hour ?? between(8, 22), between(0, 59), between(0, 59));
+  return d;
+}
+const fmt = n => n.toLocaleString("en-US");
+const showTime = s => s.replace("T", " ");
+
+const CITIES = ["台北市", "新北市", "桃園市", "台中市", "台南市", "高雄市", "基隆市", "新竹市", "嘉義市", "新竹縣", "苗栗縣", "彰化縣", "南投縣", "雲林縣", "嘉義縣", "屏東縣", "宜蘭縣", "花蓮縣", "台東縣", "澎湖縣", "金門縣", "連江縣"];
+const DISTRICTS = {
+  台北市: ["信義區", "內湖區", "大安區", "中山區", "南港區", "松山區"],
+  新北市: ["板橋區", "汐止區", "新店區", "三重區", "中和區"],
+  桃園市: ["桃園區", "中壢區"],
+  新竹市: ["東區", "北區"],
+  台中市: ["西屯區", "南屯區"],
+  高雄市: ["前鎮區", "苓雅區"],
+};
+const STREETS = ["忠孝東路五段", "瑞光路", "敦化南路二段", "南京東路三段", "經貿二路", "文化路一段", "新台五路一段", "中正路", "科學園區路"];
+
+const COMPANIES = [
+  ["雲杉科技股份有限公司", "電腦軟體服務業"],
+  ["北辰數據股份有限公司", "網際網路相關業"],
+  ["青嵐軟體股份有限公司", "電腦軟體服務業"],
+  ["橙果資訊有限公司", "電腦系統整合服務業"],
+  ["河岸智能股份有限公司", "電腦軟體服務業"],
+  ["星圖網路股份有限公司", "網際網路相關業"],
+  ["木棉電子股份有限公司", "電子零組件相關業"],
+  ["白鷺系統整合股份有限公司", "電腦系統整合服務業"],
+  ["光譜醫療科技股份有限公司", "醫療器材製造業"],
+  ["潮汐金融科技股份有限公司", "金融科技"],
+  ["鈷藍半導體股份有限公司", "半導體製造業"],
+  ["鯨落遊戲股份有限公司", "電腦軟體服務業"],
+  ["竹里物流科技股份有限公司", "運輸物流業"],
+  ["晴空電商股份有限公司", "網際網路相關業"],
+  ["石磨餐飲集團", "餐飲業"],
+  ["遠帆人力派遣有限公司", "人力仲介代徵"],
+];
+const TITLES = [
+  ["Python 後端工程師", ["Python", "Django", "PostgreSQL", "Docker", "Git"]],
+  ["資料工程師", ["Python", "SQL", "Airflow", "Spark", "GCP"]],
+  ["機器學習工程師", ["Python", "PyTorch", "MLflow", "Docker"]],
+  ["AI 應用工程師", ["Python", "LLM", "FastAPI", "RAG", "Git"]],
+  ["全端工程師", ["TypeScript", "React", "Node.js", "PostgreSQL"]],
+  ["前端工程師", ["TypeScript", "React", "CSS", "Git"]],
+  ["DevOps 工程師", ["Kubernetes", "Terraform", "AWS", "Linux"]],
+  ["SRE 工程師", ["Linux", "Prometheus", "Kubernetes", "Go"]],
+  ["資料分析師", ["SQL", "Python", "Tableau", "Excel"]],
+  ["後端工程師（Go）", ["Go", "gRPC", "MySQL", "Redis"]],
+  ["MLOps 工程師", ["Python", "Kubernetes", "Kubeflow", "GCP"]],
+  ["軟體測試工程師", ["Python", "Selenium", "Pytest"]],
+  ["韌體工程師", ["C", "C++", "RTOS", "Linux"]],
+  ["雲端架構師", ["AWS", "Azure", "Terraform", "Kubernetes"]],
+  ["產品經理", ["Jira", "SQL", "Figma"]],
+  ["業務工程師（Sales Engineer）", ["Excel", "CRM"]],
+  ["客服工程師", ["Linux", "Windows Server"]],
+];
+const MAJORS = ["資訊工程相關", "電機電子工程相關", "數理統計相關", "資訊管理相關", "不拘"];
+const PERKS = ["週休二日", "遠端工作", "彈性上下班", "員工分紅", "距捷運站300公尺", "年終獎金", "員工旅遊", "免費午餐"];
+
+function makeCode() {
+  const chars = "0123456789abcdefghijklmnopqrstuvwxyz";
+  let s = "";
+  for (let i = 0; i < 5; i++) s += chars[Math.floor(rand() * chars.length)];
+  return s;
+}
+
+function makeSalary(kind) {
+  if (kind === "missing") return { text: null, lo: null, hi: null };
+  if (kind === "nego") return { text: "待遇面議", lo: 0, hi: 0 };
+  if (kind === "above") {
+    const lo = pick([45000, 50000, 60000]);
+    return { text: `月薪${fmt(lo)}元以上`, lo, hi: 9999999 };
+  }
+  if (kind === "year") {
+    const lo = pick([900000, 1000000, 1200000]);
+    const hi = lo + pick([200000, 400000, 600000]);
+    return { text: `年薪${fmt(lo)}~${fmt(hi)}元`, lo, hi };
+  }
+  if (kind === "low") return { text: "月薪32,000~38,000元", lo: 32000, hi: 38000 };
+  const lo = pick([45000, 50000, 55000, 60000, 65000, 70000, 80000]);
+  const hi = lo + pick([10000, 15000, 20000, 30000]);
+  return { text: `月薪${fmt(lo)}~${fmt(hi)}元`, lo, hi };
+}
+
+function makeContent(title, skills, company) {
+  return [
+    `【${company}】誠徵${title}`,
+    "",
+    "工作內容：",
+    `1. 負責${title.replace(/工程師|（Go）|（Sales Engineer）/g, "")}相關系統的設計、開發與維護`,
+    `2. 使用 ${skills.slice(0, 3).join("、")} 打造穩定可擴充的服務`,
+    "3. 與產品、設計團隊合作，參與需求討論與技術選型",
+    "4. 撰寫測試與技術文件，參與 code review",
+    "",
+    "加分條件：",
+    `- 熟悉 ${skills[skills.length - 1]}`,
+    "- 有雲端平台部署經驗",
+  ].join("\n");
+}
+
+function pickCity() {
+  const r = rand();
+  if (r < 0.45) return "台北市";
+  if (r < 0.8) return "新北市";
+  return pick(["桃園市", "新竹市", "台中市", "高雄市"]);
+}
+
+function makeJob({ titleEntry, city, first, last, salaryKind }) {
+  const [company, industry] = pick(COMPANIES);
+  const [title, skills] = titleEntry || pick(TITLES);
+  city = city || pickCity();
+  salaryKind = salaryKind || pick(["range", "range", "range", "range", "range", "nego", "above", "year", "low", "missing"]);
+  const s = makeSalary(salaryKind);
+  const code = makeCode();
+  return {
+    職缺代碼: code,
+    職缺名稱: title,
+    公司名稱: company,
+    產業類別: industry,
+    地區: `${city}${pick(DISTRICTS[city] || ["中正區", "東區"])} ${pick(STREETS)}${between(1, 300)}號`,
+    薪資待遇: s.text,
+    薪資下限: s.lo,
+    薪資上限: s.hi,
+    更新日期: iso(dayOffset(last, -between(0, 3))).slice(0, 10),
+    應徵人數: rand() < 0.1 ? 0 : between(1, 80),
+    工作內容: salaryKind === "missing" ? null : makeContent(title, skills, company),
+    電腦專長: sample(skills, between(Math.min(2, skills.length), skills.length)).join(", "),
+    科系要求: rand() < 0.2 ? "" : sample(MAJORS, between(1, 2)).join(", "),
+    特色標籤: sample(PERKS, between(1, 4)).join(", "),
+    職缺連結: `https://www.104.com.tw/job/${code}`,
+    公司連結: `https://www.104.com.tw/company/${makeCode()}${makeCode()}`,
+    首次出現時間: iso(first),
+    最後出現時間: iso(last),
+  };
+}
+
+const BASE = new Date(2026, 7, 1);
+const NOW = new Date(2026, 8, 22, 21, 0, 0);
+
+const JOBS = [];
+for (let i = 0; i < 60; i++) {
+  const first = dayOffset(BASE, between(0, 45));
+  const last = dayOffset(first, between(0, Math.max(0, Math.round((NOW - first) / 864e5) - 1)));
+  JOBS.push(makeJob({ first, last }));
+}
+const byCode = code => JOBS.find(j => j.職缺代碼 === code);
+
+// ---------- 設定：偏好、經歷、提示詞模板（每次儲存留一個版本） ----------
+
+const PREFS_BODY = `目標方向:
+  - 以 Python 開發後端服務與資料管線
+  - 參與 LLM 應用的設計與落地
+
+產業偏好:
+  喜歡: [軟體及網路相關業, 金融科技]
+  不喜歡: [博弈]
+
+薪資:
+  期望月薪: 70000
+  底線月薪: 55000
+  年薪換算月數: 14
+
+淘汰條件:
+  公司: [遠帆人力派遣有限公司]
+  職稱關鍵字: [業務, 客服]
+
+權重:
+  職涯方向契合度: 0.4
+  技能匹配度: 0.25
+  產業公司吸引力: 0.15
+  薪資水準: 0.2`;
+const DEFAULT_PREFS = `# 求職偏好（預設範例：改成自己的偏好後儲存）
+目標方向:
+  - 範例：以某種語言開發某類系統
+
+產業偏好:
+  喜歡: [範例產業]
+  不喜歡: []
+
+薪資:
+  期望月薪: 50000
+  底線月薪: 40000
+  年薪換算月數: 14
+
+淘汰條件:
+  公司: []
+  職稱關鍵字: []
+
+權重:
+  職涯方向契合度: 0.4
+  技能匹配度: 0.25
+  產業公司吸引力: 0.15
+  薪資水準: 0.2`;
+const PREFS_V2 = `# 求職偏好\n${PREFS_BODY}`;
+const PREFS_V3 = PREFS_V2
+  .replace("  - 參與 LLM 應用的設計與落地", "  - 參與 LLM 應用的設計與落地\n  - 累積 MLOps 與模型部署經驗")
+  .replace("期望月薪: 70000", "期望月薪: 75000");
+
+const DEFAULT_EXPERIENCE = `# 工作經歷（預設範例：改成自己的經歷後儲存）
+
+## 職稱｜公司｜起訖年月
+
+- 負責的工作與成果
+
+## 技能
+
+- 語言：
+- 框架與工具：`;
+const EXPERIENCE_V2 = `# 工作經歷
+
+## 後端工程師｜某軟體公司｜2022/03 – 至今
+
+- 以 Python（FastAPI）開發與維護內部 API，服務約 20 個前端頁面
+- 設計 PostgreSQL 資料表與索引，改善報表查詢速度
+- 以 Docker 與 GitHub Actions 建立 CI/CD 流程
+
+## 技能
+
+- 語言：Python、SQL、JavaScript
+- 框架與工具：FastAPI、Django、pytest、Docker、Git
+- 資料庫：PostgreSQL、Redis
+- 尚無實務經驗：Kubernetes、雲端架構設計
+
+## 學歷
+
+- 資訊工程學系 學士`;
+
+const DEFAULT_TEMPLATE = `<!-- SYSTEM -->
+你是一位嚴謹的職涯顧問，負責依照求職者的偏好與工作經歷，評估一筆職缺的適合程度。
+
+請針對以下三個維度，各給 1–5 的整數分數或 null，並附上理由，最後再寫一到兩句總評。
+
+## 評分規則
+
+- 只根據使用者提供的資料判斷，不要引用外部知識補足職缺沒有寫的內容。
+- 資訊不足以評分時，分數給 null，並在理由中說明缺少什麼；不准猜分數。
+- 理由要具體引用職缺內容，並說明是依據哪些欄位判斷的。
+- 一律使用繁體中文。
+
+## 維度一：職涯方向契合度
+…（錨點描述，原型省略）
+
+## 維度二：技能匹配度
+…
+
+## 維度三：產業公司吸引力
+…
+
+<!-- USER -->
+# 求職者資料
+
+## 目標方向
+
+$目標方向
+
+## 產業偏好
+
+- 喜歡：$喜歡的產業
+- 不喜歡：$不喜歡的產業
+
+## 工作經歷
+
+$工作經歷
+
+# 職缺資料
+
+- 職缺名稱：$職缺名稱
+- 公司名稱：$公司名稱
+- 產業類別：$產業類別
+- 電腦專長：$電腦專長
+- 科系要求：$科系要求
+
+## 工作內容
+
+$工作內容`;
+
+const KINDS = { 偏好: "偏好", 經歷: "經歷", 模板: "提示詞模板" };
+const DEFAULTS = { 偏好: DEFAULT_PREFS, 經歷: DEFAULT_EXPERIENCE, 模板: DEFAULT_TEMPLATE };
+const T0 = "2026-09-05T20:00:00";
+// 版本只新增、不刪除；目前設定指向其中一版，可以套用任何一版
+const SETTINGS = {
+  偏好: [
+    { 版本: 1, 名稱: "預設範例", 描述: "專案附的範例", 儲存時間: T0, 內容: DEFAULT_PREFS },
+    { 版本: 2, 名稱: "後端與 LLM", 描述: "第一次填入自己的偏好", 儲存時間: "2026-09-05T20:12:40", 內容: PREFS_V2 },
+    { 版本: 3, 名稱: "加上 MLOps", 描述: "目標方向加上 MLOps，期望月薪提高到 75,000", 儲存時間: "2026-09-18T21:05:10", 內容: PREFS_V3 },
+  ],
+  經歷: [
+    { 版本: 1, 名稱: "預設範例", 描述: "專案附的範例", 儲存時間: T0, 內容: DEFAULT_EXPERIENCE },
+    { 版本: 2, 名稱: "後端工程師", 描述: "", 儲存時間: "2026-09-05T20:20:03", 內容: EXPERIENCE_V2 },
+  ],
+  模板: [
+    { 版本: 1, 名稱: "預設模板", 描述: "專案附的提示詞模板", 儲存時間: T0, 內容: DEFAULT_TEMPLATE },
+  ],
+};
+const APPLIED = { 偏好: 3, 經歷: 2, 模板: 1 };  // 目前設定用哪一版
+const version = (kind, n) => SETTINGS[kind].find(v => v.版本 === n);
+const applied = kind => version(kind, APPLIED[kind]);
+const isDefault = kind => applied(kind).內容 === DEFAULTS[kind];
+const savedProfile = () => ({ 偏好: applied("偏好"), 經歷: applied("經歷"), 模板: applied("模板") });
+
+// ---------- 設定的檢查 ----------
+
+const DIMS = ["職涯方向契合度", "技能匹配度", "產業公司吸引力", "薪資水準"];
+const PERSONAL_VARS = ["目標方向", "喜歡的產業", "不喜歡的產業", "工作經歷"];
+const JOB_VARS = ["職缺名稱", "公司名稱", "產業類別", "電腦專長", "科系要求", "工作內容"];
+
+function yamlBlock(prefs, key) {
+  const m = prefs.match(new RegExp(`^${key}:\\n((?:  .*\\n?)+)`, "m"));
+  return m ? m[1].trimEnd() : "";
+}
+
+// 原型只做簡化的檢查：必要的鍵、月薪是正整數、權重是數字且加總為 1
+function validatePrefs(text) {
+  const errors = [];
+  for (const k of ["目標方向", "產業偏好", "薪資", "淘汰條件", "權重"]) {
+    if (!new RegExp(`^${k}:`, "m").test(text)) errors.push(`缺少「${k}」`);
+  }
+  for (const k of ["期望月薪", "底線月薪"]) {
+    const m = text.match(new RegExp(`^\\s+${k}:\\s*(\\S*)`, "m"));
+    if (!m || !/^[1-9]\d*$/.test(m[1])) errors.push(`「薪資.${k}」要是正整數`);
+  }
+  const block = yamlBlock(text, "權重");
+  if (block) {
+    const w = Object.fromEntries(block.split("\n").map(l => l.match(/^\s+(\S+):\s*(\S*)/)).filter(Boolean).map(m => [m[1], m[2]]));
+    let sum = 0, ok = true;
+    for (const d of DIMS) {
+      if (!(d in w) || w[d] === "" || isNaN(Number(w[d]))) { errors.push(`「權重.${d}」要是數字`); ok = false; }
+      else sum += Number(w[d]);
+    }
+    if (ok && Math.abs(sum - 1) > 1e-6) errors.push(`「權重」加總要是 1（目前是 ${Math.round(sum * 1000) / 1000}）`);
+  }
+  return { errors, warnings: [] };
+}
+
+const VAR_RE = /\$([一-鿿A-Za-z_]+)/g;
+function validateTemplate(text) {
+  const errors = [], warnings = [];
+  const s = text.indexOf("<!-- SYSTEM -->"), u = text.indexOf("<!-- USER -->");
+  if (s < 0 || u < 0) errors.push("缺少 <!-- SYSTEM --> 或 <!-- USER --> 標記");
+  else if (s > u) errors.push("<!-- SYSTEM --> 要在 <!-- USER --> 前面");
+  const used = new Set([...text.matchAll(VAR_RE)].map(m => m[1]));
+  const known = [...PERSONAL_VARS, ...JOB_VARS];
+  const unknown = [...used].filter(v => !known.includes(v));
+  if (unknown.length) errors.push(`不認得的變數：${unknown.map(v => "$" + v).join("、")}（可以用的變數：${known.map(v => "$" + v).join("、")}）`);
+  for (const v of known) if (!used.has(v)) warnings.push(`沒有用到 $${v}：AI 會收不到這項資料`);
+  return { errors, warnings };
+}
+
+const validate = (kind, text) => kind === "偏好" ? validatePrefs(text) : kind === "模板" ? validateTemplate(text) : { errors: [], warnings: [] };
+
+// ---------- 評分紀錄 ----------
+
+const SNAPSHOT_FIELDS = ["職缺名稱", "公司名稱", "產業類別", "電腦專長", "科系要求", "工作內容", "薪資待遇", "薪資下限", "薪資上限"];
+const snapshotOf = job => Object.fromEntries(SNAPSHOT_FIELDS.map(k => [k, job[k]]));
+
+// 由職缺內容快照與設定組回送給 AI 的提示詞
+function buildPrompt(snap, prefs, experience, template) {
+  const na = v => (v === null || v === "") ? "（無資料）" : v;
+  const vars = {
+    目標方向: yamlBlock(prefs, "目標方向").split("\n").map(l => l.replace(/^\s+/, "")).join("\n"),
+    喜歡的產業: (prefs.match(/^\s+喜歡: \[(.*)\]/m) || [])[1] || "",
+    不喜歡的產業: (prefs.match(/不喜歡: \[(.*)\]/) || [])[1] || "",
+    工作經歷: experience,
+  };
+  for (const k of JOB_VARS) vars[k] = na(snap[k]);
+  return template.replace(VAR_RE, (all, name) => name in vars ? vars[name] : all);
+}
+
+const WEIGHTS = { 職涯方向契合度: 0.4, 技能匹配度: 0.25, 產業公司吸引力: 0.15, 薪資水準: 0.2 };
+const REASONS = {
+  職涯方向契合度: ["主要負責 Python 後端 API，符合目標方向", "偏前端，與目標方向部分重疊", "以資料管線為主，屬於目標方向之一", "以維運為主，與目標方向落差大", "產品規劃職，不屬於工程方向"],
+  技能匹配度: ["缺口：Kubernetes，可短期補上", "無明顯缺口", "需要 Go 經驗，目前沒有", "要求 C/C++ 韌體經驗，落差大", "SQL 與 Python 相符，缺 BI 工具經驗"],
+  產業公司吸引力: ["軟體及網路相關業，屬於偏好產業", "金融科技，屬於喜歡的產業", "半導體製造，中性", "遊戲產業，中性", "系統整合，與喜歡的產業相關"],
+  薪資水準: ["月薪 60,000–80,000，區間涵蓋期望", "月薪上限低於期望", "年薪換算後高於期望", "下限即達期望"],
+};
+const COMMENTS = [
+  "方向相符的後端職缺，補上雲端部署經驗即可投遞。",
+  "技能大致符合，但產業吸引力普通，可列入備選。",
+  "薪資與方向都不錯，值得細看工作內容。",
+  "偏維運職缺，與目標方向落差較大。",
+  "資料管線相關，與過去經驗高度重疊，建議優先。",
+  "要求的語言與經驗落差大，不建議投遞。",
+  "公司規模小、職責廣，適合想快速成長時考慮。",
+];
+const FAIL_REASONS = ["AI 回應逾時（60 秒）", "AI 回應格式不符：缺少「技能匹配度」", "供應商回傳 429：超過速率限制", "供應商回傳 503：服務暫時無法使用"];
+
+function eliminationReasons(job, prefs) {
+  const reasons = [];
+  const companies = ((prefs.match(/^\s+公司: \[(.*)\]/m) || [])[1] || "").split(",").map(s => s.trim()).filter(Boolean);
+  const titles = ((prefs.match(/職稱關鍵字: \[(.*)\]/) || [])[1] || "").split(",").map(s => s.trim()).filter(Boolean);
+  const floor = Number((prefs.match(/底線月薪:\s*(\d+)/) || [])[1] || 0);
+  if (companies.includes(job.公司名稱)) reasons.push(`公司在排除清單：${job.公司名稱}`);
+  const hit = titles.find(t => job.職缺名稱.toLowerCase().includes(t.toLowerCase()));
+  if (hit) reasons.push(`職稱含排除關鍵字：${hit}`);
+  if (floor && job.薪資上限 !== null && job.薪資上限 > 0 && job.薪資上限 < floor) reasons.push(`薪資上限 ${fmt(job.薪資上限)} 低於底線 ${fmt(floor)}`);
+  return reasons;
+}
+
+// profile：{ 偏好, 經歷, 模板 }，各是 { 版本, 內容 }（試跑的草稿沒有版本）；為 null 代表記錄依據之前的評分
+function scoreJob(job, when, profile, model) {
+  const prefs = profile ? profile.偏好.內容 : PREFS_V2;
+  const basis = profile ? { 偏好: profile.偏好.版本, 經歷: profile.經歷.版本, 模板: profile.模板.版本, 快照: snapshotOf(job) } : null;
+  const reasons = eliminationReasons(job, prefs);
+  if (reasons.length) {
+    return {
+      職缺代碼: job.職缺代碼, 評分時間: iso(when), 淘汰: true, 總分: null,
+      評語: `淘汰：${reasons.join("；")}`, 供應商: null, 模型: null,
+      評分明細: { 淘汰: true, 淘汰原因: reasons, 維度: null, 未知維度: [] },
+      依據: basis,
+    };
+  }
+  const dims = {};
+  for (const d of DIMS) {
+    let score = pick([2, 3, 3, 4, 4, 4, 5, 5]);
+    if (d === "薪資水準" && (job.薪資待遇 === null || (job.薪資下限 === 0 && job.薪資上限 === 0))) score = null;
+    if (d === "職涯方向契合度" && job.工作內容 === null && rand() < 0.5) score = null;
+    dims[d] = { 分數: score, 理由: score === null ? "職缺資訊不足，無法判斷" : pick(REASONS[d]) };
+  }
+  let total = 0;
+  for (const d of DIMS) total += ((dims[d].分數 ?? 3) - 1) / 4 * 100 * WEIGHTS[d];
+  return {
+    職缺代碼: job.職缺代碼, 評分時間: iso(when), 淘汰: false, 總分: Math.round(total),
+    評語: pick(COMMENTS), 供應商: "gemini", 模型: model,
+    評分明細: { 淘汰: false, 淘汰原因: [], 維度: dims, 未知維度: DIMS.filter(d => dims[d].分數 === null) },
+    依據: basis,
+  };
+}
+
+const SCORES = {}; // 職缺代碼 -> 評分紀錄（依寫入順序）
+function addScore(rec) { (SCORES[rec.職缺代碼] ??= []).push(rec); }
+
+// 初始資料：9/5 設定改存資料庫之前的評分沒有依據；9/18 改過偏好後，用 pro 模型重評了一部分
+const profileA = { 偏好: version("偏好", 2), 經歷: version("經歷", 2), 模板: version("模板", 1) };
+const profileB = { 偏好: version("偏好", 3), 經歷: version("經歷", 2), 模板: version("模板", 1) };
+JOBS.forEach((job, i) => {
+  if (i % 5 === 4) return; // 未評分
+  const t = dayOffset(new Date(job.最後出現時間), 0, 23);
+  const early = new Date(job.最後出現時間) < new Date(2026, 8, 5);
+  addScore(scoreJob(job, t, early ? null : profileA, "gemini-3.8-flash"));
+  if (i % 4 === 1) addScore(scoreJob(job, new Date(2026, 8, 18, 21, 30 + (i % 20), 0), profileB, "gemini-3.8-pro"));
+});
+
+// ================= 欄位定義 =================
+
+const OWNER = { scraper: "104-job-scraper", db: "job-database", auto: "job-auto-scoring" };
+const ownerTag = o => `<span class="owner ${o}">${OWNER[o]}</span>`;
+
+// 代表的評分：評分時間最新的一筆，時間相同時取後寫入的
+function current(job) {
+  const list = SCORES[job.職缺代碼];
+  if (!list || !list.length) return null;
+  let best = list[0];
+  for (const r of list) if (r.評分時間 >= best.評分時間) best = r;
+  return best;
+}
+function scoreHistory(job) {
+  const list = (SCORES[job.職缺代碼] || []).map((r, i) => ({ r, i }));
+  list.sort((a, b) => b.r.評分時間.localeCompare(a.r.評分時間) || (b.i - a.i));
+  return list.map(x => x.r);
+}
+
+const COLUMNS = [
+  { key: "職缺代碼", owner: "db", get: j => j.職缺代碼, cls: "nowrap" },
+  { key: "職缺名稱", owner: "db", get: j => j.職缺名稱, cls: "clip" },
+  { key: "公司名稱", owner: "db", get: j => j.公司名稱, cls: "clip" },
+  { key: "產業類別", owner: "db", get: j => j.產業類別, cls: "nowrap" },
+  { key: "地區", owner: "db", get: j => j.地區, cls: "clip" },
+  { key: "薪資待遇", owner: "db", get: j => j.薪資待遇, cls: "nowrap" },
+  { key: "薪資下限", owner: "db", get: j => j.薪資下限, num: true },
+  { key: "薪資上限", owner: "db", get: j => j.薪資上限, num: true },
+  { key: "更新日期", owner: "db", get: j => j.更新日期, cls: "nowrap" },
+  { key: "應徵人數", owner: "db", get: j => j.應徵人數, num: true },
+  { key: "電腦專長", owner: "db", get: j => j.電腦專長, cls: "clip" },
+  { key: "科系要求", owner: "db", get: j => j.科系要求, cls: "clip" },
+  { key: "特色標籤", owner: "db", get: j => j.特色標籤, cls: "clip" },
+  { key: "首次出現時間", owner: "db", get: j => j.首次出現時間, cls: "nowrap", fmt: showTime },
+  { key: "最後出現時間", owner: "db", get: j => j.最後出現時間, cls: "nowrap", fmt: showTime },
+  { key: "總分", owner: "auto", get: j => current(j)?.總分 ?? null, num: true, render: scoreCell },
+  { key: "淘汰", owner: "auto", get: j => current(j) ? current(j).淘汰 : null, render: outCell },
+  { key: "評語", owner: "auto", get: j => current(j)?.評語 ?? null, cls: "clip" },
+  { key: "評分時間", owner: "auto", get: j => current(j)?.評分時間 ?? null, cls: "nowrap", fmt: showTime },
+  { key: "供應商", owner: "auto", get: j => current(j)?.供應商 ?? null },
+  { key: "模型", owner: "auto", get: j => current(j)?.模型 ?? null, cls: "nowrap" },
+  ...DIMS.map(d => ({ key: d, owner: "auto", num: true, get: j => current(j)?.評分明細?.維度?.[d]?.分數 ?? null })),
+];
+const COL = Object.fromEntries(COLUMNS.map(c => [c.key, c]));
+
+const DEFAULT_VIEW = {
+  columns: ["職缺名稱", "公司名稱", "地區", "薪資待遇", "總分", "淘汰", "評語", "最後出現時間"],
+  sort: { key: "總分", dir: "desc" },
+  filters: { keyword: "", area: "", min: "", max: "", status: "all" },
+};
+// 預覽只有職缺欄位契約的欄位：首次、最後出現時間是存入時才決定的，不在預覽顯示
+const inPreview = k => COL[k]?.owner === "db" && k !== "首次出現時間" && k !== "最後出現時間";
+const PREVIEW_DEFAULT_COLUMNS = ["職缺名稱", "公司名稱", "地區", "薪資待遇", "更新日期"];
+
+// ================= 狀態與儲存 =================
+
+const clone = o => JSON.parse(JSON.stringify(o));
+const VIEW_KEY = "jobTablePrototype.view.v2";
+const CRAWL_KEY = "jobTablePrototype.crawl.v1";
+const DRAFT_KEY = "jobTablePrototype.draft.v2";
+
+function readStore(key) {
+  try { const raw = localStorage.getItem(key); return raw ? JSON.parse(raw) : null; } catch { return null; }
+}
+function writeStore(key, value) {
+  try { localStorage.setItem(key, JSON.stringify(value)); } catch { /* 無法記住時沿用本次設定 */ }
+}
+
+function loadView() {
+  const v = readStore(VIEW_KEY);
+  if (!v || typeof v !== "object") return clone(DEFAULT_VIEW);
+  const columns = Array.isArray(v.columns) ? v.columns.filter(k => COL[k]) : [];
+  const filters = clone(DEFAULT_VIEW.filters);
+  for (const k of Object.keys(filters)) if (typeof v.filters?.[k] === "string") filters[k] = v.filters[k];
+  return {
+    columns: columns.length ? columns : DEFAULT_VIEW.columns.slice(),
+    sort: v.sort && COL[v.sort.key] ? v.sort : clone(DEFAULT_VIEW.sort),
+    filters,
+  };
+}
+let view = loadView();
+const saveView = () => writeStore(VIEW_KEY, view);
+
+let justSaved = null;  // 剛存入的職缺：{ codes: Set, n }；暫時篩選，不記在瀏覽器
+const STATUS = {};     // 職缺代碼 -> { s: "queued" | "scoring" | "failed", reason }
+let busy = null;       // 目前的作業：{ type: "crawl" | "score" | "trial", done, total, stopRequested }
+
+// ================= 共用繪製 =================
+
+const esc = s => String(s).replace(/[&<>"']/g, ch => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[ch]));
+const nul = () => '<span class="null">—</span>';
+const val = v => (v === null || v === undefined || v === "") ? nul() : esc(v);
+function scoreCell(v) { return v === null ? nul() : `<span class="score">${v}</span>`; }
+function outCell(v) { return v === null ? nul() : v ? '<span class="tag out">淘汰</span>' : '<span class="tag in">否</span>'; }
+function kv(pairs) { return `<dl class="kv">${pairs.map(([k, v]) => `<dt>${esc(k)}</dt><dd>${v}</dd>`).join("")}</dl>`; }
+
+function cellHTML(col, job) {
+  const v = col.get(job);
+  if (col.render) return col.render(v);
+  if (v === null || v === "") return nul();
+  return esc(col.fmt ? col.fmt(v) : (typeof v === "number" ? fmt(v) : v));
+}
+
+function makeCompare(sort) {
+  const col = COL[sort.key];
+  return (a, b) => {
+    const va = col.get(a), vb = col.get(b);
+    const empty = v => v === null || v === "";
+    // 沒有值的一律排在最後，不論升冪或降冪
+    if (empty(va)) return empty(vb) ? a.職缺代碼.localeCompare(b.職缺代碼) : 1;
+    if (empty(vb)) return -1;
+    let c = typeof va === "number" && typeof vb === "number" ? va - vb
+      : typeof va === "boolean" ? Number(va) - Number(vb)
+      : String(va).localeCompare(String(vb), "zh-Hant");
+    if (sort.dir === "desc") c = -c;
+    return c || a.職缺代碼.localeCompare(b.職缺代碼);
+  };
+}
+
+let toastTimer = null;
+function toast(msg) {
+  const t = document.getElementById("toast");
+  t.textContent = msg;
+  t.hidden = false;
+  clearTimeout(toastTimer);
+  toastTimer = setTimeout(() => { t.hidden = true; }, 4000);
+}
+
+// 頁面自己的確認視窗：artifact 等嵌入環境可能封鎖瀏覽器的 confirm()
+function askConfirm(msg, yes) {
+  const m = document.getElementById("confirmModal");
+  document.getElementById("confirmMsg").textContent = msg;
+  document.getElementById("confirmYes").textContent = yes;
+  m.hidden = false;
+  document.getElementById("confirmNo").focus();
+  return new Promise(resolve => {
+    const done = ok => {
+      m.hidden = true;
+      document.getElementById("confirmYes").onclick = document.getElementById("confirmNo").onclick = null;
+      resolve(ok);
+    };
+    document.getElementById("confirmYes").onclick = () => done(true);
+    document.getElementById("confirmNo").onclick = () => done(false);
+  });
+}
+
+function showNotice(el, html, warn) {
+  el.className = "notice" + (warn ? " warn" : "");
+  el.innerHTML = `<span>${html}</span><span class="spacer"></span><button type="button" class="close" aria-label="關閉">×</button>`;
+  el.hidden = false;
+}
+document.addEventListener("click", e => {
+  const b = e.target.closest(".notice .close");
+  if (b) b.closest(".notice").hidden = true;
+});
+
+// 評分明細：維度分數與理由，被淘汰時改列淘汰原因
+function dimsHTML(rec) {
+  if (!rec) return '<p class="null">還沒有評分</p>';
+  const d = rec.評分明細;
+  if (d.淘汰) return `<p>淘汰原因：</p><ul>${d.淘汰原因.map(r => `<li>${esc(r)}</li>`).join("")}</ul><p class="null">被淘汰的職缺沒有呼叫 AI，沒有維度分數</p>`;
+  return `
+    <ul class="dims">${DIMS.map(k => {
+      const x = d.維度[k];
+      return `<li><span>${esc(k)}</span><span class="score">${x.分數 === null ? nul() : x.分數 + "/5"}</span><span class="reason">${esc(x.理由)}</span></li>`;
+    }).join("")}</ul>
+    ${d.未知維度.length ? `<p>未知維度：${esc(d.未知維度.join("、"))}（總分以 3 分代入）</p>` : ""}
+    ${kv([["供應商", val(rec.供應商)], ["模型", val(rec.模型)]])}`;
+}
+
+// ================= 表格元件 =================
+
+const TABLES = [];
+
+function createTable(root, opts) {
+  const t = {
+    root, opts,
+    openCode: null,
+    viewing: {},          // 職缺代碼 -> 檢視中的評分紀錄
+    basisOpen: {},        // 職缺代碼 -> 評分依據是否展開
+    basisTab: "偏好",
+    selected: new Set(),
+    frozen: null,         // 評分開始時固定下來的列（職缺代碼），改篩選或排序才解除
+  };
+  root.innerHTML = `
+    <div class="toolbar">
+      <span class="count"></span>
+      ${opts.noSelect ? "" : `<span class="selbar">
+        <span class="selcount"></span>
+        <button class="btn" type="button" data-act="all">全選</button>
+        <button class="btn" type="button" data-act="none">取消全選</button>
+        <button class="btn primary" type="button" data-act="score">送去評分</button>
+        <button class="btn" type="button" data-act="trial-add">加入試跑清單</button>
+        ${ownerTag("auto")}
+      </span>`}
+      <span class="spacer"></span>
+      ${opts.extraTools || ""}
+      <div class="popover-wrap">
+        <button class="btn" type="button" data-act="cols" aria-expanded="false">選擇欄位</button>
+        <div class="popover" hidden></div>
+      </div>
+    </div>
+    <div class="table-wrap">
+      <table>
+        <thead><tr></tr></thead>
+        <tbody></tbody>
+      </table>
+    </div>`;
+  t.headRow = root.querySelector("thead tr");
+  t.body = root.querySelector("tbody");
+  t.pop = root.querySelector(".popover");
+  t.colBtn = root.querySelector('[data-act="cols"]');
+
+  root.querySelector(".toolbar").addEventListener("click", e => {
+    const b = e.target.closest("button[data-act]");
+    if (!b) return;
+    const act = b.dataset.act;
+    if (act === "all") { rowsOf(t).forEach(j => t.selected.add(j.職缺代碼)); renderAll(); }
+    if (act === "none") { t.selected.clear(); renderAll(); }
+    if (act === "score") openModal("score");
+    if (act === "trial-add") addToTrialList(rowsOf(t).filter(j => t.selected.has(j.職缺代碼)).map(j => j.職缺代碼));
+    if (act === "cols") {
+      t.pop.hidden = !t.pop.hidden;
+      t.colBtn.setAttribute("aria-expanded", String(!t.pop.hidden));
+      if (!t.pop.hidden) renderColumnPicker(t);
+    }
+  });
+  document.addEventListener("click", e => {
+    if (!t.pop.hidden && !root.querySelector(".popover-wrap").contains(e.target)) {
+      t.pop.hidden = true; t.colBtn.setAttribute("aria-expanded", "false");
+    }
+  });
+  t.pop.addEventListener("change", e => {
+    const k = e.target.value;
+    const cols = colsOf(t);
+    let next;
+    if (e.target.checked) {
+      next = COLUMNS.map(c => c.key).filter(x => x === k || cols.includes(x));
+    } else {
+      if (cols.length === 1) { e.target.checked = true; return; }
+      next = cols.filter(x => x !== k);
+    }
+    (t.opts.setColumns || setMainColumns)(next);
+    renderAll();
+  });
+
+  t.headRow.addEventListener("click", e => {
+    const cb = e.target.closest('input[type="checkbox"]');
+    if (cb) {
+      if (cb.checked) rowsOf(t).forEach(j => t.selected.add(j.職缺代碼)); else t.selected.clear();
+      renderAll();
+      return;
+    }
+    const th = e.target.closest("th[data-key]");
+    if (th) sortBy(t, th.dataset.key);
+  });
+  t.headRow.addEventListener("keydown", e => {
+    const th = e.target.closest("th[data-key]");
+    if (th && (e.key === "Enter" || e.key === " ")) { e.preventDefault(); sortBy(t, th.dataset.key); }
+  });
+
+  t.body.addEventListener("click", e => {
+    if (e.target.closest("a")) return;
+    const sel = e.target.closest("td.sel");
+    if (sel && sel.querySelector("input")) {
+      const cb = sel.querySelector("input");
+      if (cb.disabled) return;
+      if (e.target !== cb) cb.checked = !cb.checked;
+      const code = cb.dataset.code;
+      if (cb.checked) t.selected.add(code); else t.selected.delete(code);
+      renderAll();
+      return;
+    }
+    const hist = e.target.closest(".history tbody tr[data-idx]");
+    if (hist) {
+      const code = hist.dataset.code;
+      const job = findJob(t, code);
+      const rec = scoreHistory(job)[Number(hist.dataset.idx)];
+      if (rec === current(job)) delete t.viewing[code]; else t.viewing[code] = rec;
+      renderTable(t);
+      return;
+    }
+    const back = e.target.closest("[data-act='back-current']");
+    if (back) { delete t.viewing[back.dataset.code]; renderTable(t); return; }
+    const tab = e.target.closest(".basis-tabs button");
+    if (tab) { t.basisTab = tab.dataset.tab; renderTable(t); return; }
+    if (e.target.closest("tr.detail")) return;
+    const tr = e.target.closest("tr.row");
+    if (tr) toggleRow(t, tr.dataset.code);
+  });
+  t.body.addEventListener("keydown", e => {
+    const tr = e.target.closest("tr.row");
+    if (!tr || e.target !== tr) return;
+    if (e.key === "Enter" || e.key === " ") { e.preventDefault(); toggleRow(t, tr.dataset.code); }
+    if (e.key === "ArrowDown" || e.key === "ArrowUp") {
+      e.preventDefault();
+      const rows = [...t.body.querySelectorAll("tr.row")];
+      const next = rows[rows.indexOf(tr) + (e.key === "ArrowDown" ? 1 : -1)];
+      if (next) next.focus();
+    }
+  });
+  // details 的 toggle 事件不會冒泡，用捕獲記住評分依據是否展開
+  t.body.addEventListener("toggle", e => {
+    const d = e.target.closest && e.target.closest("details.basis");
+    if (d) t.basisOpen[d.dataset.code] = d.open;
+  }, true);
+
+  TABLES.push(t);
+  return t;
+}
+
+const colsOf = t => t.opts.columns ? t.opts.columns() : view.columns;
+const sortOf = t => t.opts.sort ? t.opts.sort() : view.sort;
+function rowsOf(t) {
+  if (t.frozen) return t.frozen.map(c => t.opts.getRows().find(j => j.職缺代碼 === c) || byCode(c)).filter(Boolean);
+  return t.opts.getRows().slice().sort(makeCompare(sortOf(t)));
+}
+const findJob = (t, code) => t.opts.getRows().find(j => j.職缺代碼 === code) || byCode(code);
+
+function toggleRow(t, code) {
+  t.openCode = t.openCode === code ? null : code;
+  renderTable(t);
+  const again = t.body.querySelector(`tr.row[data-code="${code}"]`);
+  if (again) again.focus({ preventScroll: true });
+}
+
+const setMainColumns = cols => { view.columns = cols; saveView(); };
+const setMainSort = sort => { view.sort = sort; saveView(); };
+
+// 依這張表目前顯示的排序切換；各表的欄位與排序各自記住
+function sortBy(t, key) {
+  const s = sortOf(t);
+  const next = s.key === key ? { key, dir: s.dir === "asc" ? "desc" : "asc" } : { key, dir: COL[key].num ? "desc" : "asc" };
+  (t.opts.setSort || setMainSort)(next);
+  t.frozen = null;
+  renderAll();
+}
+
+function renderColumnPicker(t) {
+  const groups = t.opts.pickerGroups || [["db", "職缺"], ["auto", "評分"]];
+  const cols = colsOf(t);
+  t.pop.innerHTML = groups.map(([o, name]) => `
+    <div class="col-group">
+      <h3>${name} ${ownerTag(o)}</h3>
+      <div class="col-list">${COLUMNS.filter(c => c.owner === o && (!t.opts.columnFilter || t.opts.columnFilter(c.key))).map(c => `
+        <label><input type="checkbox" value="${esc(c.key)}" ${cols.includes(c.key) ? "checked" : ""}> ${esc(c.key)}</label>`).join("")}
+      </div>
+    </div>`).join("");
+}
+
+function statusTag(code) {
+  const st = STATUS[code];
+  if (!st) return "";
+  if (st.s === "queued") return '<span class="tag queued">排隊中</span>';
+  if (st.s === "scoring") return '<span class="tag scoring">評分中</span>';
+  return `<span class="tag failed" title="${esc(st.reason)}">評分失敗：${esc(st.reason)}</span>`;
+}
+
+function renderTable(t) {
+  const rows = rowsOf(t);
+  const cols = colsOf(t);
+  const sort = sortOf(t);
+  const canSelect = !t.opts.noSelect;
+
+  t.root.querySelector(".count").textContent = t.opts.countText(rows.length) + (t.frozen ? "　・　評分後列的順序固定，改篩選或排序時才重新排列" : "");
+  let n = 0;
+  if (canSelect) {
+    // 選取只保留目前還在表上的職缺
+    const present = new Set(rows.map(j => j.職缺代碼));
+    for (const c of [...t.selected]) if (!present.has(c)) t.selected.delete(c);
+    n = t.selected.size;
+    t.root.querySelector(".selcount").textContent = `已選 ${n} 筆`;
+    t.root.querySelector('[data-act="all"]').disabled = !rows.length;
+    t.root.querySelector('[data-act="none"]').disabled = !n;
+    const scoreBtn = t.root.querySelector('[data-act="score"]');
+    scoreBtn.disabled = !n || !!busy;
+    scoreBtn.title = busy ? "同一時間只能跑一個作業" : "";
+    const addBtn = t.root.querySelector('[data-act="trial-add"]');
+    addBtn.disabled = !n || busy?.type === "trial";
+    addBtn.title = busy?.type === "trial" ? "試跑中不能改試跑清單" : "";
+  }
+
+  const allChecked = rows.length > 0 && rows.every(j => t.selected.has(j.職缺代碼));
+  t.headRow.innerHTML = (canSelect
+    ? `<th class="sel"><input type="checkbox" aria-label="全選目前顯示的職缺" ${allChecked ? "checked" : ""} ${rows.length ? "" : "disabled"}></th>`
+    : '<th class="sel"></th>') +
+    cols.map(k => {
+      const c = COL[k];
+      const on = sort.key === k;
+      const arrow = on ? `<span class="arrow">${sort.dir === "asc" ? "▲" : "▼"}</span>` : "";
+      const aria = on ? (sort.dir === "asc" ? "ascending" : "descending") : "none";
+      return `<th class="${c.num ? "num" : ""}" data-key="${esc(k)}" aria-sort="${aria}" tabindex="0">${esc(k)}${arrow}${ownerTag(c.owner)}</th>`;
+    }).join("");
+  if (canSelect) t.headRow.querySelector("input").indeterminate = !allChecked && rows.some(j => t.selected.has(j.職缺代碼));
+
+  const colspan = cols.length + 1;
+  if (!rows.length) {
+    t.body.innerHTML = `<tr><td class="empty" colspan="${colspan}">${esc(t.opts.emptyText())}</td></tr>`;
+    return;
+  }
+  t.body.innerHTML = rows.map(job => {
+    const code = job.職缺代碼;
+    const open = code === t.openCode;
+    const extra = t.opts.rowBadge ? t.opts.rowBadge(job) : "";
+    const sel = canSelect
+      ? `<td class="sel"><input type="checkbox" data-code="${esc(code)}" aria-label="選取 ${esc(job.職缺名稱)}" ${t.selected.has(code) ? "checked" : ""}> ${statusTag(code)}${extra}</td>`
+      : `<td class="sel">${extra}</td>`;
+    const cells = cols.map(k => {
+      const c = COL[k];
+      return `<td class="${[c.num ? "num" : "", c.cls || ""].join(" ")}">${cellHTML(c, job)}</td>`;
+    }).join("");
+    const tr = `<tr class="row ${open ? "open" : ""}" data-code="${esc(code)}" tabindex="0" aria-expanded="${open}">${sel}${cells}</tr>`;
+    return open ? tr + `<tr class="detail"><td colspan="${colspan}">${detailHTML(t, job)}</td></tr>` : tr;
+  }).join("");
+}
+
+// withTimes 為 false 時不列出現時間：預覽的職缺還沒存入，出現時間要存入時才決定
+function jobPanelHTML(job, withTimes = true) {
+  return `
+    <section class="panel">
+      <h3>職缺內容 ${ownerTag("db")}</h3>
+      ${kv([
+        ["職缺代碼", val(job.職缺代碼)],
+        ["職缺名稱", val(job.職缺名稱)],
+        ["公司名稱", val(job.公司名稱)],
+        ["產業類別", val(job.產業類別)],
+        ["地區", val(job.地區)],
+        ["薪資待遇", val(job.薪資待遇)],
+        ["薪資下限／上限", `${job.薪資下限 === null ? nul() : fmt(job.薪資下限)}／${job.薪資上限 === null ? nul() : fmt(job.薪資上限)}`],
+        ["更新日期", val(job.更新日期)],
+        ["應徵人數", val(job.應徵人數)],
+        ["電腦專長", val(job.電腦專長)],
+        ["科系要求", val(job.科系要求)],
+        ["特色標籤", val(job.特色標籤)],
+        ...(withTimes ? [
+          ["首次出現", val(showTime(job.首次出現時間))],
+          ["最後出現", val(showTime(job.最後出現時間))],
+        ] : []),
+        ["連結", `<a href="${esc(job.職缺連結)}" target="_blank" rel="noopener">職缺頁</a>　<a href="${esc(job.公司連結)}" target="_blank" rel="noopener">公司頁</a>`],
+      ])}
+      ${job.工作內容 === null ? '<p class="null">沒有工作內容（來源取不到職缺的詳細內容）</p>' : `<pre class="content">${esc(job.工作內容)}</pre>`}
+    </section>`;
+}
+
+function detailHTML(t, job) {
+  if (t.opts.jobOnly) return `<div class="detail-grid">${jobPanelHTML(job, false)}</div>`;
+  const code = job.職缺代碼;
+  const cur = current(job);
+  const hist = scoreHistory(job);
+  const shown = t.viewing[code] && hist.includes(t.viewing[code]) ? t.viewing[code] : cur;
+  const isOld = shown && shown !== cur;
+
+  const viewingBar = isOld ? `
+    <div class="viewing">檢視中：${esc(showTime(shown.評分時間))} 的評分，不是目前的評分
+      <button type="button" class="linkbtn" data-act="back-current" data-code="${esc(code)}">回到目前的評分</button></div>` : "";
+  const failed = STATUS[code]?.s === "failed"
+    ? `<p class="viewing">剛才評分失敗：${esc(STATUS[code].reason)}。失敗沒有寫入，可以再勾選重評；重新整理後這個標示就消失。</p>` : "";
+
+  const scorePanel = `
+    <section class="panel">
+      <h3>${isOld ? "檢視中的評分" : "目前的評分"} ${ownerTag("auto")}</h3>
+      ${failed}${viewingBar}
+      ${shown ? kv([
+        ["總分", scoreCell(shown.總分)],
+        ["淘汰", outCell(shown.淘汰)],
+        ["評語", val(shown.評語)],
+        ["評分時間", val(showTime(shown.評分時間))],
+      ]) : '<p class="null">還沒有評分，勾選後按「送去評分」</p>'}
+    </section>`;
+
+  const aiPanel = `
+    <section class="panel">
+      <h3>評分明細 ${ownerTag("auto")}</h3>
+      ${dimsHTML(shown)}
+    </section>`;
+
+  const histPanel = `
+    <section class="panel">
+      <h3>所有評分紀錄（${hist.length} 筆） ${ownerTag("auto")}</h3>
+      ${hist.length ? `<p class="null" style="margin:0 0 6px;font-size:12px">點一筆切換上面顯示的評分</p>
+      <div class="table-wrap"><table class="history">
+        <thead><tr><th>評分時間</th><th>模型</th><th class="num">總分</th><th>淘汰</th></tr></thead>
+        <tbody>${hist.map((r, i) => `<tr data-code="${esc(code)}" data-idx="${i}" class="${r === shown ? "shown" : ""}">
+          <td class="nowrap">${esc(showTime(r.評分時間))} ${r === cur ? '<span class="cur-mark">目前</span>' : ""}</td>
+          <td class="nowrap">${val(r.模型)}</td>
+          <td class="num">${scoreCell(r.總分)}</td>
+          <td>${outCell(r.淘汰)}</td></tr>`).join("")}</tbody>
+      </table></div>` : '<p class="null">還沒有評分</p>'}
+    </section>`;
+
+  const basisPanel = shown ? `
+    <section class="panel wide">
+      <details class="basis" data-code="${esc(code)}" ${t.basisOpen[code] ? "open" : ""}>
+        <summary>評分依據 ${ownerTag("auto")}</summary>
+        ${basisBody(t, shown)}
+      </details>
+    </section>` : "";
+
+  return `<div class="detail-grid">${jobPanelHTML(job)}${scorePanel}${aiPanel}${histPanel}${basisPanel}</div>`;
+}
+
+const verName = v => `第 ${v.版本} 版「${v.名稱}」`;
+const verLabel = v => `${verName(v)}（${showTime(v.儲存時間)} 儲存）`;
+
+function basisBody(t, rec) {
+  const b = rec.依據;
+  if (!b) return '<p class="null">這筆評分沒有記錄依據（設定改存資料庫之前評的）</p>';
+  const p = version("偏好", b.偏好), x = version("經歷", b.經歷), m = version("模板", b.模板);
+  const tabs = [["偏好", "偏好"], ["經歷", "經歷"], ["提示詞", "提示詞"]];
+  let body, note;
+  if (t.basisTab === "偏好") { body = p.內容; note = `評分時用的偏好：${verLabel(p)}`; }
+  else if (t.basisTab === "經歷") { body = x.內容; note = `評分時用的經歷：${verLabel(x)}`; }
+  else if (rec.淘汰) {
+    body = "被淘汰的職缺沒有呼叫 AI，沒有提示詞。\n\n淘汰依據的送評時職缺內容：\n" +
+      ["職缺名稱", "公司名稱", "薪資待遇", "薪資下限", "薪資上限"].map(k => `- ${k}：${b.快照[k] ?? "（無資料）"}`).join("\n");
+    note = `淘汰條件來自偏好${verLabel(p)}`;
+  } else {
+    body = buildPrompt(b.快照, p.內容, x.內容, m.內容);
+    note = `由送評時的職缺內容快照，加上偏好${verName(p)}、經歷${verName(x)}、提示詞模板${verName(m)}組回`;
+  }
+  return `
+    <div class="basis-tabs" role="tablist">${tabs.map(([k, label]) =>
+      `<button type="button" role="tab" data-tab="${k}" aria-selected="${t.basisTab === k}">${label}</button>`).join("")}
+    </div>
+    <p class="null" style="margin:6px 0 0;font-size:12px">${esc(note)}</p>
+    <pre class="basis-body">${esc(body)}</pre>`;
+}
+
+// ================= 主表 =================
+
+// 關鍵字與地區共用：逗號分隔、符合任一個、不分大小寫、「臺」視為「台」
+const norm = s => s.trim().toLowerCase().replace(/臺/g, "台");
+const terms = s => s.split(/[,，]/).map(norm).filter(Boolean);
+function anyTerm(text, input) {
+  const ts = terms(input);
+  if (!ts.length) return true;
+  const hay = norm(text || "");
+  return ts.some(x => hay.includes(x));
+}
+
+function matches(job) {
+  const f = view.filters;
+  // 顯示剛存入的職缺時，其他篩選暫停
+  if (justSaved) return justSaved.codes.has(job.職缺代碼);
+  if (!anyTerm([job.職缺名稱, job.公司名稱, job.工作內容, job.電腦專長].filter(Boolean).join("\n"), f.keyword)) return false;
+  if (!anyTerm(job.地區, f.area)) return false;
+  const cur = current(job);
+  if (f.status === "none" && cur) return false;
+  if (f.status === "kept" && (!cur || cur.淘汰)) return false;
+  if (f.status === "out" && (!cur || !cur.淘汰)) return false;
+  const min = f.min === "" ? null : Number(f.min);
+  const max = f.max === "" ? null : Number(f.max);
+  if (min !== null || max !== null) {
+    const s = cur?.總分 ?? null;
+    if (s === null) return false;
+    if (min !== null && s < min) return false;
+    if (max !== null && s > max) return false;
+  }
+  return true;
+}
+
+const mainTable = createTable(document.getElementById("mainTable"), {
+  getRows: () => JOBS.filter(matches),
+  countText: n => `符合 ${n} 筆／共 ${JOBS.length} 筆`,
+  emptyText: () => "沒有符合條件的職缺",
+  extraTools: '<button class="btn" type="button" id="resetView">還原預設檢視</button>',
+});
+
+function renderFilters() {
+  const f = view.filters;
+  document.getElementById("fKeyword").value = f.keyword;
+  document.getElementById("fArea").value = f.area;
+  document.getElementById("fMin").value = f.min;
+  document.getElementById("fMax").value = f.max;
+  document.getElementById("fStatus").value = f.status;
+  document.getElementById("fJustSavedWrap").hidden = !justSaved;
+  for (const id of ["fKeyword", "fArea", "fMin", "fMax", "fStatus", "clearFilters"]) document.getElementById(id).disabled = !!justSaved;
+  if (justSaved) document.getElementById("fJustSaved").textContent = `剛存入的 ${justSaved.n} 筆`;
+}
+
+// 改篩選時清掉勾選，列的順序也不再固定
+function filtersChanged() {
+  mainTable.selected.clear();
+  mainTable.frozen = null;
+  saveView(); renderFilters(); renderAll();
+}
+
+for (const [id, key, ev] of [["fKeyword", "keyword", "input"], ["fArea", "area", "input"], ["fMin", "min", "input"], ["fMax", "max", "input"], ["fStatus", "status", "change"]]) {
+  document.getElementById(id).addEventListener(ev, e => { view.filters[key] = e.target.value; filtersChanged(); });
+}
+document.getElementById("fJustSavedClear").addEventListener("click", () => { justSaved = null; filtersChanged(); });
+document.getElementById("clearFilters").addEventListener("click", () => {
+  view.filters = clone(DEFAULT_VIEW.filters);
+  justSaved = null;
+  filtersChanged();
+});
+document.getElementById("resetView").addEventListener("click", () => {
+  // 顯示剛存入的職缺時，篩選暫停，只還原欄位與排序
+  view = justSaved ? { ...clone(DEFAULT_VIEW), filters: view.filters } : clone(DEFAULT_VIEW);
+  TABLES.forEach(t => { t.frozen = null; });
+  filtersChanged();
+});
+
+// ================= 抓取 =================
+
+const crawl = {
+  state: "idle",      // idle | running | preview
+  rows: [],           // 預覽中的職缺：抓到的內容，還沒寫進職缺資料庫
+  isNew: {},          // 職缺代碼 -> 資料庫裡還沒有
+  stopped: false,
+  runTime: null,      // 執行時間：抓完或停止的時間
+};
+
+// 預覽只有職缺欄位契約的欄位，選的欄位與排序和職缺表分開記
+const PREVIEW_KEY = "jobTablePrototype.preview.v1";
+const previewView = (() => {
+  const v = readStore(PREVIEW_KEY);
+  const isDb = inPreview;
+  const columns = Array.isArray(v?.columns) ? v.columns.filter(isDb) : [];
+  return {
+    columns: columns.length ? columns : PREVIEW_DEFAULT_COLUMNS.slice(),
+    sort: v?.sort && isDb(v.sort.key) && ["asc", "desc"].includes(v.sort.dir) ? v.sort : { key: "職缺名稱", dir: "asc" },
+  };
+})();
+const savePreviewView = () => writeStore(PREVIEW_KEY, previewView);
+const crawlTable = createTable(document.getElementById("crawlTable"), {
+  getRows: () => crawl.state === "preview" ? crawl.rows : [],
+  noSelect: true,
+  jobOnly: true,
+  columns: () => previewView.columns,
+  sort: () => previewView.sort,
+  setColumns: cols => { previewView.columns = cols; savePreviewView(); },
+  setSort: sort => { previewView.sort = sort; savePreviewView(); },
+  pickerGroups: [["db", "職缺"]],
+  columnFilter: inPreview,
+  countText: n => crawl.state === "preview" ? `這次抓到 ${n} 筆，還沒存入` : "",
+  emptyText: () => crawl.state === "running" ? "抓取中，抓完或停止後一次列出" : "輸入條件後按「開始抓取」，抓完會在這裡預覽",
+  rowBadge: job => crawl.isNew[job.職缺代碼] ? '<span class="tag new">新</span>' : "",
+});
+
+document.getElementById("cArea").innerHTML = '<option value="">全台灣</option>' + CITIES.map(c => `<option>${c}</option>`).join("");
+(function restoreCrawlForm() {
+  const c = readStore(CRAWL_KEY);
+  if (!c || typeof c !== "object") return;
+  const f = document.getElementById("crawlForm").elements;
+  if (typeof c.keyword === "string") f.keyword.value = c.keyword;
+  if (c.area === "" || CITIES.includes(c.area)) f.area.value = c.area;
+  if (Number.isInteger(c.pages) && c.pages >= 1 && c.pages <= 10) f.pages.value = c.pages;
+  if (["0", "1", "2"].includes(c.type)) f.type.value = c.type;
+})();
+
+const sleep = ms => new Promise(r => setTimeout(r, ms));
+
+function setCrawlProgress(pct, msg) {
+  document.getElementById("crawlProgress").hidden = false;
+  document.getElementById("crawlBar").style.width = `${Math.round(pct)}%`;
+  document.getElementById("crawlMsg").textContent = msg;
+}
+
+function titlesFor(keyword) {
+  const kw = keyword.toLowerCase();
+  const hit = TITLES.filter(([t, skills]) => t.toLowerCase().includes(kw) || skills.some(s => s.toLowerCase().includes(kw)));
+  return hit.length ? hit : TITLES;
+}
+
+function renderCrawlNotice() {
+  const el = document.getElementById("crawlNotice");
+  if (crawl.state !== "preview") return;
+  const n = crawl.rows.length;
+  const fresh = Object.keys(crawl.isNew).length;
+  el.className = "notice warn";
+  el.hidden = false;
+  el.innerHTML = `<span>${crawl.stopped ? "已停止。" : ""}這次抓到 ${n} 筆，其中 ${fresh} 筆資料庫裡還沒有（標「新」）。預覽的職缺還沒寫進職缺資料庫，要整批存入或整批捨棄。</span>
+    <span class="spacer"></span>
+    <button class="btn" type="button" id="crawlDiscard">捨棄</button>
+    <button class="btn primary" type="button" id="crawlSave">存入職缺資料庫</button> ${ownerTag("scraper")}`;
+}
+
+document.getElementById("crawlForm").addEventListener("submit", async e => {
+  e.preventDefault();
+  if (busy) return;
+  const f = e.target.elements;
+  const keywords = f.keyword.value.split(/[,，]/).map(s => s.trim()).filter(Boolean);
+  const pages = Number(f.pages.value);
+  const errEl = document.getElementById("cKeywordErr");
+  errEl.textContent = keywords.length ? "" : "至少輸入一個關鍵字";
+  if (!keywords.length) return;
+  if (!Number.isInteger(pages) || pages < 1 || pages > 10) { toast("頁數要是 1–10 的整數"); return; }
+  if (crawl.state === "preview" && !await askConfirm("這次的抓取結果還沒存入，重新抓取會捨棄它。", "捨棄並重新抓取")) return;
+  const cond = { keyword: f.keyword.value, area: f.area.value, pages, type: f.type.value };
+  writeStore(CRAWL_KEY, cond);
+
+  Object.assign(crawl, { state: "running", rows: [], isNew: {}, stopped: false, runTime: null });
+  crawlTable.openCode = null;
+  document.getElementById("crawlNotice").hidden = true;
+  busy = { type: "crawl", done: 0, total: 0, stopRequested: false };
+  updateBusyUI();
+  renderAll();
+
+  // 第 1 段：翻搜尋頁，只有基本欄位
+  const found = [];     // { existing: 職缺 | null, titleEntry }
+  const seen = new Set();
+  outer:
+  for (const kw of keywords) {
+    const titles = titlesFor(kw);
+    for (let p = 1; p <= pages; p++) {
+      if (busy.stopRequested) break outer;
+      setCrawlProgress(5, `搜尋中：「${kw}」第 ${p}／${pages} 頁，已找到 ${found.length} 筆不重複的職缺`);
+      await sleep(600);
+      const n = p > 1 && rand() < 0.3 ? between(3, 12) : between(12, 30);
+      for (let i = 0; i < n; i++) {
+        // 約四分之一是資料庫已經有的職缺
+        const pool = JOBS.filter(j => titles.some(([t]) => t === j.職缺名稱) && (!cond.area || j.地區.startsWith(cond.area)));
+        if (pool.length && rand() < 0.25) {
+          const ex = pick(pool);
+          if (seen.has(ex.職缺代碼)) continue;
+          seen.add(ex.職缺代碼);
+          found.push({ existing: ex });
+        } else {
+          found.push({ existing: null, titleEntry: pick(titles) });
+        }
+      }
+      if (n < 30) break; // 最後一頁
+    }
+  }
+
+  // 第 2 段：逐筆取職缺頁面；畫面上只更新進度，抓完或停止後一次列出
+  busy.total = found.length;
+  const rows = [];
+  for (let i = 0; i < found.length; i++) {
+    if (busy.stopRequested) break;
+    setCrawlProgress(10 + 90 * i / found.length, `取職缺內容：${i + 1}／${found.length}（抓完或停止後一次列出）`);
+    busy.done = i;
+    updateBusyUI();
+    await sleep(120);
+    const item = found[i];
+    if (item.existing) {
+      rows.push({ ...item.existing });
+    } else {
+      const job = makeJob({ titleEntry: item.titleEntry, city: cond.area || null, first: new Date(), last: new Date() });
+      crawl.isNew[job.職缺代碼] = true;
+      rows.push(job);
+    }
+  }
+
+  const stopped = busy.stopRequested;
+  busy = null;
+  crawl.runTime = new Date();
+  crawl.stopped = stopped;
+  crawl.rows = rows;
+  crawl.state = rows.length ? "preview" : "idle";
+  setCrawlProgress(100, stopped ? `已停止：取完內容的 ${rows.length} 筆列在下面預覽` : `抓取完成，共 ${rows.length} 筆`);
+  if (rows.length) renderCrawlNotice();
+  else showNotice(document.getElementById("crawlNotice"), stopped ? "已停止，還沒有取完內容的職缺。" : "沒有抓到職缺。", true);
+  updateBusyUI();
+  renderAll();
+});
+
+document.getElementById("crawlNotice").addEventListener("click", e => {
+  if (e.target.id === "crawlDiscard") {
+    crawl.state = "idle"; crawl.rows = []; crawl.isNew = {};
+    showNotice(document.getElementById("crawlNotice"), "已捨棄這次的抓取結果，沒有寫入職缺資料庫。", true);
+    renderAll();
+  }
+  if (e.target.id === "crawlSave") {
+    // 整批存入：執行時間用抓完或停止的時間
+    const runTime = iso(crawl.runTime);
+    let added = 0, updated = 0;
+    const codes = new Set();
+    for (const job of crawl.rows) {
+      codes.add(job.職缺代碼);
+      const ex = byCode(job.職缺代碼);
+      if (ex) { ex.最後出現時間 = runTime; updated++; }
+      else { JOBS.push({ ...job, 首次出現時間: runTime, 最後出現時間: runTime }); added++; }
+    }
+    crawl.state = "idle"; crawl.rows = []; crawl.isNew = {};
+    showNotice(document.getElementById("crawlNotice"), `已存入職缺資料庫：新出現 ${added} 筆、已存在 ${updated} 筆 ${ownerTag("db")}`);
+    justSaved = { codes, n: codes.size };
+    showPage("table");
+    filtersChanged();
+  }
+});
+
+// ================= 停止 =================
+
+function requestStop() {
+  if (!busy) return;
+  busy.stopRequested = true;
+  updateBusyUI();
+  if (busy.type === "crawl") setCrawlProgress(parseFloat(document.getElementById("crawlBar").style.width) || 0, "停止中：不再發出新的請求");
+}
+document.getElementById("crawlStop").addEventListener("click", requestStop);
+document.getElementById("jobStop").addEventListener("click", requestStop);
+
+// ================= 送去評分與試跑的確認視窗 =================
+
+let modalMode = null;  // "score" | "trial"
+const noApiKey = () => document.getElementById("noKeyToggle").checked;
+
+function draftProfile() {
+  const p = {};
+  for (const k of Object.keys(KINDS)) p[k] = isModified(k) ? { 版本: null, 內容: editorText(k), 底稿: baseOf(k) } : version(k, baseOf(k));
+  return p;
+}
+const profileLabel = p => Object.keys(KINDS).map(k => `${KINDS[k]}${p[k].版本 ? verName(p[k]) : `修改中（以第 ${p[k].底稿} 版為底）`}`).join("、");
+
+// 依表格目前的顯示順序，算出要評哪些職缺與開始前的錯誤
+function modalPlan() {
+  const trial = modalMode === "trial";
+  const jobs = trial ? trialRows() : rowsOf(mainTable).filter(j => mainTable.selected.has(j.職缺代碼));
+  const scored = jobs.filter(j => current(j));
+  const rescore = document.getElementById("mRescore").checked;
+  const targets = trial || rescore ? jobs : jobs.filter(j => !current(j));
+  const profile = trial ? draftProfile() : savedProfile();
+  const out = targets.filter(j => eliminationReasons(j, profile.偏好.內容).length).length;
+  const errors = [];
+  if (!targets.length) errors.push(trial ? "試跑清單是空的" : "勾選的職缺都評過了。要重評請勾「包含已評過的職缺」。");
+  for (const e of validatePrefs(profile.偏好.內容).errors) errors.push(`偏好的格式錯誤：${e}`);
+  for (const e of validateTemplate(profile.模板.內容).errors) errors.push(`提示詞模板有錯：${e}`);
+  if (!trial && isDefault("偏好")) errors.push("目前的偏好還是預設範例：先到「設定」改成自己的偏好，用範例評出的分數沒有意義");
+  if (!trial && isDefault("經歷")) errors.push("目前的經歷還是預設範例：先到「設定」改成自己的經歷");
+  if (noApiKey() && targets.length - out > 0) errors.push("沒有設定 API key，有需要呼叫 AI 的職缺（原型用頁首的開關模擬）");
+  return { jobs, scored, targets, out, profile, errors };
+}
+
+function renderModal() {
+  const trial = modalMode === "trial";
+  const p = modalPlan();
+  document.getElementById("scoreModalTitle").innerHTML = `${trial ? "試跑" : "送去評分"} ${ownerTag("auto")}`;
+  document.getElementById("mRescoreWrap").hidden = trial;
+  document.getElementById("scoreModalSummary").innerHTML = [
+    trial ? `試跑清單 <strong>${p.jobs.length}</strong> 筆，照試跑清單目前的順序逐筆評` : `勾選 <strong>${p.jobs.length}</strong> 筆，其中 ${p.scored.length} 筆已評過`,
+    trial ? "" : `將評 <strong>${p.targets.length}</strong> 筆，照職缺表目前的順序逐筆評`,
+    p.out ? `其中 ${p.out} 筆符合淘汰條件，直接淘汰、不呼叫 AI` : "",
+    trial ? `用設定分頁編輯區的內容（${profileLabel(p.profile)}）；結果不存，和目前的評分並排比較` : `用目前的設定：${profileLabel(p.profile)}`,
+  ].filter(Boolean).map(s => `<li>${s}</li>`).join("");
+  const errEl = document.getElementById("scoreModalErrors");
+  errEl.hidden = !p.errors.length;
+  errEl.innerHTML = p.errors.map(e => `<li>${esc(e)}</li>`).join("");
+  const start = document.getElementById("mStart");
+  start.textContent = trial ? "開始試跑" : "開始評分";
+  start.disabled = p.errors.length > 0;
+}
+
+function openModal(mode) {
+  if (busy || !(mode === "trial" ? TRIAL_LIST.length : mainTable.selected.size)) return;
+  modalMode = mode;
+  document.getElementById("mRescore").checked = false;
+  renderModal();
+  document.getElementById("scoreModal").hidden = false;
+  document.getElementById("mCancel").focus();
+}
+function closeModal() { document.getElementById("scoreModal").hidden = true; modalMode = null; }
+document.getElementById("mRescore").addEventListener("change", renderModal);
+document.getElementById("mCancel").addEventListener("click", closeModal);
+document.getElementById("scoreModal").addEventListener("click", e => { if (e.target.id === "scoreModal") closeModal(); });
+document.addEventListener("keydown", e => { if (e.key === "Escape" && !document.getElementById("scoreModal").hidden) closeModal(); });
+document.getElementById("noKeyToggle").addEventListener("change", () => { if (modalMode) renderModal(); });
+
+document.getElementById("mStart").addEventListener("click", () => {
+  const p = modalPlan();
+  if (p.errors.length) return;
+  const model = document.getElementById("mModel").value;
+  const mode = modalMode;
+  closeModal();
+  if (mode === "trial") runTrial(p.targets, p.profile, model);
+  else runScore(p.targets, p.profile, model);
+});
+
+// 評分在開始時讀一次設定；評分中儲存設定只影響之後的評分
+async function runScore(jobs, profile, model) {
+  mainTable.frozen = rowsOf(mainTable).map(j => j.職缺代碼);
+  mainTable.selected.clear();
+  document.getElementById("scoreNotice").hidden = true;
+  for (const j of jobs) STATUS[j.職缺代碼] = { s: "queued" };
+  busy = { type: "score", done: 0, total: jobs.length, stopRequested: false };
+  let ok = 0, out = 0, failed = 0;
+  updateBusyUI(); renderAll();
+  for (const job of jobs) {
+    if (busy.stopRequested) break;
+    STATUS[job.職缺代碼] = { s: "scoring" };
+    renderAll();
+    await sleep(eliminationReasons(job, profile.偏好.內容).length ? 150 : 700);
+    if (rand() < 0.1) {
+      STATUS[job.職缺代碼] = { s: "failed", reason: pick(FAIL_REASONS) };
+      failed++;
+    } else {
+      const rec = scoreJob(job, new Date(), profile, model);
+      addScore(rec);
+      delete STATUS[job.職缺代碼];
+      if (rec.淘汰) out++; else ok++;
+    }
+    busy.done++;
+    updateBusyUI(); renderAll();
+  }
+  const stopped = busy.stopRequested;
+  let skipped = 0;
+  for (const j of jobs) if (STATUS[j.職缺代碼]?.s === "queued") { delete STATUS[j.職缺代碼]; skipped++; }
+  busy = null;
+  showNotice(document.getElementById("scoreNotice"),
+    `${stopped ? "已停止" : "評分完成"}：評分 ${ok} 筆、淘汰 ${out} 筆、失敗 ${failed} 筆${stopped ? `、沒評 ${skipped} 筆` : ""}。` +
+    (failed ? "失敗的沒有寫入，列上看得到原因，可以再勾選重評。" : ""), failed > 0 || stopped);
+  updateBusyUI(); renderAll();
+}
+
+// ================= 設定 =================
+
+let setKind = "偏好";
+// 編輯區：{ base: 載入的版本, text: 內容 }，記在瀏覽器；記不住或那一版不存在時退回目前設定
+const DRAFTS = (() => {
+  const d = readStore(DRAFT_KEY);
+  const out = {};
+  if (d && typeof d === "object") for (const k of Object.keys(KINDS)) {
+    const x = d[k];
+    if (x && typeof x.text === "string" && version(k, x.base)) out[k] = { base: x.base, text: x.text };
+  }
+  return out;
+})();
+const baseOf = k => DRAFTS[k]?.base ?? APPLIED[k];
+const editorText = k => DRAFTS[k]?.text ?? version(k, baseOf(k)).內容;
+const isModified = k => editorText(k) !== version(k, baseOf(k)).內容;
+function saveDrafts() {
+  for (const k of Object.keys(DRAFTS)) if (DRAFTS[k].base === APPLIED[k] && !isModified(k)) delete DRAFTS[k];
+  writeStore(DRAFT_KEY, DRAFTS);
+}
+// 主按鈕：有修改時儲存並套用；載入別的版本沒修改時套用那一版；和目前設定相同時停用
+function applyAction(k) {
+  if (isModified(k)) return "save";
+  if (baseOf(k) !== APPLIED[k]) return "apply";
+  return null;
+}
+
+function renderEditor() {
+  document.getElementById("setEditor").value = editorText(setKind);
+  document.querySelectorAll("#setTabs button").forEach(b => b.setAttribute("aria-selected", String(b.dataset.kind === setKind)));
+  renderSettingsMeta();
+}
+
+function renderSettingsMeta() {
+  const cur = applied(setKind);
+  const base = version(setKind, baseOf(setKind));
+  const modified = isModified(setKind);
+  const pending = Object.keys(KINDS).filter(k => applyAction(k));
+  document.getElementById("setStatus").innerHTML = [
+    `目前設定：${esc(verName(cur))}`,
+    isDefault(setKind) ? `<span class="tag default">預設${setKind === "模板" ? "模板" : "範例"}</span>` : "",
+    base !== cur ? `<span class="tag draft">編輯區載入${esc(verName(base))}</span>` : "",
+    modified ? '<span class="tag draft">有修改，還沒儲存</span>' : "",
+    pending.length ? `<span class="null">（還沒套用的：${pending.map(k => KINDS[k]).join("、")}）</span>` : "",
+  ].filter(Boolean).join(" ");
+
+  const v = validate(setKind, editorText(setKind));
+  document.getElementById("setMsgs").innerHTML =
+    v.errors.map(e => `<li class="error">${esc(e)}</li>`).join("") +
+    v.warnings.map(w => `<li class="warning">提醒：${esc(w)}</li>`).join("");
+
+  const act = applyAction(setKind);
+  const applyBtn = document.getElementById("setApply");
+  applyBtn.textContent = act === "save" ? "儲存並套用" : act === "apply" ? `套用第 ${base.版本} 版` : "已是目前設定";
+  applyBtn.disabled = !act || v.errors.length > 0;
+  applyBtn.title = v.errors.length ? "先修正上面的錯誤" : "";
+  document.getElementById("setDiscard").disabled = !act;
+  document.getElementById("setDefault").disabled = editorText(setKind) === DEFAULTS[setKind];
+  const n = TRIAL_LIST.length;
+  const trialBtn = document.getElementById("setTrial");
+  trialBtn.textContent = `試跑清單的 ${n} 筆`;
+  trialBtn.disabled = !n || !!busy;
+  document.getElementById("setHint").textContent = busy ? "同一時間只能跑一個作業，等目前的作業結束再試跑。"
+    : n ? "試跑用三份設定編輯區的內容評試跑清單的職缺，不影響正式分數。"
+    : "試跑清單是空的：到職缺表勾選職缺後按「加入試跑清單」。";
+
+  // 試跑結果要標出編輯區在試跑後改過，所以跟著重畫
+  renderTrialList();
+
+  document.getElementById("setVersions").innerHTML = SETTINGS[setKind].slice().reverse().map(x => `
+    <li><button type="button" data-ver="${x.版本}" aria-pressed="${x === base}">
+      第 ${x.版本} 版 <span class="ver-name">${esc(x.名稱)}</span>${x === cur ? ' <span class="cur-mark">目前</span>' : ""}${x === base && x !== cur ? ' <span class="cur-mark">編輯中</span>' : ""}
+      ${x.描述 ? `<span class="ver-desc">${esc(x.描述)}</span>` : ""}
+      <span class="ver-desc">${esc(showTime(x.儲存時間))}</span></button>
+      <button type="button" class="linkbtn" data-edit="${x.版本}">編輯名稱與描述</button></li>`).join("");
+}
+
+document.getElementById("setTabs").addEventListener("click", e => {
+  const b = e.target.closest("button[data-kind]");
+  if (b) { setKind = b.dataset.kind; renderEditor(); }
+});
+document.getElementById("setVersions").addEventListener("click", async e => {
+  const ed = e.target.closest("button[data-edit]");
+  if (ed) { openSaveModal(Number(ed.dataset.edit)); return; }
+  const b = e.target.closest("button[data-ver]");
+  if (!b) return;
+  const n = Number(b.dataset.ver);
+  if (n === baseOf(setKind) && !isModified(setKind)) return;
+  if (isModified(setKind) && !await askConfirm(`編輯區的修改還沒儲存，載入第 ${n} 版會蓋掉修改。`, `載入第 ${n} 版`)) return;
+  DRAFTS[setKind] = { base: n, text: version(setKind, n).內容 };
+  saveDrafts(); renderEditor();
+});
+document.getElementById("setEditor").addEventListener("input", e => {
+  DRAFTS[setKind] = { base: baseOf(setKind), text: e.target.value };
+  saveDrafts();
+  renderSettingsMeta();
+});
+document.getElementById("setDiscard").addEventListener("click", () => {
+  delete DRAFTS[setKind]; saveDrafts(); renderEditor();
+});
+document.getElementById("setDefault").addEventListener("click", () => {
+  DRAFTS[setKind] = { base: baseOf(setKind), text: DEFAULTS[setKind] }; saveDrafts(); renderEditor();
+  toast("編輯區已換成預設內容，按「儲存並套用」才會成為目前設定");
+});
+
+function applyVersion(n) {
+  APPLIED[setKind] = n;
+  delete DRAFTS[setKind]; saveDrafts();
+  renderEditor(); renderAll();
+}
+document.getElementById("setApply").addEventListener("click", () => {
+  const act = applyAction(setKind);
+  if (validate(setKind, editorText(setKind)).errors.length) return;
+  if (act === "apply") {
+    const n = baseOf(setKind);
+    applyVersion(n);
+    toast(`已套用${KINDS[setKind]}${verName(version(setKind, n))}；不會自動重評，之後開始的評分才用這一版`);
+  }
+  if (act === "save") openSaveModal(null);
+});
+
+// 存檔視窗：editing 為 null 時儲存並套用新版本，否則只改那一版的名稱與描述（內容不能改）
+let editing = null;
+function openSaveModal(n) {
+  editing = n;
+  const v = n && version(setKind, n);
+  document.getElementById("saveModalTitle").innerHTML = v
+    ? `編輯${esc(KINDS[setKind])}第 ${n} 版的名稱與描述 ${ownerTag("auto")}`
+    : `儲存並套用${esc(KINDS[setKind])} ${ownerTag("auto")}`;
+  document.getElementById("saveModalNote").textContent = v
+    ? "只改名稱與描述，這一版的內容不變。"
+    : `存成第 ${SETTINGS[setKind].length + 1} 版（以第 ${baseOf(setKind)} 版為底修改），並改用這一版；不會自動重評。`;
+  document.getElementById("svName").value = v ? v.名稱 : "";
+  document.getElementById("svDesc").value = v ? v.描述 : "";
+  document.getElementById("svOk").textContent = v ? "儲存" : "儲存並套用";
+  document.getElementById("svOk").disabled = !document.getElementById("svName").value.trim();
+  document.getElementById("saveModal").hidden = false;
+  document.getElementById("svName").focus();
+}
+document.getElementById("svName").addEventListener("input", e => { document.getElementById("svOk").disabled = !e.target.value.trim(); });
+const closeSaveModal = () => { document.getElementById("saveModal").hidden = true; };
+document.getElementById("svCancel").addEventListener("click", closeSaveModal);
+document.getElementById("saveModal").addEventListener("click", e => { if (e.target.id === "saveModal") closeSaveModal(); });
+document.addEventListener("keydown", e => { if (e.key === "Escape" && !document.getElementById("saveModal").hidden) closeSaveModal(); });
+document.getElementById("svOk").addEventListener("click", () => {
+  const name = document.getElementById("svName").value.trim();
+  if (!name) return;
+  if (editing) {
+    const v = version(setKind, editing);
+    v.名稱 = name;
+    v.描述 = document.getElementById("svDesc").value.trim();
+    closeSaveModal();
+    renderAll();
+    toast(`已更新第 ${v.版本} 版的名稱與描述`);
+    return;
+  }
+  const n = SETTINGS[setKind].length + 1;
+  SETTINGS[setKind].push({ 版本: n, 名稱: name, 描述: document.getElementById("svDesc").value.trim(), 儲存時間: iso(new Date()), 內容: editorText(setKind) });
+  closeSaveModal();
+  applyVersion(n);
+  toast(`已儲存並套用${KINDS[setKind]}${verName(version(setKind, n))}；不會自動重評，之後開始的評分才用這一版`);
+});
+document.getElementById("setTrial").addEventListener("click", () => openModal("trial"));
+
+// ---------- 試跑清單 ----------
+
+// 試跑清單：從職缺表加入的職缺代碼，記在瀏覽器，改篩選或評完分都不會消失
+const TRIAL_KEY = "jobTablePrototype.trialList.v1";
+let TRIAL_LIST = (() => {
+  const x = readStore(TRIAL_KEY);
+  return Array.isArray(x) ? x.filter(c => typeof c === "string" && byCode(c)) : [];
+})();
+const saveTrialList = () => writeStore(TRIAL_KEY, TRIAL_LIST);
+let trialSort = null;   // { key, dir }；null 代表照加入的順序
+let trialOpen = null;   // 展開的職缺代碼
+let TRIAL_RUN = null;   // 最近一次試跑：{ label, model, texts, codes, results: { 職缺代碼: { s, rec, reason } }, stopped, running }
+
+function addToTrialList(codes) {
+  const before = TRIAL_LIST.length;
+  for (const c of codes) if (!TRIAL_LIST.includes(c)) TRIAL_LIST.push(c);
+  saveTrialList();
+  const added = TRIAL_LIST.length - before;
+  toast(`已加入試跑清單 ${added} 筆${codes.length > added ? `（${codes.length - added} 筆原本就在清單裡）` : ""}；清單共 ${TRIAL_LIST.length} 筆`);
+  renderAll();
+}
+
+const totalOf = rec => rec ? (rec.淘汰 ? "淘汰" : rec.總分) : null;
+const trialResult = code => TRIAL_RUN?.results[code] || null;
+function trialValues(job) {
+  const cur = totalOf(current(job));
+  const res = trialResult(job.職缺代碼);
+  const neu = totalOf(res?.rec);
+  const diff = typeof cur === "number" && typeof neu === "number" ? neu - cur : null;
+  return { cur, neu, diff, res };
+}
+const TRIAL_COLS = [
+  { key: "職缺名稱", get: j => j.職缺名稱 },
+  { key: "公司名稱", get: j => j.公司名稱 },
+  { key: "目前總分", num: true, get: j => trialValues(j).cur },
+  { key: "試跑總分", num: true, get: j => trialValues(j).neu },
+  { key: "差距", num: true, get: j => trialValues(j).diff },
+];
+// 顯示順序，也是試跑的順序
+function trialRows() {
+  const jobs = TRIAL_LIST.map(byCode).filter(Boolean);
+  if (!trialSort) return jobs;
+  const col = TRIAL_COLS.find(c => c.key === trialSort.key);
+  const rank = v => v === "淘汰" ? -1 : v;
+  return jobs.slice().sort((a, b) => {
+    const va = rank(col.get(a)), vb = rank(col.get(b));
+    if (va === null) return vb === null ? 0 : 1;
+    if (vb === null) return -1;
+    const c = typeof va === "number" && typeof vb === "number" ? va - vb : String(va).localeCompare(String(vb), "zh-Hant");
+    return trialSort.dir === "desc" ? -c : c;
+  });
+}
+
+// 試跑用三份編輯區的內容；結果不存
+async function runTrial(jobs, profile, model) {
+  TRIAL_RUN = {
+    label: profileLabel(profile), model,
+    texts: Object.fromEntries(Object.keys(KINDS).map(k => [k, editorText(k)])),
+    codes: jobs.map(j => j.職缺代碼).sort().join(),
+    results: Object.fromEntries(jobs.map(j => [j.職缺代碼, { s: "queued" }])),
+    stopped: false, running: true,
+  };
+  busy = { type: "trial", done: 0, total: jobs.length, stopRequested: false };
+  updateBusyUI(); renderAll();
+  for (const job of jobs) {
+    if (busy.stopRequested) break;
+    const r = TRIAL_RUN.results[job.職缺代碼];
+    r.s = "scoring";
+    renderTrialList();
+    await sleep(eliminationReasons(job, profile.偏好.內容).length ? 150 : 600);
+    if (rand() < 0.1) { r.s = "failed"; r.reason = pick(FAIL_REASONS); }
+    else { r.s = "done"; r.rec = scoreJob(job, new Date(), profile, model); }
+    busy.done++;
+    updateBusyUI(); renderTrialList();
+  }
+  for (const r of Object.values(TRIAL_RUN.results)) if (r.s === "queued") r.s = "skipped";
+  TRIAL_RUN.stopped = busy.stopRequested;
+  TRIAL_RUN.running = false;
+  busy = null;
+  updateBusyUI(); renderAll();
+}
+
+function renderTrialList() {
+  const el = document.getElementById("trialList");
+  const run = TRIAL_RUN;
+  const running = !!run?.running;
+  const jobs = trialRows();
+  const listChanged = run && !running && TRIAL_LIST.slice().sort().join() !== run.codes;
+  const editorChanged = run && !running && Object.keys(KINDS).some(k => run.texts[k] !== editorText(k));
+  const status = run ? `<span class="null">${running ? "試跑中" : run.stopped ? "已停止" : "試跑完成"}・用 ${esc(run.label)}・${esc(run.model)}・結果不存，重新整理就不見</span>` : "";
+  const stale = listChanged || editorChanged
+    ? `<p class="viewing">${[listChanged ? "試跑清單" : "", editorChanged ? "編輯區的內容" : ""].filter(Boolean).join("與")}在試跑後改過，表上的試跑結果是改之前的。再按一次試跑會用現在的清單與內容。</p>` : "";
+  const head = `<div class="toolbar" style="margin-top:0">
+      <strong>試跑清單（${jobs.length} 筆） ${ownerTag("auto")}</strong>
+      ${status}
+      <span class="spacer"></span>
+      ${run && !running ? '<button class="btn" type="button" data-tact="clear-results">清除試跑結果</button>' : ""}
+      <button class="btn" type="button" data-tact="clear-list" ${!jobs.length || running ? "disabled" : ""}>清空清單</button>
+    </div>${stale}`;
+  if (!jobs.length) {
+    el.innerHTML = head + `<p class="null" style="margin:0">清單是空的。到職缺表勾選職缺後按「加入試跑清單」；清單記在瀏覽器，改篩選或評完分都不會消失。
+      <button type="button" class="linkbtn" data-tact="goto">到職缺表</button></p>`;
+    return;
+  }
+  const stat = res => !res ? '<span class="null">還沒試跑</span>'
+    : res.s === "queued" ? '<span class="tag queued">排隊中</span>'
+    : res.s === "scoring" ? '<span class="tag scoring">試跑中</span>'
+    : res.s === "failed" ? `<span class="tag failed" title="${esc(res.reason)}">失敗：${esc(res.reason)}</span>`
+    : res.s === "skipped" ? '<span class="null">停止，沒試跑</span>' : "";
+  const cell = v => v === "淘汰" ? outCell(true) : scoreCell(v ?? null);
+  const diffCell = d => d === null ? nul() : `<span class="score ${d > 0 ? "diff-up" : d < 0 ? "diff-down" : ""}">${d > 0 ? "+" : ""}${d}</span>`;
+  const th = c => {
+    const on = trialSort?.key === c.key;
+    return `<th class="${c.num ? "num" : ""}" data-tsort="${c.key}" tabindex="0">${c.key}${on ? `<span class="arrow">${trialSort.dir === "asc" ? "▲" : "▼"}</span>` : ""}</th>`;
+  };
+  el.innerHTML = head + `
+    <p class="null" style="margin:0 0 6px;font-size:12px">照表格目前的順序試跑；點欄位標題排序，再點一次反向，第三次回到加入的順序。點一列並排比較。</p>
+    <div class="table-wrap"><table>
+      <thead><tr>${TRIAL_COLS.map(th).join("")}<th style="cursor:default">狀態</th><th style="cursor:default"></th></tr></thead>
+      <tbody>${jobs.map(job => {
+        const code = job.職缺代碼;
+        const v = trialValues(job);
+        const open = trialOpen === code;
+        const tr = `<tr class="row ${open ? "open" : ""}" data-code="${esc(code)}" tabindex="0" aria-expanded="${open}">
+          <td class="clip">${esc(job.職缺名稱)}</td><td class="clip">${esc(job.公司名稱)}</td>
+          <td class="num">${cell(v.cur)}</td><td class="num">${cell(v.neu)}</td><td class="num">${diffCell(v.diff)}</td>
+          <td>${stat(v.res)}</td>
+          <td><button type="button" class="linkbtn" data-remove="${esc(code)}" ${running ? "disabled" : ""}>移除</button></td></tr>`;
+        if (!open) return tr;
+        const cur = current(job);
+        return tr + `<tr class="detail"><td colspan="7"><div class="compare">
+          <section class="panel"><h3>目前的評分</h3>${cur ? `<p>${val(cur.評語)}</p>` : ""}${dimsHTML(cur)}</section>
+          <section class="panel"><h3>試跑</h3>${v.res?.rec ? `<p>${val(v.res.rec.評語)}</p>${dimsHTML(v.res.rec)}`
+            : `<p class="null">${v.res?.s === "failed" ? "試跑失敗：" + esc(v.res.reason) : "還沒試跑這筆"}</p>`}</section>
+        </div></td></tr>`;
+      }).join("")}</tbody>
+    </table></div>`;
+}
+
+document.getElementById("trialList").addEventListener("click", async e => {
+  const t = e.target.closest("[data-tact]");
+  if (t) {
+    const act = t.dataset.tact;
+    if (act === "goto") showPage("table");
+    if (act === "clear-results") { TRIAL_RUN = null; renderTrialList(); }
+    if (act === "clear-list" && await askConfirm(`清空試跑清單的 ${TRIAL_LIST.length} 筆職缺？`, "清空")) {
+      TRIAL_LIST = []; saveTrialList(); trialOpen = null; renderAll();
+    }
+    return;
+  }
+  const rm = e.target.closest("[data-remove]");
+  if (rm) {
+    TRIAL_LIST = TRIAL_LIST.filter(c => c !== rm.dataset.remove);
+    saveTrialList(); renderAll();
+    return;
+  }
+  const h = e.target.closest("th[data-tsort]");
+  if (h) {
+    const k = h.dataset.tsort;
+    const numeric = TRIAL_COLS.find(c => c.key === k).num;
+    if (trialSort?.key !== k) trialSort = { key: k, dir: numeric ? "desc" : "asc" };
+    else if (trialSort.dir === (numeric ? "desc" : "asc")) trialSort.dir = numeric ? "asc" : "desc";
+    else trialSort = null;
+    renderTrialList();
+    return;
+  }
+  if (e.target.closest("tr.detail")) return;
+  const tr = e.target.closest("tr.row");
+  if (tr) { trialOpen = trialOpen === tr.dataset.code ? null : tr.dataset.code; renderTrialList(); }
+});
+
+// ================= 作業狀態與分頁 =================
+
+function updateBusyUI() {
+  const ind = document.getElementById("jobIndicator");
+  const stop = document.getElementById("jobStop");
+  if (!busy) {
+    ind.hidden = true;
+    stop.hidden = true;
+  } else {
+    ind.hidden = false;
+    stop.hidden = false;
+    stop.disabled = busy.stopRequested;
+    stop.textContent = busy.stopRequested ? "停止中" : "停止";
+    const pct = busy.total ? Math.round(100 * busy.done / busy.total) : 0;
+    const text = busy.type === "crawl" ? (busy.total ? `抓取中 ${busy.done}/${busy.total}` : "抓取中：搜尋")
+      : busy.type === "trial" ? `試跑中 ${busy.done}/${busy.total}` : `評分中 ${busy.done}/${busy.total}`;
+    ind.innerHTML = `${text}<span class="bar"><span style="width:${pct}%"></span></span>`;
+    ind.dataset.page = busy.type === "crawl" ? "crawl" : busy.type === "trial" ? "settings" : "table";
+  }
+  const crawling = busy?.type === "crawl";
+  document.getElementById("crawlStart").disabled = !!busy;
+  document.getElementById("crawlStart").title = busy && !crawling ? "同一時間只能跑一個作業" : "";
+  const cstop = document.getElementById("crawlStop");
+  cstop.hidden = !crawling;
+  cstop.disabled = !!busy?.stopRequested;
+}
+
+const PAGES = ["table", "crawl", "settings"];
+let currentPage = "table";
+function showPage(p) {
+  currentPage = PAGES.includes(p) ? p : "table";
+  for (const x of PAGES) document.getElementById("page-" + x).hidden = currentPage !== x;
+  document.querySelectorAll("nav.tabs button").forEach(b => b.setAttribute("aria-selected", String(b.dataset.page === currentPage)));
+  if (location.hash !== "#" + currentPage) history.replaceState(null, "", "#" + currentPage);
+}
+document.querySelector("nav.tabs").addEventListener("click", e => {
+  const b = e.target.closest("button[data-page]");
+  if (b) showPage(b.dataset.page);
+});
+document.getElementById("jobIndicator").addEventListener("click", e => showPage(e.currentTarget.dataset.page));
+window.addEventListener("hashchange", () => showPage(location.hash.slice(1)));
+
+function renderAll() {
+  TABLES.forEach(renderTable);
+  renderSettingsMeta();
+}
+
+document.getElementById("ownerToggle").addEventListener("change", e => {
+  document.body.classList.toggle("show-owner", e.target.checked);
+});
+
+renderFilters();
+showPage(location.hash.slice(1));
+renderEditor();
+updateBusyUI();
+renderAll();
+</script>
+</body>
+</html>
