@@ -98,7 +98,7 @@ profile/
 
 ### 3.2 job_scores 的自動評分欄位
 
-實現 FR-score-store、FR-score-db-path、FR-score-get、FR-history-*。`job_scores` 的基本欄位、查詢與設計理由見 [job-score-database 技術設計](job-score-database.md#21-job_scores-資料表)，業務意義見[功能文件的寫入的評分紀錄](../../product/features/job-auto-scoring.md#4210-寫入的評分紀錄)與[追蹤同一筆職缺的評分變化](../../product/features/job-auto-scoring.md#8-追蹤同一筆職缺的評分變化history)。
+實現 FR-score-store、FR-score-db-path、FR-score-get、FR-history-*。`job_scores` 的基本欄位、查詢與設計理由見 [job-score-database 技術設計](job-score-database.md#21-job_scores-資料表)，業務意義見[功能文件的寫入的評分紀錄](../../product/features/job-auto-scoring.md#1322-評分紀錄)與[追蹤同一筆職缺的評分變化](../../product/features/job-auto-scoring.md#10-追蹤同一筆職缺的評分變化history)。
 
 疊加的欄位，建表語法同樣在 `job_db/schema.py`：
 
@@ -140,7 +140,7 @@ profile/
 查詢（都在 `job_db/scores.py`）：
 
 - 還沒評分的職缺（`list_unscored_jobs`）：`jobs` 中在 `job_scores` 沒有任何列的職缺（`NOT EXISTS`，自動與手動都算），依 `最後出現時間 DESC, 職缺代碼` 排序。欄位同 `get_job`，放在 `scores.py` 是因為要讀 `job_scores`，`queries.py` 屬於 job-database，不知道評分。
-- 代表的評分（見[功能文件的代表的評分](../../product/features/job-auto-scoring.md#823-代表的評分)）以 window function 挑出：`ROW_NUMBER() OVER (PARTITION BY 職缺代碼 ORDER BY 評分時間 DESC, 評分編號 DESC)` 取第 1 列，不分來源。
+- 代表的評分（見[功能文件的代表的評分](../../product/features/job-auto-scoring.md#1323-代表的評分)）以 window function 挑出：`ROW_NUMBER() OVER (PARTITION BY 職缺代碼 ORDER BY 評分時間 DESC, 評分編號 DESC)` 取第 1 列，不分來源。
   - 評分時間相同時，後寫入的 `評分編號` 較大，排在前面。
   - 依分數列出（`list_scored_jobs`）、取出評分紀錄（`get_score`）、取出評分明細（`get_score_details`）共用這個子查詢。
 - 依分數列出時先挑代表再套 `淘汰` 篩選與排序：先篩再挑的話，代表被篩掉的職缺會改以別列出現。
@@ -189,7 +189,7 @@ AI 必須輸出以下 JSON（Pydantic 模型 `AIAssessment`）：
 
 - 欄位使用英文名稱，讓 schema 對各家模型都比較穩定。
 - 由 `scorer.py` 轉成評分結果（`JobScore`）的中文鍵名。
-  - `JobScore` 以 alias 定義中文鍵名，`model_dump(by_alias=True)` 的結果就是[功能文件的評分結果格式](../../product/features/job-auto-scoring.md#1021-評分結果格式)。
+  - `JobScore` 以 alias 定義中文鍵名，`model_dump(by_alias=True)` 的結果就是[功能文件的評分結果格式](../../product/features/job-auto-scoring.md#1321-評分結果格式)。
 - 不通過驗證時拋出 `ValidationError`，視為評分失敗，不自行修正分數。
 
 ## 5. CLI 與錯誤處理

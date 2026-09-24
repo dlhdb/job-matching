@@ -165,10 +165,9 @@ docs/           文件：product/（產品）、tech/（技術）、conventions/
 
 - 產品（為什麼做、做什麼）：
   - [docs/product/overview.md](docs/product/overview.md)：專案總覽（目標、使用者問題、功能清單與現況）
-  - [docs/product/features/job-auto-scoring.md](docs/product/features/job-auto-scoring.md)：職缺自動評分（需求、評分規則、提示詞、整批評分與結果檔、驗收標準）
-  - [docs/product/features/job-score-database.md](docs/product/features/job-score-database.md)：評分資料庫（評分紀錄契約、保存規則、依分數查詢、驗收標準）
+  - [docs/product/features/job-auto-scoring.md](docs/product/features/job-auto-scoring.md)：職缺自動評分（評分規則、提示詞模板、送去評分、依分數排序與篩選、設定的版本與試跑、評分紀錄、驗收標準）
   - [docs/product/features/104-job-scraper.md](docs/product/features/104-job-scraper.md)：104 爬蟲（需求、CLI、輸出檔、寫入資料庫與匯入、驗收標準）
-  - [docs/product/features/job-database.md](docs/product/features/job-database.md)：職缺資料庫（需求、職缺欄位契約、寫入規則、保存的資訊、驗收標準）
+  - [docs/product/features/job-database.md](docs/product/features/job-database.md)：職缺資料庫（職缺表、職缺欄位契約、寫入規則、保存的資訊、驗收標準）
   - [docs/product/decisions/](docs/product/decisions/)：產品取捨的決策紀錄
 - 技術（怎麼做）：
   - [docs/tech/architecture.md](docs/tech/architecture.md)：系統架構（模組依賴、資料存放、技術選型）

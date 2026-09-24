@@ -61,12 +61,10 @@
 ```mermaid
 flowchart LR
     scraper["104-job-scraper 104 職缺爬蟲 (UP-01)"] -->|職缺 JSON| db["job-database 職缺資料庫"]
-    db -->|還沒評分或指定的職缺| scoring["job-auto-scoring 職缺自動評分 (UP-02)"]
-    scoring -->|評分結果| scoredb["job-score-database 評分資料庫 (UP-02)"]
-    scoredb -->|依分數列出，帶出職缺欄位| U2(["使用者依分數查詢"])
-    db -->|職缺欄位| scoredb
+    db -->|要評的職缺| scoring["job-auto-scoring 職缺自動評分 (UP-02)"]
+    scoring -->|依分數列出，帶出職缺欄位| U2(["使用者依分數查詢"])
     db -.->|歷次職缺| trend["trend-analysis 趨勢與興趣分佈 (UP-04、UP-05)"]
-    scoredb -.->|歷次分數| trend
+    scoring -.->|歷次分數| trend
 
     classDef planned stroke-dasharray: 5 5
     class trend planned
@@ -91,13 +89,9 @@ flowchart LR
   - 解決的使用者問題：UP-01
   - 狀態：待實作
   - 文件：[job-database.md](features/job-database.md)
-- job-score-database（評分資料庫）：保存每筆職缺的評分紀錄（是否淘汰、總分、評語），依分數列出並帶出職缺欄位，不管評分怎麼產生。
+- job-auto-scoring（職缺自動評分）：依偏好、經歷與提示詞模板，自動給職缺打分並附上簡短評語，保存每一次的評分紀錄，讓使用者在職缺表上依總分快速判斷哪些值得細看。
   - 解決的使用者問題：UP-02
-  - 狀態：✅ 已完成
-  - 文件：[job-score-database.md](features/job-score-database.md)
-- job-auto-scoring（職缺自動評分）：依評分方法與提示詞，自動給職缺打分並附上簡短評語，寫進評分資料庫，讓使用者依總分快速判斷哪些值得細看。
-  - 解決的使用者問題：UP-02
-  - 狀態：✅ 已完成
+  - 狀態：待實作
   - 文件：[job-auto-scoring.md](features/job-auto-scoring.md)
 - trend-analysis（趨勢與興趣分佈分析）：從全台、全球角度分析職缺趨勢，並發現自己對職缺或產業的興趣分佈。
   - 解決的使用者問題：UP-04、UP-05
@@ -115,9 +109,7 @@ flowchart LR
 ```mermaid
 flowchart LR
     scraper["104-job-scraper 104 職缺爬蟲"] --> db["job-database 職缺資料庫"]
-    scoredb["job-score-database 評分資料庫"] --> db
-    scoring["job-auto-scoring 職缺自動評分"] --> scoredb
-    scoring --> db
+    scoring["job-auto-scoring 職缺自動評分"] --> db
     trend["trend-analysis 趨勢與興趣分佈"] -.-> db
 
     classDef planned stroke-dasharray: 5 5
@@ -125,7 +117,7 @@ flowchart LR
 ```
 
 - job-database 不依賴任何功能：它只定義[職缺欄位契約](features/job-database.md#821-職缺欄位契約)與寫入規則，不需要知道誰在寫它。
-- job-score-database 不需要知道評分怎麼產生：它只定義[評分紀錄契約](features/job-score-database.md#821-評分紀錄契約)，自動評分需要的欄位由 job-auto-scoring 疊加，理由見[決策紀錄：拆分評分資料庫與自動評分](decisions/score-feature-split.md)。
+- 評分的產生、保存與查詢都在 job-auto-scoring，不另外拆出評分資料庫，理由見[決策紀錄：評分功能的邊界](decisions/score-feature-boundary.md)。
 
 ### 現況
 
@@ -140,16 +132,15 @@ flowchart LR
   - 記錄每筆職缺第一次與最後一次出現的時間，以及每次寫入的條件。
   - 定義職缺欄位契約，下游依它讀取職缺欄位。
   - 可以依條件列出累積下來的職缺、取出單筆的完整內容，也能列出每次寫入的紀錄，不必自己下 SQL。
-- job-score-database：
+- job-auto-scoring：
   - 每筆職缺的評分紀錄（是否淘汰、總分、評語）保存在職缺資料庫。
   - 可以列出評過分的職缺（含職缺欄位與分數），依總分由高到低排序、只看淘汰或只看未淘汰。
   - 可以寫入手動評分（總分、評語、是否淘汰），寫入前檢查必填欄位與總分範圍；還沒有填分的 CLI 或介面。
   - 可以用職缺代碼取出單筆評分紀錄。
-- job-auto-scoring：
   - 從職缺資料庫讀職缺評分：不指定職缺時評所有還沒有任何評分的職缺（最近出現的先評），也可以用 `--job-no` 指定幾筆重評；依職涯方向、技能、產業公司、薪資四個維度給出 0–100 總分與評語。
   - 薪資低於底線、公司或職稱在排除清單中的職缺直接淘汰，不呼叫 AI，評語寫出淘汰原因。
   - 不論評幾筆，終端機只顯示進度與摘要；單筆失敗不中斷，失敗的職缺列在摘要中，沒有寫入，下次執行會再評。
-  - 評分結果都寫進評分資料庫，評分明細包含各維度的分數與理由，可以依職缺代碼取出。
+  - 評分結果都寫成評分紀錄，評分明細包含各維度的分數與理由，可以依職缺代碼取出。
   - 每次評分都新增一筆紀錄，自動與手動評分都不覆寫任何紀錄，並標示評分來源；不提供刪除評分紀錄。
   - 同一筆職缺有多筆評分時，依分數列出與取出單筆都以最新的一筆為準，不分自動或手動；也能依職缺代碼取出所有評分紀錄，比較前後的判斷。
   - 依分數列出時多帶產生評分的供應商與模型。
@@ -175,4 +166,4 @@ flowchart LR
 - AI 維度：由 AI 判斷的三個評分維度（職涯方向契合度、技能匹配度、產業公司吸引力），見 [job-auto-scoring §4.2.4](features/job-auto-scoring.md#424-評分維度)
 - 總分：四個維度加權後換算成的 0–100 分，見 [job-auto-scoring §4.2.7](features/job-auto-scoring.md#427-總分)
   - 未知的維度以 3 分代入
-- 評分紀錄：一筆職缺的是否淘汰、總分與評語，手動或自動評分都寫成它，見 [job-score-database 的評分紀錄契約](features/job-score-database.md#821-評分紀錄契約)
+- 評分紀錄：一筆職缺一次評分的是否淘汰、總分、評語與評分明細，每次評分都新增一筆，見 [job-auto-scoring 的評分紀錄](features/job-auto-scoring.md#1322-評分紀錄)

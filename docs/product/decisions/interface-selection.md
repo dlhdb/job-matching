@@ -27,11 +27,11 @@
 - 瀏覽介面做成本機 web app：單人、只跑在本機，不做帳號系統，也不對外公開，符合[非目標](../overview.md#非目標)。
 - 抓取與評分維持 CLI，介面只負責看。
 - 分階段推進，每一階段自己就有價值：
-  1. 職缺資料庫的查詢介面，見 [job-database §5](../features/job-database.md#5-在職缺表瀏覽篩選累積下來的職缺query) 與 [job-score-database §4](../features/job-score-database.md#4-依分數查詢評分query)。
+  1. 職缺資料庫的查詢介面，見 [job-database §5](../features/job-database.md#5-在職缺表瀏覽篩選累積下來的職缺query) 與 [job-auto-scoring §6](../features/job-auto-scoring.md#6-在職缺表依分數排序篩選rank)。
   2. 唯讀的職缺瀏覽頁。
   3. 標記（已讀、想投、略過），開始為 UP-05 累積資料。
   4. 趨勢圖表，trend-analysis 的交付形式屆時再定。
   5. 從介面觸發抓取與評分。
   - 第 2 階段之後的項目記在 [TODO.md](../../../TODO.md)，各自開工時才寫功能文件。
 - web app 用哪一套框架屬技術選型，等第 2 階段開工時再寫成技術決策紀錄，暫定的選擇記在 [TODO.md](../../../TODO.md#做出-web-app-第-2-階段)。
-- 影響的文件：[job-database.md](../features/job-database.md)、[job-score-database.md](../features/job-score-database.md)、[overview.md](../overview.md)、[TODO.md](../../../TODO.md)。
+- 影響的文件：[job-database.md](../features/job-database.md)、[job-auto-scoring.md](../features/job-auto-scoring.md)、[overview.md](../overview.md)、[TODO.md](../../../TODO.md)。

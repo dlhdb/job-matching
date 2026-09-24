@@ -29,6 +29,14 @@
     - 寫入後在終端機印出的摘要：印在共用的寫入模組裡，和抓取 CLI、匯入 CLI 一起拿掉；職缺資料庫、爬蟲與匯入的測試中檢查摘要的部分，以及技術設計寫入流程中印摘要的那一步跟著改
     - 列出執行紀錄、只列出某一次寫入的職缺、最多取幾筆與從第幾筆開始的查詢：職缺表用不到，執行紀錄的查詢等趨勢分析規劃時再決定去留（見[做趨勢圖表](#做趨勢圖表)）
     - 技術設計驗收對照中連到已改寫的 AC-query-list、AC-query-get、AC-query-runs 的項目改連到新的 AC，§3.3 的「實現 FR-query-*」也跟著改。以職缺代碼取出單筆職缺的查詢仍給其他模組用，程式與測試保留，只是不再是職缺資料庫對使用者的需求
+  - job-auto-scoring（合併 job-score-database）：
+    - 評分 CLI（`score_job.py`，含 `--job-no`、`--dry-run`、`--profile-dir`、`--provider`、`--model`、`--db`）：送去評分與試跑的介面完成時拿掉
+    - `profile/` 與它的 `.example` 範本、讀個人資料檔的程式：設定改存資料庫後拿掉
+    - 試跑結果檔（`output/scores/`）
+    - 手動評分的寫入與檢查、`評分來源` 欄，以及評分資料庫「評分的職缺不必先寫進職缺資料庫」的處理（見[補上評分紀錄的遷移](#補上評分紀錄的遷移)）
+    - job-score-database 的技術設計併進 job-auto-scoring 的技術設計；architecture.md 的模組、資料表歸屬與 `profile/` 的資料存放位置跟著改
+    - 技術設計與 architecture.md 中連到 job-auto-scoring、job-score-database 功能文件的章節與 AC 連結：錨點斷掉的要改，錨點還在但內容已改成網頁版的 AC（例如 AC-score-store、AC-score-failure、AC-history-current）也要重新對照驗證方式
+  - README.md：評分 CLI 的使用說明、複製範本到 `profile/` 的設定步驟，以及專案結構的 `profile/`
 
 ### 補上評分紀錄的遷移
 
@@ -54,12 +62,11 @@
 
 - 類型：文件｜相關：全部
 - 為什麼：「功能怎麼切、上層怎麼疊加在底層上」現在只有結論與寫法散在三處，沒寫怎麼判斷，找的人也不會想到去 documentation.md 找。
-- 依賴：評分資料庫併回自動評分（已在 [web app 原型設計](docs/product/web-app-prototype.md#33-job-auto-scoring)定案）先寫進功能文件，新文件的例子才和現況一致
 - 做法：新增 `docs/conventions/feature-design.md`（功能設計）
 - 現有的內容與位置：
   - [overview 的功能清單](docs/product/overview.md#功能清單)：功能的定義、依賴方向的規則（「看被依賴的那個功能的文件需不需要知道誰在用它」）
   - [documentation.md 的功能文件的結構](docs/conventions/documentation.md#功能文件的結構)：「功能漸進疊加」那一項，上層的擴充寫成上層自己的故事、底層連措辭都不提上層、底層的驗收只驗底層定義的內容
-  - 決策紀錄：[拆分評分資料庫與自動評分](docs/product/decisions/score-feature-split.md)是漸進疊加的由來，[功能不再分組](docs/product/decisions/flat-feature-list.md)用「各自可以單獨交付」決定爬蟲與職缺資料庫分成兩個功能
+  - 決策紀錄：[評分功能的邊界](docs/product/decisions/score-feature-boundary.md)記錄了漸進疊加的由來與後來的合併，[功能不再分組](docs/product/decisions/flat-feature-list.md)用「各自可以單獨交付」決定爬蟲與職缺資料庫分成兩個功能
 - 要新寫的判斷方法（2026-09-24 審查 web app 原型時討論出來）：
   - 功能依使用者價值切，模組依變動的理由切。底層單獨存在時沒有對應的使用者問題，就不獨立成功能，分層留在技術設計的模組層級
     - 例：評分資料庫「邏輯上不靠 AI 也能獨立存在」，但使用者沒有手動評分的需求，所以合併回 job-auto-scoring，`job_db/scores.py` 與 `job_scores` 維持模組層級的分工
@@ -105,7 +112,7 @@
   - 只比對影響評分的欄位：送進 AI 的職缺名稱、公司名稱、產業類別、電腦專長、科系要求、工作內容，加上程式計算的薪資下限、上限；更新日期、應徵人數等不算
   - 正規化後比對（NFKC、合併空白與換行，可忽略標點），排除空白、全半形這類變動
   - 工作內容看改動量（`difflib.SequenceMatcher`），低於門檻就忽略；短欄位正規化後有差異就算。字少但意思大變的改動（「3 年」改「8 年」、「不需加班」改「需配合加班」）要另外擋，例如改動片段含數字或否定、要求用詞就算顯著
-- 做法：`jobs` 加「內容變更時間」欄（`ALTER TABLE ADD COLUMN`），整批評分改挑「還沒評過，或最新評分早於內容變更時間」的職缺。上線前的變更不會被記到，JSON 匯入拿掉後就無法補上
+- 做法：`jobs` 加「內容變更時間」欄（`ALTER TABLE ADD COLUMN`），職缺表標出「最新評分早於內容變更時間」的職缺，並能篩選出來勾選重評。上線前的變更不會被記到，JSON 匯入拿掉後就無法補上
 - 開工時要決定比對的基準：跟上次抓到的內容比最簡單，但連續小改會一直低於門檻；跟評分當時的內容比較準。web app 的評分紀錄會存送評時的職缺內容快照（2026-09-24 審查原型時決定，欄位是上面「影響評分的欄位」再加上薪資待遇，見 [web app 原型設計](docs/product/web-app-prototype.md#33-job-auto-scoring)），跟評分當時比就有資料可用，只有之前的評分沒有快照
 - 門檻先用 `output/104/` 的歷史檔統計同一職缺代碼的內容實際變動多少再定
 
