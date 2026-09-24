@@ -33,5 +33,5 @@ fi
 if [[ -f "$marker" && "$(cat "$marker")" == "$(staged_hash)" ]]; then
     exit 0
 fi
-echo "暫存區的修改尚未審查。請先執行 /code-review 並處理發現的問題，修正後重新審查，直到除了已向使用者說明、決定不修的問題以外沒有其他問題為止（最多修正三輪，超過就停下來詢問使用者），確認暫存區是最終內容後執行 .claude/hooks/require-review.sh --mark，再重新 commit。" >&2
+echo "暫存區的修改尚未審查。請照 pre-commit-review skill 審查，確認暫存區是最終內容後執行 .claude/hooks/require-review.sh --mark，再重新 commit。" >&2
 exit 2
