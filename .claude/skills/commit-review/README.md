@@ -15,6 +15,7 @@
 ## 組成
 
 - [SKILL.md](SKILL.md)：流程與修正門檻。
+- [doc-format-review.md](../../agents/doc-format-review.md)：subagent，commit 前檢查改到的文件段落是否符合格式規則，並直接修正。
 - [require-review.sh](../../hooks/require-review.sh)：PreToolUse hook，擋下未審查的 commit 與 push。
   - `--mark` 把 HEAD 記進 `.claude/.reviewed-commits`（不進版控），同時刪掉用不到的舊紀錄。
   - 記錄檔遺失時，可以用 `--mark <commit>...` 補記已審查過的 commit。
@@ -37,6 +38,25 @@
 - 原本的做法是先暫存、審查暫存區，通過後才 commit，範圍問題如上，不再採用。
 - 修正用 `git commit --amend`，還沒 push 的 commit 可以直接改。
 - 每個 commit 審查通過才做下一個：已經疊上後面的 commit 之後，要修前面的 commit 得用 `git rebase -i`，AI coding 工具不支援互動式指令。
+
+文件格式由 subagent 在 commit 前檢查：
+
+- 要解決的問題：
+  - 讀過 [documentation.md 的格式](../../../docs/conventions/documentation.md#格式)不代表寫的時候會套用。
+  - 例如「一句話幾個概念」要逐句看才抓得到，寫完不檢查就會漏掉。
+- 放在 commit-review：每個 commit 都被 hook 強制走這個流程，是固定的檢查時間點。
+- 用 subagent：
+  - 新的 context 只做這件事，不會因為記得自己想寫什麼而看漏。
+  - 不佔主 agent 的 context。
+- 在 commit 前而非之後：修正直接進這個 commit，不必 amend。
+- 只對照「格式」一節：
+  - 格式規則逐句判斷得了，修了也不改意思，適合讓 subagent 直接修。
+  - 內容規則要判斷意思，修正常要搬動內容，留給 `/code-review`。
+- 只看改到的段落：舊內容的違規不會被捲進每個 commit，commit 才不會變大、難審。舊文件的整理另外記在 backlog。
+- 不寫在 CLAUDE.md：和原本一樣只靠記得，沒有固定的檢查時間點。
+- 不交給 `/code-review` 一併檢查：
+  - 它的主要審查指示改不了。
+  - 每抓到一處就要 amend 再審一輪，審查不容易收斂。
 
 hook 同時擋 commit 與 push：
 

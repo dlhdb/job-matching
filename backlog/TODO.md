@@ -211,16 +211,6 @@ P0～P2 的項目在標題下依序寫：
 - 影響的功能：無
 - 做法：逐句檢查整份 README，一句多概念的改成條列
 
-### 文件寫完後對照格式規則檢查
-
-- 為什麼：
-  - 「一句話幾個概念」要逐句看才抓得到
-  - 讀過 [documentation.md](../docs/conventions/documentation.md) 不代表寫的時候會套用，寫完不檢查就會漏掉
-- 影響的功能：無
-- 開工時決定這一步放哪裡：
-  - 寫在 CLAUDE.md
-  - 放進 commit-review 的流程，例如 commit 前逐句對照「格式」一節
-
 ### 把職缺欄位契約改成平台中立
 
 - 為什麼：
@@ -263,7 +253,7 @@ P0～P2 的項目在標題下依序寫：
   - [documentation.md](../docs/conventions/documentation.md) 有一半在講功能文件、FR／AC 與技術設計
   - 寫 skill README 這類文件時，用得到的只有「內容」與「格式」兩節，而「格式」排在最後
 - 影響的功能：無
-- 怎麼決定：做完[文件寫完後對照格式規則檢查](#文件寫完後對照格式規則檢查)後，仍常被指出違反格式規則時再做
+- 怎麼決定：commit 前改由 subagent 檢查格式（見 [commit-review 的設計重點](../.claude/skills/commit-review/README.md#設計重點與理由)）後，仍常被指出違反格式規則時再做
 - 候選做法：
   - 把「格式」獨立成短檔
   - 移到 documentation.md 最前面
