@@ -21,6 +21,14 @@
 - `sqlite3`：在終端機查詢 SQLite 資料庫，例如 `sqlite3 data/jobs.db`。
   - VS Code 的 SQLite 擴充套件（例如 vscode-sqlite）也要呼叫系統的 `sqlite3`。
   - 這些擴充套件內建的備用執行檔只支援 x86，在 ARM（例如 Apple Silicon）的容器中無法使用。
+- `chromium`：Playwright 在容器內以真的瀏覽器跑測試。
+  - 用 apt 的 Chromium，不用 `playwright install` 下載：防火牆沒有放行 Playwright 的下載來源。
+  - `playwright install --with-deps` 還要 root 才能裝瀏覽器需要的系統函式庫，apt 安裝 `chromium` 時會一起裝好。
+  - Playwright 預設只找自己下載的瀏覽器，啟動時要用 `executable_path` 指定 `/usr/bin/chromium`。
+- `fonts-noto-cjk`：中文字型。
+  - 沒有中文字型時：
+    - 瀏覽器會把中文顯示成方塊，截圖沒辦法看。
+    - 文字的寬高不對。
 
 ## 虛擬環境與 git 設定
 

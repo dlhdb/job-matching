@@ -9,6 +9,7 @@ ARG CLAUDE_CODE_VERSION=latest
 
 # 基本工具；iptables / ipset / dnsutils / aggregate 供 init-firewall.sh 使用
 # sqlite3 供終端機查詢 data/jobs.db，VS Code 的 SQLite 擴充套件也需要它
+# chromium 供 Playwright 瀏覽器測試使用，fonts-noto-cjk 讓中文正常顯示
 RUN apt-get update && apt-get install -y --no-install-recommends \
   less \
   git \
@@ -24,6 +25,8 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
   aggregate \
   vim \
   sqlite3 \
+  chromium \
+  fonts-noto-cjk \
   && apt-get clean && rm -rf /var/lib/apt/lists/*
 
 # uv（官方建議的安裝方式：https://docs.astral.sh/uv/guides/integration/docker/）
