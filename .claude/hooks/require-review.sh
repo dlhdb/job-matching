@@ -5,7 +5,8 @@
 # 用法：
 #   require-review.sh          由 hook 呼叫，從 stdin 讀 Bash 工具的輸入
 #   require-review.sh --mark [<commit>...]
-#                              審查完成後執行，把指定的 commit（預設 HEAD）記為已審查；
+#                              審查完成後執行，把指定的 commit（預設 HEAD）記為已審查，
+#                              同時刪掉已 push 或不在任何分支上的舊紀錄；
 #                              記錄檔遺失時，可以指定已審查過的 commit 補記
 set -euo pipefail
 
@@ -14,9 +15,20 @@ marker=".claude/.reviewed-commits"
 
 if [[ "${1:-}" == "--mark" ]]; then
     shift
+    new=()
     for rev in "${@:-HEAD}"; do
-        git rev-parse --verify "$rev^{commit}" >> "$marker"
-        echo "已記錄審查過的 commit：$(git rev-parse --short "$rev")"
+        hash=$(git rev-parse --verify "$rev^{commit}")
+        new+=("$hash")
+    done
+    # 舊紀錄只留本地任一分支上還沒 push 的 commit：已 push 的不再檢查，amend 或 rebase 前的舊 commit 不會被 push；
+    # 看所有分支而不只 HEAD，切換分支後 --mark 才不會刪掉其他分支上已審查的紀錄
+    {
+        grep -xF -f <(git rev-list --all --not --remotes) "$marker" 2>/dev/null || true
+        printf '%s\n' "${new[@]}"
+    } | awk '!seen[$0]++' > "$marker.tmp"
+    mv "$marker.tmp" "$marker"
+    for hash in "${new[@]}"; do
+        echo "已記錄審查過的 commit：$(git rev-parse --short "$hash")"
     done
     exit 0
 fi

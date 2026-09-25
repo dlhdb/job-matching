@@ -15,7 +15,9 @@
 ## 組成
 
 - [SKILL.md](SKILL.md)：流程與修正門檻。
-- [require-review.sh](../../hooks/require-review.sh)：PreToolUse hook，擋下未審查的 commit 與 push；`--mark` 把 HEAD 記進 `.claude/.reviewed-commits`（不進版控）。記錄檔遺失時，可以用 `--mark <commit>...` 補記已審查過的 commit。
+- [require-review.sh](../../hooks/require-review.sh)：PreToolUse hook，擋下未審查的 commit 與 push。
+  - `--mark` 把 HEAD 記進 `.claude/.reviewed-commits`（不進版控），同時刪掉用不到的舊紀錄。
+  - 記錄檔遺失時，可以用 `--mark <commit>...` 補記已審查過的 commit。
 - [settings.json](../../settings.json) 的 `hooks.PreToolUse`：對 Bash 工具掛上 require-review.sh。
 
 ## 設計重點與理由
@@ -40,6 +42,16 @@ hook 同時擋 commit 與 push：
 
 - 擋 commit：HEAD 還沒 push、也還沒 `--mark` 時，擋下下一個 `git commit`，確保每個 commit 做完就審，不會累積到最後。`--amend` 放行，因為那是修正審查問題的方式；amend 後的新 commit 沒有記錄，要重新審查。
 - 擋 push：還沒送到遠端的 commit（`git rev-list HEAD --not --remotes`）只要有一個沒記錄就擋下，補上最後一個 commit 沒審就 push 的漏洞。
+  - 檢查全部而不只 HEAD，因為下列 commit 不經過擋 commit 的檢查，要在 push 前攔下：
+    - 同一條指令裡連續 `git commit` 產生的 commit。
+    - `revert`、`cherry-pick`、`rebase` 產生的 commit。
+- `--mark` 時刪掉用不到的紀錄，記錄檔才不會一直累積：
+  - 只留本地任一分支上還沒 push 的 commit，刪掉的有：
+    - 已 push 的 commit：擋 push 不再檢查。
+    - amend、rebase 前的舊 commit：不在任何分支上，不會被 push。
+  - 不改成只記最新一筆：擋 push 要檢查全部還沒 push 的 commit，只記最新一筆會把前面審查過的 commit 當成沒審查。
+  - 看所有分支而不只 HEAD：切換分支後 `--mark` 才不會刪掉其他分支上已審查的紀錄。
+  - 代價：遠端分支被刪（例如 `git fetch --prune`）後，本地分支上已 push 的 commit 會變回沒審查。這種分支通常不會再 commit 或 push，需要時用 `--mark <commit>` 補記。
 - `git commit` 與 `git push` 寫在同一條指令時擋下：hook 在整條指令執行前檢查，新的 commit 還不存在，檢查不到。
 - 比對指令前，先把 heredoc 的內容與引號內的字串換成佔位字，commit message 裡提到 `git push` 之類的文字才不會被當成指令。
 - 指令依 `;`、`&`、`|` 與換行切段，只要有一段是不帶 `--amend` 的 `git commit` 就檢查，`amend` 不能順帶放行後面的新 commit。
