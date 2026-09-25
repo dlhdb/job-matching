@@ -1,6 +1,6 @@
 # 補上評分紀錄的遷移
 
-類型、為什麼見 [TODO.md](../TODO.md#補上評分紀錄的遷移)。
+為什麼見 [TODO.md](../TODO.md#補上評分紀錄的遷移)。
 
 - 做法：先備份資料庫再遷移，遷移失敗時用備份還原（需求見 [job-auto-scoring 的 NFR-migration](../../docs/product/features/job-auto-scoring.md#121-需求)）
   - 偵測舊版 schema（沒有 `評分來源`，`職缺代碼` 是主鍵）後重建 `job_scores`，舊的 `評分結果` 搬到 `評分明細`
