@@ -54,5 +54,5 @@
   4. 趨勢圖表，trend-analysis 的交付形式屆時再定。
   - 原本第 5 階段的「從介面觸發抓取與評分」提前到第 2 階段。
   - 第 3 階段之後的項目記在 [TODO.md](../../../backlog/TODO.md)，各自開工時才寫功能文件。
-- web app 用哪一套框架屬技術選型，等第 2 階段開工時再寫成技術決策紀錄，暫定的選擇記在 [待辦：做出 web app 第 2 階段](../../../backlog/tasks/web-app-phase-2.md)。
+- web app 用哪一套框架屬技術選型，寫成技術決策紀錄。
 - 影響的文件：[job-database.md](../../product/features/job-database.md)、[104-job-scraper.md](../../product/features/104-job-scraper.md)、[job-auto-scoring.md](../../product/features/job-auto-scoring.md)、[overview.md](../../product/overview.md)、[TODO.md](../../../backlog/TODO.md)。

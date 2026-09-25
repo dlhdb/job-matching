@@ -78,7 +78,7 @@ P0～P2 的項目在標題下依序寫：
   - 104-job-scraper
   - job-database
   - job-auto-scoring
-- 細節見 [tasks/web-app-phase-2.md](tasks/web-app-phase-2.md)：範圍、暫定的技術選型、實作時要一起移除或修改的程式、測試與文件
+- 細節見 [tasks/web-app-phase-2.md](tasks/web-app-phase-2.md)：範圍、技術選型、實作時要一起移除或修改的程式、測試與文件
 
 ### 補上評分紀錄的遷移
 
