@@ -2,8 +2,8 @@
 
 為什麼見 [TODO.md](../TODO.md#做出-web-app-第-2-階段)。
 
-- 範圍：職缺表（篩選、排序、點一列展開）、抓取頁（抓取、預覽、存入）、從介面送去評分、設定編輯與試跑。需求見各功能文件：[job-database](../../docs/product/features/job-database.md)、[104-job-scraper](../../docs/product/features/104-job-scraper.md)、[job-auto-scoring](../../docs/product/features/job-auto-scoring.md)，標〔規劃中〕的部分；介面的分工見[決策紀錄：介面形式選型](../../docs/product/decisions/interface-selection.md)。原型在 `prototypes/job-table/`。
-- 技術選型暫定 FastAPI + Jinja2 + HTMX：伺服器端渲染、無前端 build 步驟。替代方案是 Streamlit，做得快但每次互動整頁重跑，上百筆職缺的逐筆判讀會卡、也無法做鍵盤操作。開工時把這個取捨寫成 `docs/tech/decisions/` 的技術決策紀錄
+- 範圍：職缺表（篩選、排序、點一列展開）、抓取頁（抓取、預覽、存入）、從介面送去評分、設定編輯與試跑。需求見各功能文件：[job-database](../../docs/product/features/job-database.md)、[104-job-scraper](../../docs/product/features/104-job-scraper.md)、[job-auto-scoring](../../docs/product/features/job-auto-scoring.md)，標〔規劃中〕的部分；介面的分工見[決策紀錄：介面形式選型](../../docs/decisions/product/interface-selection.md)。原型在 `prototypes/job-table/`。
+- 技術選型暫定 FastAPI + Jinja2 + HTMX：伺服器端渲染、無前端 build 步驟。替代方案是 Streamlit，做得快但每次互動整頁重跑，上百筆職缺的逐筆判讀會卡、也無法做鍵盤操作。開工時把這個取捨寫成 `docs/decisions/tech/` 的技術決策紀錄
 - 實作時要一起移除或修改的程式、測試與技術設計（功能文件已先改好）：
   - job-database：
     - 寫入後在終端機印出的摘要：印在共用的寫入模組裡，和抓取 CLI、匯入 CLI 一起拿掉；職缺資料庫、爬蟲與匯入的測試中檢查摘要的部分，以及技術設計寫入流程中印摘要的那一步跟著改

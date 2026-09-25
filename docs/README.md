@@ -1,22 +1,24 @@
 # 文件導覽 — 求職雷達
 
-產品文件寫產品應有的樣子，規劃確定就更新；技術文件只寫已實作的現況，見 [documentation.md 的文件分區](conventions/documentation.md#文件分區)。文件依讀者分成三區（理由見[決策紀錄：產品文件與技術文件分目錄](conventions/decisions/product-tech-directories.md)）：
+產品文件寫產品應有的樣子，規劃確定就更新；技術文件只寫已實作的現況，見 [documentation.md 的文件分區](conventions/documentation.md#文件分區)。文件依讀者分成三區，決策紀錄另外集中在 decisions/（理由見[決策紀錄：產品文件與技術文件分目錄](decisions/conventions/product-tech-directories.md)）：
 
 - [product/](product/)：產品文件，寫為什麼做、做什麼，讀者是 PM、設計師、架構師與工程師
   - [product/overview.md](product/overview.md)：產品總覽，包括目標與成功指標、使用者問題、非目標、使用者旅程、功能清單與現況、名詞定義
   - [product/feature-design.md](product/feature-design.md)：功能設計，包括功能怎麼切、依賴方向、上層功能的需求動到底層時改哪一層
   - [product/features/](product/features/)：單一功能的功能文件，包括需求、業務規則與驗收標準，一個功能一份
-  - [product/decisions/](product/decisions/)：產品取捨的決策紀錄
 - [tech/](tech/)：技術文件，寫怎麼做，讀者是工程師
   - [tech/architecture.md](tech/architecture.md)：跨功能的技術總覽，包括模組依賴、資料存放與技術選型
   - [tech/tech-design/](tech/tech-design/)：單一功能的技術設計，一個功能一份，檔名與功能文件相同
-  - [tech/decisions/](tech/decisions/)：技術取捨的決策紀錄
   - [tech/ai-coding-setup/](tech/ai-coding-setup/)：AI coding 工具的隔離容器與權限設定
 - [conventions/](conventions/)：兩邊共用的慣例
   - [conventions/documentation.md](conventions/documentation.md)：文件撰寫慣例
   - [conventions/development.md](conventions/development.md)：開發慣例
   - [conventions/templates/](conventions/templates/)：功能文件、技術設計與決策紀錄的範本，寫明各類文件的結構與各章寫法
-  - [conventions/decisions/](conventions/decisions/)：文件與開發流程的決策紀錄
+- [decisions/](decisions/)：所有決策紀錄，依性質分子目錄
+  - [decisions/product/](decisions/product/)：產品取捨，屬於產品區
+  - [decisions/tech/](decisions/tech/)：技術取捨，屬於技術區
+  - [decisions/conventions/](decisions/conventions/)：文件與開發流程的取捨
+  - [decisions/ai-coding/](decisions/ai-coding/)：AI coding 工具的設定與只寫在 CLAUDE.md 的規則的取捨
 
 實作某功能時，只需讀產品總覽，加上該功能的功能文件與技術設計。
 

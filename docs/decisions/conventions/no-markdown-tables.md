@@ -27,7 +27,7 @@
 ## 最終決策
 
 - 文件不用 markdown 表格，改用條列。
-  - 各種內容的寫法見 [documentation.md「格式」](../documentation.md#格式)。
+  - 各種內容的寫法見 [documentation.md「格式」](../../conventions/documentation.md#格式)。
 - 真值表、判斷矩陣改寫成規則句：規則句比逐格對照更容易看出例外。
 - 給 LLM 的提示詞（例如 `src/job_scoring/prompts/scoring.md`）不是文件，不受這條規則約束。
-- 影響的文件：[功能文件範本](../templates/feature.md)、所有功能文件、[docs/product/overview.md](../../product/overview.md)、[docs/tech/ai-coding-setup/](../../tech/ai-coding-setup/)、[README.md](../../../README.md)、[CLAUDE.md](../../../CLAUDE.md)。
+- 影響的文件：[功能文件範本](../../conventions/templates/feature.md)、所有功能文件、[docs/product/overview.md](../../product/overview.md)、[docs/tech/ai-coding-setup/](../../tech/ai-coding-setup/)、[README.md](../../../README.md)、[CLAUDE.md](../../../CLAUDE.md)。

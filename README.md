@@ -156,13 +156,13 @@ profile/        使用者的求職偏好與工作經歷（真實資料不進版�
 output/         應用程式輸出結果（不進版控）
 data/           職缺資料庫 jobs.db（不進版控）
 backlog/        待辦與想法：TODO.md 是索引，tasks/、ideas/ 放長的細節
-docs/           文件：product/（產品）、tech/（技術）、conventions/（慣例）
+docs/           文件：product/（產品）、tech/（技術）、conventions/（慣例）、decisions/（決策紀錄）
 .devcontainer/  開發環境隔離容器設定
 ```
 
 ## 文件導覽
 
-文件依讀者分成產品、技術與慣例三區，完整索引與撰寫流程見 [docs/README.md](docs/README.md)。
+文件依讀者分成產品、技術與慣例三區，決策紀錄另外集中在一處。完整索引與撰寫流程見 [docs/README.md](docs/README.md)。
 
 - 產品（為什麼做、做什麼）：
   - [docs/product/overview.md](docs/product/overview.md)：專案總覽（目標、使用者問題、功能清單與現況）
@@ -170,21 +170,19 @@ docs/           文件：product/（產品）、tech/（技術）、conventions/
   - [docs/product/features/job-auto-scoring.md](docs/product/features/job-auto-scoring.md)：職缺自動評分（評分規則、提示詞模板、送去評分、依分數排序與篩選、設定的版本與試跑、評分紀錄、驗收標準）
   - [docs/product/features/104-job-scraper.md](docs/product/features/104-job-scraper.md)：104 爬蟲（搜尋條件、抓取中與停止、預覽後存入、驗收標準）
   - [docs/product/features/job-database.md](docs/product/features/job-database.md)：職缺資料庫（職缺表、職缺欄位契約、寫入規則、保存的資訊、驗收標準）
-  - [docs/product/decisions/](docs/product/decisions/)：產品取捨的決策紀錄
 - 技術（怎麼做）：
   - [docs/tech/architecture.md](docs/tech/architecture.md)：系統架構（模組依賴、資料存放、技術選型）
   - [docs/tech/tech-design/job-auto-scoring.md](docs/tech/tech-design/job-auto-scoring.md)：模組分工、`job_scores` 的自動評分欄位、LLM 抽象層、驗收對照
   - [docs/tech/tech-design/job-score-database.md](docs/tech/tech-design/job-score-database.md)：`job_scores` 資料表、評分查詢、驗收對照
   - [docs/tech/tech-design/104-job-scraper.md](docs/tech/tech-design/104-job-scraper.md)：104 API 的限制與請求標頭、欄位來源、寫入資料庫與匯入、驗收對照
   - [docs/tech/tech-design/job-database.md](docs/tech/tech-design/job-database.md)：模組依賴、資料表 schema、查詢方式、驗收對照
-  - [docs/tech/decisions/](docs/tech/decisions/)：技術取捨的決策紀錄
   - [docs/tech/ai-coding-setup/devcontainer.md](docs/tech/ai-coding-setup/devcontainer.md)：隔離容器與防火牆白名單（所有 AI coding 工具共用）、Remote Control 要的網域與環境變數
   - [docs/tech/ai-coding-setup/claude-code.md](docs/tech/ai-coding-setup/claude-code.md)：Claude Code 專屬的權限規則（deny/ask）
 - 慣例：
   - [docs/conventions/documentation.md](docs/conventions/documentation.md)：文件撰寫慣例
   - [docs/conventions/development.md](docs/conventions/development.md)：開發慣例
   - [docs/conventions/templates/](docs/conventions/templates/)：功能文件、技術設計與決策紀錄的範本
-  - [docs/conventions/decisions/](docs/conventions/decisions/)：文件與開發流程的決策紀錄
+- 決策紀錄：[docs/decisions/](docs/decisions/)，依性質分成 product/、tech/、conventions/、ai-coding/
 
 ## 使用聲明
 

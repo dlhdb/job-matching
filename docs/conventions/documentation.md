@@ -13,27 +13,33 @@
 
 ## 文件分區
 
-各區的內容見 [docs/README.md](../README.md)，理由見[決策紀錄：產品文件與技術文件分目錄](decisions/product-tech-directories.md)。依賴只有單向，實作改變時產品文件才不必跟著改：
+各區的內容見 [docs/README.md](../README.md)，理由見[決策紀錄：產品文件與技術文件分目錄](../decisions/conventions/product-tech-directories.md)。依賴只有單向，實作改變時產品文件才不必跟著改：
 
-- `tech/` 可以連到 `product/`，`product/` 不連到 `tech/`，包含 `tech/decisions/`。`conventions/` 兩邊都能連，兩邊也能連到它。
+- `tech/` 可以連到 `product/`，`product/` 不連到 `tech/`。
+  - 決策紀錄依子目錄歸區：`decisions/product/` 屬於產品區，`decisions/tech/` 屬於技術區。產品區的文件不連到 `decisions/tech/`。
+- `conventions/`、`decisions/conventions/`、`decisions/ai-coding/` 兩邊都能連，兩邊也能連到它們。
 - 功能文件不寫實作方式，例如資料存在哪個資料庫、哪張表、由哪個模組寫入。提到資料庫時只寫「職缺資料庫」與保存了哪些資訊。例外是 CLI 參數說明中 `--db` 的預設值，那是使用者介面。
 - 引用別的功能時，連到該功能的功能文件，引用它的業務規則與對外資料格式。
 
-兩區描述的時間點不同，理由見[決策紀錄：產品文件寫應有的樣子，技術文件寫實作現況](decisions/product-docs-target-state.md)：
+兩區描述的時間點不同，理由見[決策紀錄：產品文件寫應有的樣子，技術文件寫實作現況](../decisions/conventions/product-docs-target-state.md)：
 
-- `product/` 寫產品應有的樣子，規劃確定就更新，不等實作。尚未實作的部分，功能文件標[〔規劃中〕](templates/feature.md)，overview 的圖用虛線。例外是 overview 功能清單的「狀態」與「現況」，記錄實作進度。
-- `tech/` 只描述已實作的現況，實作完成後才更新。
+- `product/` 與 `decisions/product/` 寫產品應有的樣子，規劃確定就更新，不等實作：
+  - 尚未實作的部分，功能文件標[〔規劃中〕](templates/feature.md)，overview 的圖用虛線。
+  - 例外是 overview 功能清單的「狀態」與「現況」，記錄實作進度。
+- `tech/` 與 `decisions/tech/` 只描述已實作的現況，實作完成後才更新。
 
 `docs/` 只寫本專案的設計、技術選型與開發守則，這些沒有通用的標準答案，讀者是 AI agent、工程師、設計師與 PM。AI coding 的通用工作流（skill、hook、CLAUDE.md 的規則，換到別的專案也適用）不寫進 `docs/`：
 
 - skill、hook：說明與設計理由寫在 `.claude/skills/<名稱>/README.md`。
 - 只給某個 skill 用的 subagent：定義放在 `.claude/agents/`，說明與設計理由寫在該 skill 的 README。
-- 只寫在 CLAUDE.md、沒有 skill 的規則：取捨寫成決策紀錄放在 `.claude/decisions/`，規則同[決策紀錄](#決策紀錄)。
+- 只寫在 CLAUDE.md、沒有 skill 的規則：規則寫在 CLAUDE.md。
+
+例外是只寫在 CLAUDE.md 的規則的取捨：決策紀錄集中在 `docs/decisions/`，所以寫成決策紀錄放在 `decisions/ai-coding/`，規則同[決策紀錄](#決策紀錄)。
 
 ## 內容
 
 - 文件一律使用繁體中文。
-- 一個功能有功能文件與技術設計兩份，理由見[決策紀錄：功能文件與技術設計分開維護](decisions/separate-tech-design.md)。內容放哪一份，問「改掉這段，PM 或設計師需要知道嗎？」：
+- 一個功能有功能文件與技術設計兩份，理由見[決策紀錄：功能文件與技術設計分開維護](../decisions/conventions/separate-tech-design.md)。內容放哪一份，問「改掉這段，PM 或設計師需要知道嗎？」：
   - 需要：寫在功能文件，例如薪資換算規則、偏好檔欄位、CLI 參數、結果檔欄位。
   - 不需要：寫在技術設計，例如模組分工、資料表 schema、SDK 的限制、結束碼、測試資料。
 - 文件寫決策的結果，不寫討論過程（例如「已與使用者確認…」）。決策的結果寫進對應的範圍、需求、規則或技術設計，有替代方案的取捨另外寫成[決策紀錄](#決策紀錄)。
@@ -45,12 +51,12 @@
 
 ## 決策紀錄
 
-有替代方案、之後容易被重新提出的取捨，寫成決策紀錄，依性質放在：
+有替代方案、之後容易被重新提出的取捨，寫成決策紀錄，集中放在 `docs/decisions/`，依性質分子目錄（理由見[決策紀錄：產品文件與技術文件分目錄](../decisions/conventions/product-tech-directories.md)）：
 
-- `product/decisions/`：業務規則、功能切分。
-- `tech/decisions/`：技術選型與實作取捨。
-- `conventions/decisions/`：本專案的文件與開發流程。
-- `.claude/decisions/`：只寫在 CLAUDE.md 的 AI coding 規則，見[文件分區](#文件分區)。
+- `product/`：業務規則、功能切分。
+- `tech/`：技術選型與實作取捨，AI coding 工具的設定除外。
+- `conventions/`：本專案的文件與開發流程。
+- `ai-coding/`：AI coding 工具的設定，以及只寫在 CLAUDE.md 的規則，見[文件分區](#文件分區)。
 
 - 檔名、章節與決策改變時怎麼更新，見[決策紀錄範本](templates/decision.md)。
 - 引用時連結文字寫決策標題，例如「[決策紀錄：資料庫選型](…)」。
@@ -62,7 +68,7 @@
 - 粗體只用來加重語氣，例如讀者容易誤會的否定或警告（薪資未知**不會**淘汰職缺）。其他情況不用粗體：條列標籤直接寫「標籤：說明」，識別字、設定值、指令用反引號，介面上的按鈕、選單名稱用「」，段落小標題寫成以冒號結尾的引導句。
 - 連結盡量指到章節錨點。
 - 流程包含迴圈、判斷、分支時用 mermaid 畫圖，線性流程用編號清單，不用 ASCII 字元畫圖。節點文字含括號、冒號等符號時用雙引號包起來（`A["文字 (說明)"]`），避免解析失敗。目錄結構維持純文字區塊。
-- 不用 markdown 表格，理由見[決策紀錄：文件不用 markdown 表格](decisions/no-markdown-tables.md)。依內容改用下列寫法：
+- 不用 markdown 表格，理由見[決策紀錄：文件不用 markdown 表格](../decisions/conventions/no-markdown-tables.md)。依內容改用下列寫法：
   - 屬性清單：一個屬性一項，例如 `- 狀態：✅ 已完成`。
   - 欄位、參數字典：一個欄位一項，寫成「`` `名稱` ``（型態）：說明」。說明有多條規則時用子項條列。
   - 列舉等級：一個等級一項，例如 `- 5：主要工作內容就是目標方向之一`。

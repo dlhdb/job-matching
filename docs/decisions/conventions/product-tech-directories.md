@@ -8,6 +8,7 @@
 - docs/README.md 同時是產品總覽、文件索引與撰寫流程。
 - decisions/ 混放產品、技術與文件流程的決策，而且以流水號命名，看檔名不知道在決定什麼。
 - 產品文件仍混有技術內容，例如資料庫種類與表名。目錄沒有分開，這類內容不容易被發現。
+- 分區之後，決策紀錄一度散在各區的 decisions/ 與 .claude/decisions/ 四處。寫的時候要先判斷放哪一區，找的時候要翻好幾個目錄。
 
 ## 考慮過的替代方案
 
@@ -16,30 +17,40 @@
   - 「產品文件不連到技術文件」只能逐檔檢查，無法用路徑判斷。
 - tech/ 底下用 features/ 命名，與 product/features/ 對稱：
   - 兩個目錄同名，引用時容易連錯，「技術設計」這個名詞也對不上目錄名。
-- 決策紀錄全部留在同一個 decisions/：
+- 決策紀錄全部平放在同一個 decisions/，不分子目錄：
   - 產品文件引用決策紀錄時，看不出會不會連到技術決策。
   - 讀者要讀完內容，才知道這項取捨跟自己有沒有關係。
-- 文件流程的決策（功能文件以使用者故事分章、不用表格等）硬分到 product/：
+- 決策紀錄放在各區自己的 decisions/（product/decisions/、tech/decisions/、conventions/decisions/）：
+  - 分散在三個目錄，加上只寫在 CLAUDE.md 的規則另外放在 .claude/decisions/，一共四處。
+  - 寫的時候要先判斷放哪一區，找的時候要翻好幾個目錄。
+- 只寫在 CLAUDE.md 的 AI coding 規則，取捨放在 docs/ 外的 .claude/decisions/：
+  - 符合「docs/ 只寫本專案的東西」的界線，但決策紀錄又分成兩處。
+- 文件流程的決策（功能文件以使用者故事分章、不用表格等）硬分到產品類：
   - 這些決策同時約束技術文件，放在產品區會誤導。
   - 它們影響的是 conventions/ 的慣例，放在一起比較容易找。
 - 範本放在它產出的文件旁邊，例如功能文件範本放在 product/features/：
   - 範本裝的是各類文件的結構與各章寫法，性質是慣例。
   - 分散在三區時要到各區去找。
 - 決策紀錄保留全域流水號：
-  - 分區後同一個序列散在三個目錄，看號碼無法判斷位置，號碼本身也不帶資訊。
+  - 分類後同一個序列散在多個目錄，看號碼無法判斷位置，號碼本身也不帶資訊。
 
 ## 最終決策
 
 - docs/ 依讀者分成三區：
-  - `product/`：產品總覽（overview.md）、功能文件（features/）、產品決策（decisions/），讀者是 PM、設計師、架構師與工程師
-  - `tech/`：architecture.md、技術設計（tech-design/）、ai-coding-setup/、技術決策（decisions/），讀者是工程師
-  - `conventions/`：兩邊共用的慣例、各類文件的範本（templates/），以及文件與開發流程的決策（decisions/）
+  - `product/`：產品總覽（overview.md）、功能文件（features/），讀者是 PM、設計師、架構師與工程師
+  - `tech/`：architecture.md、技術設計（tech-design/）、ai-coding-setup/，讀者是工程師
+  - `conventions/`：兩邊共用的慣例與各類文件的範本（templates/）
+- 決策紀錄集中在 `docs/decisions/`，依性質分子目錄，看路徑就知道類別：
+  - `product/`：產品取捨，屬於產品區
+  - `tech/`：技術取捨，屬於技術區
+  - `conventions/`：文件與開發流程的取捨
+  - `ai-coding/`：AI coding 工具的設定，以及只寫在 CLAUDE.md 的規則的取捨
 - docs/README.md 只放文件索引與撰寫、使用流程。
-- 依賴只有單向：`tech/` 可以連到 `product/`，`product/` 不連到 `tech/`。
+- 依賴只有單向：`tech/` 可以連到 `product/`，`product/` 不連到 `tech/`。產品區的文件也不連到 `decisions/tech/`。
 - 產品文件提到資料庫時只寫「職缺資料庫」與保存了哪些資訊，不寫資料庫種類、表名、查詢方式與檔案路徑。例外是 CLI 參數說明中 `--db` 的預設值。
 - 決策紀錄的檔名描述決策的目的，不用流水號。引用時連結文字寫決策標題。
 - 尚未實作的功能沒有技術設計，暫定的技術方案記在 TODO.md，實作時帶進實作計畫。
 - 影響的文件：
-  - [docs/README.md](../../README.md)、[documentation.md](../documentation.md#文件分區)
-  - 所有功能文件、技術設計、決策紀錄與[範本](../templates/)的路徑與相互連結
+  - [docs/README.md](../../README.md)、[documentation.md](../../conventions/documentation.md#文件分區)的文件分區與[決策紀錄](../../conventions/documentation.md#決策紀錄)
+  - 所有功能文件、技術設計、決策紀錄與[範本](../../conventions/templates/)的路徑與相互連結
   - [architecture.md](../../tech/architecture.md)、CLAUDE.md、根目錄的 README.md 與 TODO.md

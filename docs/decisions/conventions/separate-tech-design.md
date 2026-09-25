@@ -49,7 +49,7 @@
   - 功能文件寫業務語言的 Given／When／Then 與通過條件。
   - 技術設計的「驗收對照」依故事分組，寫出驗證指令。
 - 影響的文件：
-  - [documentation.md](../documentation.md#內容)
-  - [功能文件範本](../templates/feature.md)、[技術設計範本](../templates/tech-design.md)
+  - [documentation.md](../../conventions/documentation.md#內容)
+  - [功能文件範本](../../conventions/templates/feature.md)、[技術設計範本](../../conventions/templates/tech-design.md)
   - [docs/README.md](../../README.md#撰寫與使用流程)、CLAUDE.md 的功能開發流程
   - [決策紀錄：功能文件以使用者故事分章](feature-docs-by-user-story.md)

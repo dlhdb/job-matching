@@ -31,7 +31,7 @@ flowchart LR
 
 ## 資料存放
 
-`data/jobs.db`：所有功能共用的 SQLite 資料庫，不進版控。選用 SQLite 的理由見 [決策紀錄：資料庫選型](decisions/database-selection.md)。
+`data/jobs.db`：所有功能共用的 SQLite 資料庫，不進版控。選用 SQLite 的理由見 [決策紀錄：資料庫選型](../decisions/tech/database-selection.md)。
 
 - 所有表的建表語法都放在 `job_db` 的 schema，開啟資料庫時一起建立。
 - 各表由哪個功能負責：
@@ -56,7 +56,7 @@ flowchart LR
 ## 技術選型
 
 - 語言與套件管理：Python 3.14，依賴由 uv 管理（見 [依賴管理](../conventions/development.md#依賴管理)）
-- 資料庫：SQLite，使用標準函式庫 `sqlite3`（見 [決策紀錄：資料庫選型](decisions/database-selection.md)）
+- 資料庫：SQLite，使用標準函式庫 `sqlite3`（見 [決策紀錄：資料庫選型](../decisions/tech/database-selection.md)）
 - 抓取：`requests` 呼叫 104 的內部 API（見 [104 API 的限制](tech-design/104-job-scraper.md#5-外部系統整合)）
 - LLM：Gemini，使用 `google-genai`
   - 經由 `LLMClient` 抽象層呼叫，換供應商不必改其他模組（見 [LLM 供應商抽象層](tech-design/job-auto-scoring.md#41-llm-供應商抽象層)）

@@ -18,10 +18,10 @@
 
 - 功能依使用者價值切，模組依變動的理由切。兩者不一致時，功能跟著使用者，分層留在技術設計的模組層級。
 - 底層單獨存在時沒有對應的使用者問題，就不獨立成功能：
-  - 例：評分資料庫邏輯上不靠 AI 也能獨立存在，但使用者沒有手動評分的需求，所以併回 job-auto-scoring，保存評分紀錄的模組仍和自動評分分開（見[決策紀錄：評分功能的邊界](decisions/score-feature-boundary.md)）。
+  - 例：評分資料庫邏輯上不靠 AI 也能獨立存在，但使用者沒有手動評分的需求，所以併回 job-auto-scoring，保存評分紀錄的模組仍和自動評分分開（見[決策紀錄：評分功能的邊界](../decisions/product/score-feature-boundary.md)）。
   - 之後真的出現第二種產生同一種資料的方式時再拆，拆的成本不高。
 - 各自可以單獨交付的，分成不同功能：
-  - 例：104 爬蟲與職缺資料庫分成兩個功能（見[決策紀錄：功能不再分組，ID 用英文簡稱](decisions/flat-feature-list.md)）。
+  - 例：104 爬蟲與職缺資料庫分成兩個功能（見[決策紀錄：功能不再分組，ID 用英文簡稱](../decisions/product/flat-feature-list.md)）。
 
 ## 依賴方向
 
@@ -42,6 +42,6 @@
 
 上層推翻底層既有的規則要盡量避免：讀者要讀兩份文件才知道實際行為。優先改底層，或上層只做新增。推翻的地方一多，代表邊界切錯了：
 
-- 例：job-auto-scoring 的 [history 故事](features/job-auto-scoring.md#10-追蹤同一筆職缺的評分變化history)推翻評分資料庫的「寫入時覆寫」「清掉評分即可重評」，最後發現評分資料庫本來就不該獨立成功能（見[決策紀錄：評分功能的邊界](decisions/score-feature-boundary.md)）。
+- 例：job-auto-scoring 的 [history 故事](features/job-auto-scoring.md#10-追蹤同一筆職缺的評分變化history)推翻評分資料庫的「寫入時覆寫」「清掉評分即可重評」，最後發現評分資料庫本來就不該獨立成功能（見[決策紀錄：評分功能的邊界](../decisions/product/score-feature-boundary.md)）。
 
 審查時發現實作了、但文件沒寫的擴充，也先用上面的問題判斷該歸底層還是上層，再補文件。

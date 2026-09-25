@@ -5,8 +5,8 @@
 專案原本是三支各自獨立的 CLI：抓取、匯入與評分，每一支把結果寫成檔案。使用者要看職缺時，得離開 CLI，另外開表格工具讀評分的結果檔，或開 notebook 讀爬蟲的輸出 JSON。問題：
 
 - 主要痛點跨在多個工具之間：撈完職缺之後的排序、篩選、逐筆判讀，沒有一個地方做得完。
-- [UP-05](../overview.md#使用者問題)（看清自己實際被哪些職缺吸引）需要的資料根本不存在：沒有地方記錄「我看過了」「我想投」「我略過」。這種訊號只能在人看職缺的當下捕捉，CLI 與結果檔都收不到。
-- [成功指標](../overview.md#成功指標)的「誤殺」要抽查被淘汰的職缺，目前得自己下 SQL 才撈得出來。
+- [UP-05](../../product/overview.md#使用者問題)（看清自己實際被哪些職缺吸引）需要的資料根本不存在：沒有地方記錄「我看過了」「我想投」「我略過」。這種訊號只能在人看職缺的當下捕捉，CLI 與結果檔都收不到。
+- [成功指標](../../product/overview.md#成功指標)的「誤殺」要抽查被淘汰的職缺，目前得自己下 SQL 才撈得出來。
 
 問題是：要用哪一種形式補上「看」這一段？
 
@@ -28,18 +28,18 @@
   - 同一件事有兩個入口，就要維持兩套規則一致。
   - 保留 CLI 的理由只剩讓 agent 操作，但 agent 操作還沒規劃，不預先為它保留介面。
 - 抓取頁也能送去評分：
-  - 抓取頁屬於 104-job-scraper，評分功能要在抓取頁加上送去評分，[功能依賴](../overview.md#功能依賴)就會多出 `job-auto-scoring → 104-job-scraper`，之後每接一個新平台的爬蟲，評分都要再擴充一次。
+  - 抓取頁屬於 104-job-scraper，評分功能要在抓取頁加上送去評分，[功能依賴](../../product/overview.md#功能依賴)就會多出 `job-auto-scoring → 104-job-scraper`，之後每接一個新平台的爬蟲，評分都要再擴充一次。
   - 改成存入後跳到職缺表，再從職缺表送去評分。
 
 ## 最終決策
 
-- 產品介面是本機 web app：單人、只跑在本機，不做帳號系統，也不對外公開，符合[非目標](../overview.md#非目標)。
+- 產品介面是本機 web app：單人、只跑在本機，不做帳號系統，也不對外公開，符合[非目標](../../product/overview.md#非目標)。
 - web app 不獨立成一個功能：各功能擁有自己那一段介面，就像原本各功能擁有自己的 CLI。
   - 上層功能對底層頁面的擴充，依[功能文件範本](../../conventions/templates/feature.md)寫成上層自己的故事，例如評分在職缺表多出的欄位與篩選。
   - 外殼（啟動 web app、版面、導覽、框架）屬技術問題，不寫進功能文件。
   - 頁面依使用者想怎麼查詢來切，不依功能切。
   - 不做詳情頁，改成在表格上點一列展開。
-- 第 2 階段就從介面抓取與評分，流程是抓取 → 預覽 → 存入 → 評分（見[使用者旅程](../overview.md#使用者旅程)）：
+- 第 2 階段就從介面抓取與評分，流程是抓取 → 預覽 → 存入 → 評分（見[使用者旅程](../../product/overview.md#使用者旅程)）：
   - 評分從職缺資料庫讀職缺，還沒存入的職缺不能送去評分。
   - 送去評分與加入試跑清單都從職缺表發起。
   - 抓取、評分、試跑都是在伺服器上跑的作業：關掉瀏覽器也繼續跑，同一時間只跑一個作業。規則寫在各功能文件的共用規則。
@@ -49,10 +49,10 @@
   - 讓 agent 操作等規劃時，再依需求設計介面。
 - 分階段推進，每一階段自己就有價值：
   1. 職缺資料庫與評分的查詢，作為介面的資料來源。
-  2. web app：職缺表、抓取頁、送去評分、設定的編輯與試跑，需求見 [job-database](../features/job-database.md)、[104-job-scraper](../features/104-job-scraper.md)、[job-auto-scoring](../features/job-auto-scoring.md)。
+  2. web app：職缺表、抓取頁、送去評分、設定的編輯與試跑，需求見 [job-database](../../product/features/job-database.md)、[104-job-scraper](../../product/features/104-job-scraper.md)、[job-auto-scoring](../../product/features/job-auto-scoring.md)。
   3. 標記（已讀、想投、略過），開始為 UP-05 累積資料。
   4. 趨勢圖表，trend-analysis 的交付形式屆時再定。
   - 原本第 5 階段的「從介面觸發抓取與評分」提前到第 2 階段。
   - 第 3 階段之後的項目記在 [TODO.md](../../../backlog/TODO.md)，各自開工時才寫功能文件。
 - web app 用哪一套框架屬技術選型，等第 2 階段開工時再寫成技術決策紀錄，暫定的選擇記在 [待辦：做出 web app 第 2 階段](../../../backlog/tasks/web-app-phase-2.md)。
-- 影響的文件：[job-database.md](../features/job-database.md)、[104-job-scraper.md](../features/104-job-scraper.md)、[job-auto-scoring.md](../features/job-auto-scoring.md)、[overview.md](../overview.md)、[TODO.md](../../../backlog/TODO.md)。
+- 影響的文件：[job-database.md](../../product/features/job-database.md)、[104-job-scraper.md](../../product/features/104-job-scraper.md)、[job-auto-scoring.md](../../product/features/job-auto-scoring.md)、[overview.md](../../product/overview.md)、[TODO.md](../../../backlog/TODO.md)。

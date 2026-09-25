@@ -17,6 +17,6 @@ AI coding 工具收到需求後常直接開始修改，等使用者看到結果�
 
 ## 最終決策
 
-- 在 [CLAUDE.md](../../CLAUDE.md#先規劃再執行) 列出需要先規劃的條件，符合時由 Claude Code 自行進入 plan mode，使用者核准後才執行。
+- 在 [CLAUDE.md](../../../CLAUDE.md#先規劃再執行) 列出需要先規劃的條件，符合時由 Claude Code 自行進入 plan mode，使用者核准後才執行。
 - 「具規模」需要依情境判斷，只有寫成規則交給 AI 判斷，才能只在需要時觸發。代價是沒有強制力，條件寫得越具體越不容易漏。
-- 影響的文件：[CLAUDE.md](../../CLAUDE.md)。
+- 影響的文件：[CLAUDE.md](../../../CLAUDE.md)。

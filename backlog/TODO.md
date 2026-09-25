@@ -73,7 +73,7 @@ P0～P2 的項目在標題下依序寫：
 
 ### 做出 web app 第 2 階段
 
-- 為什麼：撈完職缺之後的排序、篩選、逐筆判讀，目前沒有一個地方做得完（見[決策紀錄：介面形式選型](../docs/product/decisions/interface-selection.md)）
+- 為什麼：撈完職缺之後的排序、篩選、逐筆判讀，目前沒有一個地方做得完（見[決策紀錄：介面形式選型](../docs/decisions/product/interface-selection.md)）
 - 影響的功能：
   - 104-job-scraper
   - job-database

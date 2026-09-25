@@ -4,7 +4,7 @@
 
 評分結果寫進資料庫後，重評同一筆職缺時，要不要沿用上次的 AI 評分來省下 AI 費用？
 
-送去評分的確認視窗有「包含已評過的職缺（重評）」勾選框，預設不勾，只評還沒評過的職缺（見 [job-auto-scoring §7](../features/job-auto-scoring.md#7-換了設定後重評已評過的職缺rescore)）。所以只有使用者自己勾了重評時，已評過的職缺才會再評。
+送去評分的確認視窗有「包含已評過的職缺（重評）」勾選框，預設不勾，只評還沒評過的職缺（見 [job-auto-scoring §7](../../product/features/job-auto-scoring.md#7-換了設定後重評已評過的職缺rescore)）。所以只有使用者自己勾了重評時，已評過的職缺才會再評。
 
 ## 考慮過的替代方案
 
@@ -20,4 +20,4 @@
 
 - 不做快取：每次評分都呼叫 AI，被淘汰的職缺除外。要不要重評已評過的職缺，由使用者在確認視窗決定。
 - 代價：只改了權重或薪資門檻、想重算總分時，勾重評也會呼叫 AI，AI 的分數可能跟上次不同。
-- 影響 [job-auto-scoring](../features/job-auto-scoring.md) 的 `score`、`rescore`、`history` 與 `cache` 故事：`cache` 整章移除。
+- 影響 [job-auto-scoring](../../product/features/job-auto-scoring.md) 的 `score`、`rescore`、`history` 與 `cache` 故事：`cache` 整章移除。

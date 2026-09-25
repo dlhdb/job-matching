@@ -30,7 +30,7 @@ flowchart LR
   - 原因：來源功能會 import `job_db`，反向 import 會形成循環。
   - `schema.py` 的 `JOB_COLUMNS` 是[職缺欄位契約](../../product/features/job-database.md#821-職缺欄位契約)的實作，來源功能自己的欄名（例如爬蟲的 `CSV_FIELDNAMES`）對齊它，是否一致由來源功能的測試檢查（見 [104-job-scraper 技術設計](104-job-scraper.md#7-驗收對照)）。
   - 其他模組呼叫 `job_db` 時，參數都用基本型別。
-- 使用標準函式庫 `sqlite3`，不新增依賴（選用 SQLite 的理由見 [決策紀錄：資料庫選型](../decisions/database-selection.md)）。
+- 使用標準函式庫 `sqlite3`，不新增依賴（選用 SQLite 的理由見 [決策紀錄：資料庫選型](../../decisions/tech/database-selection.md)）。
 - 以 `uv run src/<腳本>.py` 執行時，`src/` 在 import 路徑上，來源功能不需要額外設定就能 import `job_db`。
 
 ## 2. 流程

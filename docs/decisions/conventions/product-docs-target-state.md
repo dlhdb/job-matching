@@ -24,14 +24,14 @@
 
 ## 最終決策
 
-- `product/`（overview、功能文件、產品決策紀錄）寫產品應有的樣子，規劃確定就更新，不等實作：
+- `product/`（overview、功能文件）與 `decisions/product/`（產品決策紀錄）寫產品應有的樣子，規劃確定就更新，不等實作：
   - 尚未實作的部分，功能文件標〔規劃中〕，overview 的圖用虛線。
   - 例外：overview 功能清單的「狀態」與「現況」記錄實作進度。
 - 要拿掉的故事或規則，規劃確定時直接刪除。實作時要一起移除的程式、測試與技術設計的段落記到 TODO.md。
-- `tech/` 只描述已實作的現況，實作完成後才更新。
+- `tech/` 與 `decisions/tech/`（技術決策紀錄）只描述已實作的現況，實作完成後才更新。
 - 代價：刪掉的故事實作移除之前，技術設計的驗收對照中連到它的 AC 的連結會暫時失效，移除時一併刪掉。
 - 影響的文件：
-  - [documentation.md](../documentation.md#文件分區)的文件分區與內容
-  - [功能文件範本](../templates/feature.md)的〔規劃中〕規則
+  - [documentation.md](../../conventions/documentation.md#文件分區)的文件分區與內容
+  - [功能文件範本](../../conventions/templates/feature.md)的〔規劃中〕規則
   - [docs/README.md](../../README.md)的開頭與撰寫流程
   - CLAUDE.md 的文件描述原則

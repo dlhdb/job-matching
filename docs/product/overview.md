@@ -46,7 +46,7 @@
 - 不做多使用者服務、帳號系統或對外公開的網站。
 - 不自動投遞履歷。
 - 不對求職平台做大量、高頻的抓取（頻率限制見各爬蟲的功能文件）。
-- 目前不規劃排程定期抓取與評分：需要時從 web app 觸發。讓 agent 操作也還沒規劃，規劃時再依需求設計介面（見[決策紀錄：介面形式選型](decisions/interface-selection.md)）。
+- 目前不規劃排程定期抓取與評分：需要時從 web app 觸發。讓 agent 操作也還沒規劃，規劃時再依需求設計介面（見[決策紀錄：介面形式選型](../decisions/product/interface-selection.md)）。
 - 目前不規劃擷取公司資訊與外界評價：與公司有關的判斷只用職缺上的產業類別與公司名稱。
 
 ## 使用者旅程
@@ -80,7 +80,7 @@ flowchart LR
 
 - 功能是系統中一個獨立且可交付的大型功能模組，一個功能一份功能文件。
 - 功能 ID 用英文簡短描述（kebab-case），也是檔名：`features/<功能 ID>.md`。
-- 功能不再分組，理由見 [決策紀錄：功能不再分組，ID 用英文簡稱](decisions/flat-feature-list.md)。
+- 功能不再分組，理由見 [決策紀錄：功能不再分組，ID 用英文簡稱](../decisions/product/flat-feature-list.md)。
 - 功能之間可以有依賴，但方向必須單向。功能怎麼切、依賴方向怎麼判斷，見[功能設計](feature-design.md)。
 - 狀態值：`待規劃` → `待實作` → `實作中` → `✅ 已完成`。
 - 還沒有功能文件的功能，狀態為 `待規劃`，文件寫「尚無」。
@@ -123,7 +123,7 @@ flowchart LR
 ```
 
 - job-database 不依賴任何功能：它只定義[職缺欄位契約](features/job-database.md#821-職缺欄位契約)與寫入規則，不需要知道誰在寫它。
-- 評分的產生、保存與查詢都在 job-auto-scoring，不另外拆出評分資料庫，理由見[決策紀錄：評分功能的邊界](decisions/score-feature-boundary.md)。
+- 評分的產生、保存與查詢都在 job-auto-scoring，不另外拆出評分資料庫，理由見[決策紀錄：評分功能的邊界](../decisions/product/score-feature-boundary.md)。
 
 ### 現況
 
@@ -164,7 +164,7 @@ flowchart LR
 - 使用者故事：功能文件的一章，是一個可以單獨交付的價值切片，見 [功能文件範本](../conventions/templates/feature.md)
 - 〔規劃中〕：標在尚未實作的使用者故事或被改到的那一行，見 [功能文件範本](../conventions/templates/feature.md)
 - 現況：某個功能目前讓使用者做得到的事，見 [現況](#現況)
-- 決策紀錄（ADR）：有替代方案的取捨，寫出不採用的原因，依性質放在產品、技術或慣例的 `decisions/`，見 [documentation.md](../conventions/documentation.md#決策紀錄)
+- 決策紀錄（ADR）：有替代方案的取捨，寫出不採用的原因，依性質放在 `docs/decisions/` 的產品、技術、慣例或 AI coding 子目錄，見 [documentation.md](../conventions/documentation.md#決策紀錄)
 - 職缺代碼：求職平台的職缺識別碼（104 是 `jobNo`），見 [job-database 的職缺欄位契約](features/job-database.md#821-職缺欄位契約)
   - 用於去重，也用來識別職缺資料庫中的職缺
 - 淘汰：職缺符合硬性淘汰條件（公司、職稱關鍵字、薪資低於底線），見 [job-auto-scoring §5.2.1](features/job-auto-scoring.md#521-硬性淘汰規則)

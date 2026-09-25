@@ -27,4 +27,4 @@
   - 不寫外部服務是真的還是以固定回應代替，也不標〔需網路〕。
   - 只有連到真的外部服務才驗得到的行為（例如 AI 的理由是否引用職缺內容），寫成對應需求的驗收，依它驗的需求命名。
 - 技術設計的驗收對照寫出各 AC 怎麼驗證、哪些要連網。只驗與外部服務串接、不對應任何 AC 的檢查，寫在「不屬於任何 AC 的檢查」。
-- 影響的文件：[功能文件範本](../templates/feature.md)、[技術設計範本](../templates/tech-design.md)、[job-auto-scoring](../../product/features/job-auto-scoring.md) 的功能文件與[技術設計](../../tech/tech-design/job-auto-scoring.md)。[104-job-scraper](../../product/features/104-job-scraper.md) 的功能文件在依 web app 原型改寫時一起改，技術設計的驗收對照在實作時調整（見 [待辦：做出 web app 第 2 階段](../../../backlog/tasks/web-app-phase-2.md)）。
+- 影響的文件：[功能文件範本](../../conventions/templates/feature.md)、[技術設計範本](../../conventions/templates/tech-design.md)、[job-auto-scoring](../../product/features/job-auto-scoring.md) 的功能文件與[技術設計](../../tech/tech-design/job-auto-scoring.md)。[104-job-scraper](../../product/features/104-job-scraper.md) 的功能文件在依 web app 原型改寫時一起改，技術設計的驗收對照在實作時調整（見 [待辦：做出 web app 第 2 階段](../../../backlog/tasks/web-app-phase-2.md)）。

@@ -4,7 +4,7 @@
 
 評分同時牽涉兩件事：怎麼替職缺評分，以及評分怎麼保存、查詢。
 
-原本為了讓使用者也能手動填分，把保存與查詢拆成獨立的評分資料庫（job-score-database），自動評分（job-auto-scoring）疊加在它上面。拆分時依「功能漸進疊加」的原則（見[功能設計](../feature-design.md#上層的需求動到底層時)）：規劃底層功能時假設上層功能不存在，所以評分資料庫只定義人工就填得出來的基本欄位（`職缺代碼`、`評分時間`、`淘汰`、`總分`、`評語`），評分明細、`供應商`、`模型` 與手動、自動評分並存等規則，都寫在自動評分自己的故事。後來 web app 原型決定拿掉手動評分：唯一想到的用處是比對 AI 和自己的判斷，改由之後的標記功能處理。
+原本為了讓使用者也能手動填分，把保存與查詢拆成獨立的評分資料庫（job-score-database），自動評分（job-auto-scoring）疊加在它上面。拆分時依「功能漸進疊加」的原則（見[功能設計](../../product/feature-design.md#上層的需求動到底層時)）：規劃底層功能時假設上層功能不存在，所以評分資料庫只定義人工就填得出來的基本欄位（`職缺代碼`、`評分時間`、`淘汰`、`總分`、`評語`），評分明細、`供應商`、`模型` 與手動、自動評分並存等規則，都寫在自動評分自己的故事。後來 web app 原型決定拿掉手動評分：唯一想到的用處是比對 AI 和自己的判斷，改由之後的標記功能處理。
 
 問題是：沒有手動評分之後，評分的保存與查詢還要不要獨立成一個功能？
 
@@ -27,13 +27,13 @@
 
 ## 最終決策
 
-- 產品上只有一個評分功能 [job-auto-scoring](../features/job-auto-scoring.md)，負責評分、評分紀錄的保存與依分數查詢，依賴方向是 `job-auto-scoring → job-database`。
+- 產品上只有一個評分功能 [job-auto-scoring](../../product/features/job-auto-scoring.md)，負責評分、評分紀錄的保存與依分數查詢，依賴方向是 `job-auto-scoring → job-database`。
   - 評分紀錄的欄位、代表的評分、依分數排序與篩選都歸 job-auto-scoring。
   - 拿掉只為手動評分存在的規則：評分的職缺不必先寫進職缺資料庫、評分來源、手動與自動評分並存。
 - 程式模組維持分開：評分紀錄的保存與自動評分仍是不同的模組，分層留在技術設計的模組層級。
 - 之後真的出現第二種產生評分的方式時再拆，拆的成本不高。
 - 標記不共用評分紀錄，由之後的標記功能另外保存（見 [TODO.md](../../../backlog/TODO.md#標記職缺)）。
 - 影響的文件：
-  - [job-auto-scoring.md](../features/job-auto-scoring.md)，原本的 job-score-database.md 併入後刪除
-  - [overview.md](../overview.md)
+  - [job-auto-scoring.md](../../product/features/job-auto-scoring.md)，原本的 job-score-database.md 併入後刪除
+  - [overview.md](../../product/overview.md)
   - [TODO.md](../../../backlog/TODO.md)
