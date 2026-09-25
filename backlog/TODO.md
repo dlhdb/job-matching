@@ -132,6 +132,18 @@
 - 為什麼：前後有空白的代碼存進 `jobs` 後，和評分紀錄 JOIN 不到。拿掉手動評分後，評分都來自資料庫裡的職缺，實際碰到的機會很小。
 - 做法：寫入職缺時去掉 `職缺代碼` 的前後空白，不在評分端處理
 
+### 修正 commit-review README 中一句多概念的寫法
+
+- 類型：文件｜相關：無
+- 為什麼：[README 的設計重點與理由](../.claude/skills/commit-review/README.md#設計重點與理由)有些項目一句話包含好幾個概念，例如「擋 commit」那項，違反 [documentation.md 的格式](../docs/conventions/documentation.md#格式)。寫新內容時會照著這個密度寫。
+- 做法：逐句檢查整份 README，一句多概念的改成條列。
+
+### 文件寫完後對照格式規則檢查
+
+- 類型：改善｜相關：無
+- 為什麼：「一句話幾個概念」要逐句看才抓得到。讀過 [documentation.md](../docs/conventions/documentation.md) 不代表寫的時候會套用，寫完不檢查就會漏掉。
+- 開工時決定：這一步寫在 CLAUDE.md，或放進 commit-review 的流程（例如 commit 前逐句對照「格式」一節）。
+
 ### 判斷先規劃再執行的決策紀錄要不要搬到 .claude/
 
 - 類型：文件｜相關：無
@@ -160,4 +172,8 @@
 
 ## 待評估：還沒決定要不要做
 
-目前沒有。
+### 把文件格式規則移到更顯眼的位置
+
+- 相關：無
+- 想解決什麼：[documentation.md](../docs/conventions/documentation.md) 有一半在講功能文件、FR／AC 與技術設計。寫 skill README 這類文件時，用得到的只有「內容」與「格式」兩節，而「格式」排在最後，最容易被忽略。
+- 怎麼決定：做完[文件寫完後對照格式規則檢查](#文件寫完後對照格式規則檢查)後，仍常被指出違反格式規則時再做。候選做法是把「格式」獨立成短檔，或移到 documentation.md 最前面。
