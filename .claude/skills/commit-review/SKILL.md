@@ -12,7 +12,7 @@ description: commit 後、下一個 commit 或 push 前審查最新的 commit，
 3. 列出不要再報的項目，每項寫位置、內容與理由：
    - 已向使用者說明、決定不修的問題。
    - 之後的 commit 才處理的暫時不一致，註明哪一個 commit 會處理；到了那個 commit 就從清單拿掉。大改照拆成多個 commit，不為了消除暫時不一致而合併 commit。
-   - 已記在 TODO.md 的已知代價。
+   - 已記在 `backlog/TODO.md` 的已知代價。
 4. 執行 `/code-review medium HEAD~1..HEAD <說明>`：
    - 說明寫這是 N 個 commit 中的第幾個，加上第 3 步的清單，並說明這些項目不要再報。
    - 它在背景執行，等審查結果回來再往下。

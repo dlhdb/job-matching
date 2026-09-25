@@ -86,7 +86,7 @@ flowchart LR
   - 不是匯入時為 `NULL`，SQLite 的 UNIQUE 允許多個 `NULL`
 - `職缺數`（INTEGER NOT NULL）
 
-`關鍵字`、`地區`、`職缺性質`、`頁數`、`來源檔` 是來源功能提供的寫入條件（見 [job-database §8.2.2](../../product/features/job-database.md#822-保存的資訊)），目前的欄位是唯一的來源 104-job-scraper 留下的形狀。接第二個求職平台時要重新設計（見 [TODO.md](../../../TODO.md#把職缺欄位契約改成平台中立)）。
+`關鍵字`、`地區`、`職缺性質`、`頁數`、`來源檔` 是來源功能提供的寫入條件（見 [job-database §8.2.2](../../product/features/job-database.md#822-保存的資訊)），目前的欄位是唯一的來源 104-job-scraper 留下的形狀。接第二個求職平台時要重新設計（見 [TODO.md](../../../backlog/TODO.md#把職缺欄位契約改成平台中立)）。
 
 `run_jobs`：一次寫入與其中出現的職缺。
 

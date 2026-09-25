@@ -155,6 +155,7 @@ prototypes/     介面原型（假資料，確認介面用）
 profile/        使用者的求職偏好與工作經歷（真實資料不進版控）
 output/         應用程式輸出結果（不進版控）
 data/           職缺資料庫 jobs.db（不進版控）
+backlog/        待辦：TODO.md 是索引，tasks/ 放長的細節
 docs/           文件：product/（產品）、tech/（技術）、conventions/（慣例）
 .devcontainer/  開發環境隔離容器設定
 ```
