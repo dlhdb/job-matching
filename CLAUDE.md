@@ -40,7 +40,7 @@ uv add <pkg>                 # 新增依賴
   - 只寫在 CLAUDE.md 的 AI coding 規則的取捨：[.claude/decisions/](.claude/decisions/)
 - 隔離容器與防火牆白名單設計（所有 AI coding 工具共用）、Remote Control 要的網域與環境變數：[docs/tech/ai-coding-setup/devcontainer.md](docs/tech/ai-coding-setup/devcontainer.md)
 - Claude Code 專屬的權限規則（deny/ask）與設計理由：[docs/tech/ai-coding-setup/claude-code.md](docs/tech/ai-coding-setup/claude-code.md)
-- AI coding 通用工作流（skill、hook）的說明與設計理由：`.claude/skills/<名稱>/README.md`，例如 [commit-review](.claude/skills/commit-review/README.md)
+- AI coding 通用工作流（skill、hook，以及 skill 用到的 subagent）的說明與設計理由：`.claude/skills/<skill 名稱>/README.md`，例如 [commit-review](.claude/skills/commit-review/README.md)
 
 產品文件（docs/product/）寫產品應有的樣子，規劃確定就更新；技術文件（docs/tech/）只寫已實作的現況，見 [documentation.md 的文件分區](docs/conventions/documentation.md#文件分區)。需求、設計或實作改變時，直接更新對應的文件。撰寫或修改任何文件前，先讀 [docs/conventions/documentation.md](docs/conventions/documentation.md)，只改文件時不必讀 development.md。
 

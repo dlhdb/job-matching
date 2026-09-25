@@ -18,6 +18,7 @@
 `docs/` 只寫本專案的設計、技術選型與開發守則，這些沒有通用的標準答案，讀者是 AI agent、工程師、設計師與 PM。AI coding 的通用工作流（skill、hook、CLAUDE.md 的規則，換到別的專案也適用）不寫進 `docs/`：
 
 - skill、hook：說明與設計理由寫在 `.claude/skills/<名稱>/README.md`。
+- 只給某個 skill 用的 subagent：定義放在 `.claude/agents/`，說明與設計理由寫在該 skill 的 README。
 - 只寫在 CLAUDE.md、沒有 skill 的規則：取捨寫成決策紀錄放在 `.claude/decisions/`，寫法同[決策紀錄](#決策紀錄)。
 
 ## 內容
