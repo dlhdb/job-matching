@@ -15,7 +15,7 @@
 - [conventions/](conventions/)：兩邊共用的慣例
   - [conventions/documentation.md](conventions/documentation.md)：文件撰寫慣例
   - [conventions/development.md](conventions/development.md)：開發慣例
-  - [conventions/decisions/](conventions/decisions/)：文件與開發流程的決策紀錄
+  - [conventions/decisions/](conventions/decisions/)：文件與開發流程的決策紀錄，以及所有決策紀錄共用的[範本](conventions/decisions/_decision_template.md)
 
 實作某功能時，只需讀產品總覽，加上該功能的功能文件與技術設計。
 
@@ -29,7 +29,7 @@
      - 同一件事換個入口，例如 CLI 改成網頁
      - 擴大處理量，例如單筆改成批次
      - 只是規則或結果改變
-   - 修改時，新增或修改的使用者故事標上[〔規劃中〕](conventions/documentation.md#功能文件的結構)，狀態退回 `待規劃`，該功能的「現況」維持不變。
+   - 修改時，新增或修改的使用者故事標上[〔規劃中〕](product/features/_feature_template.md)，狀態退回 `待規劃`，該功能的「現況」維持不變。
    - 要拿掉的故事或規則直接刪除，實作時要一起移除的部分記到 [backlog/TODO.md](../backlog/TODO.md)。
 2. 範圍外的每一項都要有去處（功能清單、[backlog/TODO.md](../backlog/TODO.md) 或非目標），寫法見[功能文件範本](product/features/_feature_template.md)的「範圍」。
 3. 定稿：「待決問題」清空後，狀態改為 `待實作`。還有待決問題的功能，不要開始實作。

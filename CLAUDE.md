@@ -29,9 +29,9 @@ uv add <pkg>                 # 新增依賴
 - 功能怎麼切、依賴方向、上層功能的需求動到底層時改哪一層的判斷方法：[docs/product/feature-design.md](docs/product/feature-design.md)
 - 單一功能的為什麼做、做什麼（需求、範圍、業務規則、驗收標準、CLI 參數）：`docs/product/features/<功能 ID>.md`，功能 ID 見 overview 的功能清單
 - 單一功能怎麼做（系統輪廓、模組分工、資料表、外部系統的技術限制、驗收對應的測試指令）：`docs/tech/tech-design/<功能 ID>.md`
-- 功能文件、技術設計各章的寫法：[docs/product/features/_feature_template.md](docs/product/features/_feature_template.md)、[docs/tech/tech-design/_tech_design_template.md](docs/tech/tech-design/_tech_design_template.md)
+- 功能文件、技術設計、決策紀錄的結構與各章寫法（〔規劃中〕、FR／AC 命名等）：[docs/product/features/_feature_template.md](docs/product/features/_feature_template.md)、[docs/tech/tech-design/_tech_design_template.md](docs/tech/tech-design/_tech_design_template.md)、[docs/conventions/decisions/_decision_template.md](docs/conventions/decisions/_decision_template.md)
 - 專案檔案結構：[README.md](README.md) 的「專案結構」
-- 文件撰寫規範（跨文件的規則、〔規劃中〕、FR／AC 命名、決策紀錄、格式）：[docs/conventions/documentation.md](docs/conventions/documentation.md)
+- 所有文件共用的撰寫通則（文件分區、內容、決策紀錄什麼時候寫與放哪、格式）：[docs/conventions/documentation.md](docs/conventions/documentation.md)
 - 程式碼風格、docstring 格式、終端輸出慣例、依賴管理、測試慣例、防禦性設計：[docs/conventions/development.md](docs/conventions/development.md)
 - 過去的取捨、考慮過但不採用的做法與原因（決策紀錄，依性質分四處）：
   - 產品取捨：[docs/product/decisions/](docs/product/decisions/)
@@ -42,7 +42,13 @@ uv add <pkg>                 # 新增依賴
 - Claude Code 專屬的權限規則（deny/ask）與設計理由：[docs/tech/ai-coding-setup/claude-code.md](docs/tech/ai-coding-setup/claude-code.md)
 - AI coding 通用工作流（skill、hook，以及 skill 用到的 subagent）的說明與設計理由：`.claude/skills/<skill 名稱>/README.md`，例如 [commit-review](.claude/skills/commit-review/README.md)
 
-產品文件（docs/product/）寫產品應有的樣子，規劃確定就更新；技術文件（docs/tech/）只寫已實作的現況，見 [documentation.md 的文件分區](docs/conventions/documentation.md#文件分區)。需求、設計或實作改變時，直接更新對應的文件。撰寫或修改任何文件前，先讀 [docs/conventions/documentation.md](docs/conventions/documentation.md)，只改文件時不必讀 development.md。
+產品文件（docs/product/）寫產品應有的樣子，規劃確定就更新；技術文件（docs/tech/）只寫已實作的現況，見 [documentation.md 的文件分區](docs/conventions/documentation.md#文件分區)。需求、設計或實作改變時，直接更新對應的文件。
+
+撰寫或修改任何文件前：
+
+- 先讀 [docs/conventions/documentation.md](docs/conventions/documentation.md)。
+- 改的是功能文件、技術設計或決策紀錄時，再讀該類的範本。
+- 只改文件時不必讀 development.md。
 
 實作進度只記在 [docs/product/overview.md](docs/product/overview.md#功能清單) 的狀態與「現況」，本檔不記錄進度。
 

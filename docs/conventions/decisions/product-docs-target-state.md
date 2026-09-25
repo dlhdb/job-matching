@@ -31,6 +31,7 @@
 - `tech/` 只描述已實作的現況，實作完成後才更新。
 - 代價：刪掉的故事實作移除之前，技術設計的驗收對照中連到它的 AC 的連結會暫時失效，移除時一併刪掉。
 - 影響的文件：
-  - [documentation.md](../documentation.md#文件分區)的文件分區、內容與〔規劃中〕的規則
+  - [documentation.md](../documentation.md#文件分區)的文件分區與內容
+  - [_feature_template.md](../../product/features/_feature_template.md)的〔規劃中〕規則
   - [docs/README.md](../../README.md)的開頭與撰寫流程
   - CLAUDE.md 的文件描述原則
