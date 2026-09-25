@@ -203,14 +203,6 @@ P0～P2 的項目在標題下依序寫：
 - 影響的功能：job-database
 - 做法：寫入職缺時去掉 `職缺代碼` 的前後空白，不在評分端處理
 
-### 修正 commit-review README 中一句多概念的寫法
-
-- 為什麼：
-  - [README 的設計重點與理由](../.claude/skills/commit-review/README.md#設計重點與理由)有些項目一句話包含好幾個概念，例如「擋 commit」那項，違反 [documentation.md 的格式](../docs/conventions/documentation.md#格式)
-  - 寫新內容時會照著這個密度寫
-- 影響的功能：無
-- 做法：逐句檢查整份 README，一句多概念的改成條列
-
 ### 把職缺欄位契約改成平台中立
 
 - 為什麼：
