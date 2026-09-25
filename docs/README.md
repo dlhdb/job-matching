@@ -4,6 +4,7 @@
 
 - [product/](product/)：產品文件，寫為什麼做、做什麼，讀者是 PM、設計師、架構師與工程師
   - [product/overview.md](product/overview.md)：產品總覽，包括目標與成功指標、使用者問題、非目標、使用者旅程、功能清單與現況、名詞定義
+  - [product/feature-design.md](product/feature-design.md)：功能設計，包括功能怎麼切、依賴方向、上層功能的需求動到底層時改哪一層
   - [product/features/](product/features/)：單一功能的功能文件，包括需求、業務規則與驗收標準，一個功能一份
   - [product/decisions/](product/decisions/)：產品取捨的決策紀錄
 - [tech/](tech/)：技術文件，寫怎麼做，讀者是工程師
@@ -21,7 +22,7 @@
 ## 撰寫與使用流程
 
 1. 新增功能或修改既有功能：
-   - 新增功能：使用者能完成一件原本做不到的事時，才新增功能。
+   - 新增功能：使用者能完成一件原本做不到的事時，才新增功能。怎麼切見[功能設計](product/feature-design.md)。
      - 在 `product/features/` 複製 [_feature_template.md](product/features/_feature_template.md)，依命名規則取檔名。
      - 在[功能清單](product/overview.md#功能清單)登記，狀態設為 `待規劃`。
    - 修改既有功能：下列情況都屬於修改，直接修改原本的功能文件。

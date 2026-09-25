@@ -32,5 +32,5 @@
   - 功能 ID 也是功能文件的檔名 `<功能 ID>.md`。
   - 規則見 [documentation.md「功能文件的結構」](../../conventions/documentation.md#功能文件的結構)。
 - 104 爬蟲與職缺資料庫仍分成兩個功能，因為各自可以單獨交付。
-  - 分成兩個功能不代表沒有依賴，依賴方向的規則見 [專案總覽的功能清單](../overview.md#功能清單)。
+  - 分成兩個功能不代表沒有依賴，依賴方向的規則見[功能設計的依賴方向](../feature-design.md#依賴方向)。
 - 影響的文件：[docs/product/overview.md](../overview.md)、[_feature_template.md](../features/_feature_template.md)、所有功能文件的檔名與表頭，以及引用功能 ID 的 [CLAUDE.md](../../../CLAUDE.md)、[README.md](../../../README.md)、[TODO.md](../../../TODO.md)。

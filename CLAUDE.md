@@ -26,6 +26,7 @@ uv add <pkg>                 # 新增依賴
 - 文件分區（產品／技術／慣例）與撰寫、使用流程：[docs/README.md](docs/README.md)
 - 產品目標與成功指標、使用者問題、跨功能的使用者旅程、功能依賴、功能清單與現況、名詞定義：[docs/product/overview.md](docs/product/overview.md)
 - 跨功能的模組依賴、資料存放位置與各資料表的負責功能、技術選型總覽：[docs/tech/architecture.md](docs/tech/architecture.md)
+- 功能怎麼切、依賴方向、上層功能的需求動到底層時改哪一層的判斷方法：[docs/product/feature-design.md](docs/product/feature-design.md)
 - 單一功能的為什麼做、做什麼（需求、範圍、業務規則、驗收標準、CLI 參數）：`docs/product/features/<功能 ID>.md`，功能 ID 見 overview 的功能清單
 - 單一功能怎麼做（系統輪廓、模組分工、資料表、外部系統的技術限制、驗收對應的測試指令）：`docs/tech/tech-design/<功能 ID>.md`
 - 功能文件、技術設計各章的寫法：[docs/product/features/_feature_template.md](docs/product/features/_feature_template.md)、[docs/tech/tech-design/_tech_design_template.md](docs/tech/tech-design/_tech_design_template.md)
