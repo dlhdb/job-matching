@@ -27,7 +27,7 @@ data/
 to-be-confirm/
 
 # Claude Code review marker (see .claude/hooks/require-review.sh)
-.claude/.reviewed-diff
+.claude/.reviewed-commits
 
 *.local.*
 

@@ -39,6 +39,7 @@ uv add <pkg>                 # 新增依賴
   - 文件與開發流程的取捨：[docs/conventions/decisions/](docs/conventions/decisions/)
 - 隔離容器與防火牆白名單設計（所有 AI coding 工具共用）、Remote Control 要的網域與環境變數：[docs/tech/ai-coding-setup/devcontainer.md](docs/tech/ai-coding-setup/devcontainer.md)
 - Claude Code 專屬的權限規則（deny/ask）與設計理由：[docs/tech/ai-coding-setup/claude-code.md](docs/tech/ai-coding-setup/claude-code.md)
+- AI coding 通用工作流（skill、hook）的說明與設計理由：`.claude/skills/<名稱>/README.md`，例如 [pre-commit-review](.claude/skills/pre-commit-review/README.md)
 
 產品文件（docs/product/）寫產品應有的樣子，規劃確定就更新；技術文件（docs/tech/）只寫已實作的現況，見 [documentation.md 的文件分區](docs/conventions/documentation.md#文件分區)。需求、設計或實作改變時，直接更新對應的文件。撰寫或修改任何文件前，先讀 [docs/conventions/documentation.md](docs/conventions/documentation.md)，只改文件時不必讀 development.md。
 
@@ -50,7 +51,7 @@ uv add <pkg>                 # 新增依賴
 
 ## 向使用者確認問題
 
-需要使用者做決定時（包括功能開發與 commit 前審查），依問題的複雜度選擇詢問方式：
+需要使用者做決定時（包括功能開發與 commit 審查），依問題的複雜度選擇詢問方式：
 
 - 選項少、不需要太多脈絡說明：直接在對話中問。
 - 需要較多脈絡說明，或題數多：寫成問卷放在 `to-be-confirm/<主題>.md`，使用者填完後會通知你。問卷不進版控。
@@ -71,7 +72,7 @@ uv add <pkg>                 # 新增依賴
 
 - 錯字、單一檔案內不改變行為的小修正
 - 使用者已明確指定改法的修改
-- commit 前審查的修正（見[功能開發流程](#功能開發流程)第 4 步）：需要使用者決定的修正照該 skill 詢問
+- commit 審查的修正（見[功能開發流程](#功能開發流程)第 4 步）：需要使用者決定的修正照該 skill 詢問
 
 不屬於任何例外、又不確定是否符合條件時，當作需要規劃。
 
@@ -82,4 +83,4 @@ uv add <pkg>                 # 新增依賴
 1. 讀文件時，功能文件只讀要動到的故事那章、它連到的規則，加上「非功能需求」與「共用規則」；技術設計讀「總覽」，再讀要動到的元件章節。
 2. 沒有功能文件、功能文件仍有待決問題，或要修改既有功能時，先在功能文件規劃好並與使用者確認，再實作。
 3. 驗收逐條回報 ✅ / ❌ 與實際輸出。
-4. commit 前用 [pre-commit-review](.claude/skills/pre-commit-review/SKILL.md) skill 審查修改，只改文件的 commit 也要審查。
+4. 每個 commit 都用 [pre-commit-review](.claude/skills/pre-commit-review/SKILL.md) skill 審查，只改文件的 commit 也要審查。

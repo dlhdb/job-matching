@@ -140,6 +140,11 @@
 - 為什麼：前後有空白的代碼存進 `jobs` 後，和評分紀錄 JOIN 不到。拿掉手動評分後，評分都來自資料庫裡的職缺，實際碰到的機會很小。
 - 做法：寫入職缺時去掉 `職缺代碼` 的前後空白，不在評分端處理
 
+### 判斷先規劃再執行的決策紀錄要不要搬到 .claude/
+
+- 類型：文件｜相關：無
+- 為什麼：[plan-before-large-changes.md](docs/conventions/decisions/plan-before-large-changes.md) 屬於 AI coding 的通用工作流，依 [documentation.md 的文件分區](docs/conventions/documentation.md#文件分區)不該放在 `docs/`，但它規範的是 CLAUDE.md 的規則，沒有對應的 skill 目錄，要先決定放哪裡。
+
 ### 把職缺欄位契約改成平台中立
 
 - 類型：功能｜相關：job-database、104-job-scraper
