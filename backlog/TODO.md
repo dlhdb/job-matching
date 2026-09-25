@@ -221,14 +221,6 @@ P0～P2 的項目在標題下依序寫：
   - 寫在 CLAUDE.md
   - 放進 commit-review 的流程，例如 commit 前逐句對照「格式」一節
 
-### 把先規劃再執行的決策紀錄搬出 docs/
-
-- 為什麼：
-  - [plan-before-large-changes.md](../docs/conventions/decisions/plan-before-large-changes.md) 屬於 AI coding 的通用工作流，依 [documentation.md 的文件分區](../docs/conventions/documentation.md#文件分區)不該放在 `docs/`
-  - 但它規範的是 CLAUDE.md 的規則，沒有對應的 skill 目錄
-- 影響的功能：無
-- 開工時決定：放在 `.claude/` 底下的哪裡
-
 ### 把職缺欄位契約改成平台中立
 
 - 為什麼：

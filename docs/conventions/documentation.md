@@ -15,7 +15,10 @@
 - `product/` 寫產品應有的樣子，規劃確定就更新，不等實作。尚未實作的部分，功能文件標[〔規劃中〕](#功能文件的結構)，overview 的圖用虛線。例外是 overview 功能清單的「狀態」與「現況」，記錄實作進度。
 - `tech/` 只描述已實作的現況，實作完成後才更新。
 
-`docs/` 只寫本專案的設計、技術選型與開發守則，這些沒有通用的標準答案，讀者是 AI agent、工程師、設計師與 PM。AI coding 的通用工作流（skill、hook，換到別的專案也適用）不寫進 `docs/`，它的說明與設計理由寫在 `.claude/skills/<名稱>/README.md`。
+`docs/` 只寫本專案的設計、技術選型與開發守則，這些沒有通用的標準答案，讀者是 AI agent、工程師、設計師與 PM。AI coding 的通用工作流（skill、hook、CLAUDE.md 的規則，換到別的專案也適用）不寫進 `docs/`：
+
+- skill、hook：說明與設計理由寫在 `.claude/skills/<名稱>/README.md`。
+- 只寫在 CLAUDE.md、沒有 skill 的規則：取捨寫成決策紀錄放在 `.claude/decisions/`，寫法同[決策紀錄](#決策紀錄)。
 
 ## 內容
 
@@ -75,7 +78,12 @@ ID 一律用英文簡短描述，不用流水號，插入新條目時不必重�
 
 ## 決策紀錄
 
-有替代方案、之後容易被重新提出的取捨，寫成決策紀錄，依性質放在 `product/decisions/`（業務規則、功能切分）、`tech/decisions/`（技術選型與實作取捨）或 `conventions/decisions/`（文件與開發流程）。
+有替代方案、之後容易被重新提出的取捨，寫成決策紀錄，依性質放在：
+
+- `product/decisions/`：業務規則、功能切分。
+- `tech/decisions/`：技術選型與實作取捨。
+- `conventions/decisions/`：本專案的文件與開發流程。
+- `.claude/decisions/`：只寫在 CLAUDE.md 的 AI coding 規則，見[文件分區](#文件分區)。
 
 - 檔名是描述決策目的的英文 kebab-case，例如 `database-selection.md`，不用流水號。引用時連結文字寫決策標題，例如「[決策紀錄：資料庫選型](…)」。
 - 一份決策一個檔案，固定三節：

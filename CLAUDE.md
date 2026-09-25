@@ -33,10 +33,11 @@ uv add <pkg>                 # 新增依賴
 - 專案檔案結構：[README.md](README.md) 的「專案結構」
 - 文件撰寫規範（跨文件的規則、〔規劃中〕、FR／AC 命名、決策紀錄、格式）：[docs/conventions/documentation.md](docs/conventions/documentation.md)
 - 程式碼風格、docstring 格式、終端輸出慣例、依賴管理、測試慣例、防禦性設計：[docs/conventions/development.md](docs/conventions/development.md)
-- 過去的取捨、考慮過但不採用的做法與原因（決策紀錄，依性質分三處）：
+- 過去的取捨、考慮過但不採用的做法與原因（決策紀錄，依性質分四處）：
   - 產品取捨：[docs/product/decisions/](docs/product/decisions/)
   - 技術取捨：[docs/tech/decisions/](docs/tech/decisions/)
   - 文件與開發流程的取捨：[docs/conventions/decisions/](docs/conventions/decisions/)
+  - 只寫在 CLAUDE.md 的 AI coding 規則的取捨：[.claude/decisions/](.claude/decisions/)
 - 隔離容器與防火牆白名單設計（所有 AI coding 工具共用）、Remote Control 要的網域與環境變數：[docs/tech/ai-coding-setup/devcontainer.md](docs/tech/ai-coding-setup/devcontainer.md)
 - Claude Code 專屬的權限規則（deny/ask）與設計理由：[docs/tech/ai-coding-setup/claude-code.md](docs/tech/ai-coding-setup/claude-code.md)
 - AI coding 通用工作流（skill、hook）的說明與設計理由：`.claude/skills/<名稱>/README.md`，例如 [commit-review](.claude/skills/commit-review/README.md)
@@ -55,7 +56,7 @@ uv add <pkg>                 # 新增依賴
 
 ## 先規劃再執行
 
-符合下列任一條件的修改，先用 plan mode（EnterPlanMode）規劃，使用者核准後才動手，理由見[決策紀錄：具規模的修改先規劃再執行](docs/conventions/decisions/plan-before-large-changes.md)：
+符合下列任一條件的修改，先用 plan mode（EnterPlanMode）規劃，使用者核准後才動手，理由見[決策紀錄：具規模的修改先規劃再執行](.claude/decisions/plan-before-large-changes.md)：
 
 - 會改到兩個以上的檔案，或新增檔案（`to-be-confirm/` 的問卷與 `backlog/` 的 TODO.md、細節檔除外）
 - 會改變行為、業務規則、資料表結構、CLI 參數或依賴
