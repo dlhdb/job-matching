@@ -1,6 +1,6 @@
 # <功能名稱>：技術設計
 
-<!-- 本範本在同一層複製成 <功能 ID>.md 後使用，文中相對連結可以直接沿用。
+<!-- 本範本複製到 tech/tech-design/<功能 ID>.md 後使用，文中相對連結可以直接沿用，功能文件的連結改指該功能。
      - 讀者是工程師。
      - 所有文件共用的通則見 conventions/documentation.md。
      技術設計只做兩件事：
@@ -16,7 +16,7 @@
      - 技術設計是單一功能內的全貌，跨功能的全貌寫在 tech/architecture.md。
      以下章節沒有內容時整章省略，元件較多時可以依元件再分章。 -->
 
-- 功能文件：[<功能 ID>.md](../../product/features/_feature_template.md)
+- 功能文件：[<功能 ID>.md](../../conventions/templates/feature.md)
 - 程式碼：進入點與模組路徑
 
 ## 1. 總覽
@@ -73,5 +73,5 @@ uv run pytest tests/test_<模組>*.py
 
 ### <故事 slug>
 
-- [AC-<slug>-<重點>](../../product/features/_feature_template.md#ac-slug-重點標題)：`uv run pytest tests/test_<模組>.py -k <函式名>`
-- [AC-<slug>-<重點>](../../product/features/_feature_template.md#ac-slug-重點標題)〔需網路〕：`uv run pytest -m network tests/e2e/test_<模組>.py -k <函式名>`
+- [AC-<slug>-<重點>](../../conventions/templates/feature.md#ac-slug-重點標題)：`uv run pytest tests/test_<模組>.py -k <函式名>`
+- [AC-<slug>-<重點>](../../conventions/templates/feature.md#ac-slug-重點標題)〔需網路〕：`uv run pytest -m network tests/e2e/test_<模組>.py -k <函式名>`

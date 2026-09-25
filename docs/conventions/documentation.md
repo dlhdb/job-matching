@@ -2,9 +2,9 @@
 
 這份只寫所有文件共用的通則。某一類文件的結構與各章的寫法（例如〔規劃中〕怎麼標、驗收怎麼寫、技術設計不寫哪些內容）寫在該類的範本：
 
-- 功能文件：[_feature_template.md](../product/features/_feature_template.md)
-- 技術設計：[_tech_design_template.md](../tech/tech-design/_tech_design_template.md)
-- 決策紀錄：[_decision_template.md](decisions/_decision_template.md)
+- 功能文件：[templates/feature.md](templates/feature.md)
+- 技術設計：[templates/tech-design.md](templates/tech-design.md)
+- 決策紀錄：[templates/decision.md](templates/decision.md)
 
 寫或改文件時（修改既有文件也一樣）：
 
@@ -21,7 +21,7 @@
 
 兩區描述的時間點不同，理由見[決策紀錄：產品文件寫應有的樣子，技術文件寫實作現況](decisions/product-docs-target-state.md)：
 
-- `product/` 寫產品應有的樣子，規劃確定就更新，不等實作。尚未實作的部分，功能文件標[〔規劃中〕](../product/features/_feature_template.md)，overview 的圖用虛線。例外是 overview 功能清單的「狀態」與「現況」，記錄實作進度。
+- `product/` 寫產品應有的樣子，規劃確定就更新，不等實作。尚未實作的部分，功能文件標[〔規劃中〕](templates/feature.md)，overview 的圖用虛線。例外是 overview 功能清單的「狀態」與「現況」，記錄實作進度。
 - `tech/` 只描述已實作的現況，實作完成後才更新。
 
 `docs/` 只寫本專案的設計、技術選型與開發守則，這些沒有通用的標準答案，讀者是 AI agent、工程師、設計師與 PM。AI coding 的通用工作流（skill、hook、CLAUDE.md 的規則，換到別的專案也適用）不寫進 `docs/`：
@@ -52,7 +52,7 @@
 - `conventions/decisions/`：本專案的文件與開發流程。
 - `.claude/decisions/`：只寫在 CLAUDE.md 的 AI coding 規則，見[文件分區](#文件分區)。
 
-- 檔名、章節與決策改變時怎麼更新，見[決策紀錄範本](decisions/_decision_template.md)。
+- 檔名、章節與決策改變時怎麼更新，見[決策紀錄範本](templates/decision.md)。
 - 引用時連結文字寫決策標題，例如「[決策紀錄：資料庫選型](…)」。
 - 在做出該決策的文件中連到決策紀錄，理由不在兩處重複寫。
 

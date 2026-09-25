@@ -22,6 +22,9 @@
 - 文件流程的決策（功能文件以使用者故事分章、不用表格等）硬分到 product/：
   - 這些決策同時約束技術文件，放在產品區會誤導。
   - 它們影響的是 conventions/ 的慣例，放在一起比較容易找。
+- 範本放在它產出的文件旁邊，例如功能文件範本放在 product/features/：
+  - 範本裝的是各類文件的結構與各章寫法，性質是慣例。
+  - 分散在三區時要到各區去找。
 - 決策紀錄保留全域流水號：
   - 分區後同一個序列散在三個目錄，看號碼無法判斷位置，號碼本身也不帶資訊。
 
@@ -30,7 +33,7 @@
 - docs/ 依讀者分成三區：
   - `product/`：產品總覽（overview.md）、功能文件（features/）、產品決策（decisions/），讀者是 PM、設計師、架構師與工程師
   - `tech/`：architecture.md、技術設計（tech-design/）、ai-coding-setup/、技術決策（decisions/），讀者是工程師
-  - `conventions/`：兩邊共用的慣例，以及文件與開發流程的決策（decisions/）
+  - `conventions/`：兩邊共用的慣例、各類文件的範本（templates/），以及文件與開發流程的決策（decisions/）
 - docs/README.md 只放文件索引與撰寫、使用流程。
 - 依賴只有單向：`tech/` 可以連到 `product/`，`product/` 不連到 `tech/`。
 - 產品文件提到資料庫時只寫「職缺資料庫」與保存了哪些資訊，不寫資料庫種類、表名、查詢方式與檔案路徑。例外是 CLI 參數說明中 `--db` 的預設值。
@@ -38,5 +41,5 @@
 - 尚未實作的功能沒有技術設計，暫定的技術方案記在 TODO.md，實作時帶進實作計畫。
 - 影響的文件：
   - [docs/README.md](../../README.md)、[documentation.md](../documentation.md#文件分區)
-  - 所有功能文件、技術設計與決策紀錄的路徑與相互連結
+  - 所有功能文件、技術設計、決策紀錄與[範本](../templates/)的路徑與相互連結
   - [architecture.md](../../tech/architecture.md)、CLAUDE.md、根目錄的 README.md 與 TODO.md

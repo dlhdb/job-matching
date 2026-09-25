@@ -50,6 +50,6 @@
   - 技術設計的「驗收對照」依故事分組，寫出驗證指令。
 - 影響的文件：
   - [documentation.md](../documentation.md#內容)
-  - [_feature_template.md](../../product/features/_feature_template.md)、[_tech_design_template.md](../../tech/tech-design/_tech_design_template.md)
+  - [功能文件範本](../templates/feature.md)、[技術設計範本](../templates/tech-design.md)
   - [docs/README.md](../../README.md#撰寫與使用流程)、CLAUDE.md 的功能開發流程
   - [決策紀錄：功能文件以使用者故事分章](feature-docs-by-user-story.md)

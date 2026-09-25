@@ -183,6 +183,7 @@ docs/           文件：product/（產品）、tech/（技術）、conventions/
 - 慣例：
   - [docs/conventions/documentation.md](docs/conventions/documentation.md)：文件撰寫慣例
   - [docs/conventions/development.md](docs/conventions/development.md)：開發慣例
+  - [docs/conventions/templates/](docs/conventions/templates/)：功能文件、技術設計與決策紀錄的範本
   - [docs/conventions/decisions/](docs/conventions/decisions/)：文件與開發流程的決策紀錄
 
 ## 使用聲明

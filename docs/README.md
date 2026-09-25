@@ -15,7 +15,8 @@
 - [conventions/](conventions/)：兩邊共用的慣例
   - [conventions/documentation.md](conventions/documentation.md)：文件撰寫慣例
   - [conventions/development.md](conventions/development.md)：開發慣例
-  - [conventions/decisions/](conventions/decisions/)：文件與開發流程的決策紀錄，以及所有決策紀錄共用的[範本](conventions/decisions/_decision_template.md)
+  - [conventions/templates/](conventions/templates/)：功能文件、技術設計與決策紀錄的範本，寫明各類文件的結構與各章寫法
+  - [conventions/decisions/](conventions/decisions/)：文件與開發流程的決策紀錄
 
 實作某功能時，只需讀產品總覽，加上該功能的功能文件與技術設計。
 
@@ -23,21 +24,21 @@
 
 1. 新增功能或修改既有功能：
    - 新增功能：使用者能完成一件原本做不到的事時，才新增功能。怎麼切見[功能設計](product/feature-design.md)。
-     - 在 `product/features/` 複製 [_feature_template.md](product/features/_feature_template.md)，依命名規則取檔名。
+     - 在 `product/features/` 複製 [功能文件範本](conventions/templates/feature.md)，依命名規則取檔名。
      - 在[功能清單](product/overview.md#功能清單)登記，狀態設為 `待規劃`。
    - 修改既有功能：下列情況都屬於修改，直接修改原本的功能文件。
      - 同一件事換個入口，例如 CLI 改成網頁
      - 擴大處理量，例如單筆改成批次
      - 只是規則或結果改變
-   - 修改時，新增或修改的使用者故事標上[〔規劃中〕](product/features/_feature_template.md)，狀態退回 `待規劃`，該功能的「現況」維持不變。
+   - 修改時，新增或修改的使用者故事標上[〔規劃中〕](conventions/templates/feature.md)，狀態退回 `待規劃`，該功能的「現況」維持不變。
    - 要拿掉的故事或規則直接刪除，實作時要一起移除的部分記到 [backlog/TODO.md](../backlog/TODO.md)。
-2. 範圍外的每一項都要有去處（功能清單、[backlog/TODO.md](../backlog/TODO.md) 或非目標），寫法見[功能文件範本](product/features/_feature_template.md)的「範圍」。
+2. 範圍外的每一項都要有去處（功能清單、[backlog/TODO.md](../backlog/TODO.md) 或非目標），寫法見[功能文件範本](conventions/templates/feature.md#2-範圍)的「範圍」。
 3. 定稿：「待決問題」清空後，狀態改為 `待實作`。還有待決問題的功能，不要開始實作。
 4. 實作：狀態改為 `實作中`。
    - 依該使用者故事的「需求」實作，不做「範圍外」列出的事。
    - 實作時調整了業務規則，就同步更新該使用者故事的「規則」小節。
    - 技術方案寫在實作計畫或 commit 說明，不寫進技術設計。
-5. 驗收：依技術設計的[驗收對照](tech/tech-design/_tech_design_template.md#6-驗收對照)，逐條執行該使用者故事的驗收，回報每條結果（✅ / ❌ 與實際輸出）。全部通過後：
+5. 驗收：依技術設計的[驗收對照](conventions/templates/tech-design.md#6-驗收對照)，逐條執行該使用者故事的驗收，回報每條結果（✅ / ❌ 與實際輸出）。全部通過後：
    - 移除該使用者故事與共用章節中相關的〔規劃中〕標記。
    - 把會長期留下的設計更新到技術設計對應的元件章節，並在驗收對照補上新的 AC。
    - 功能文件與[功能清單](product/overview.md#功能清單)的狀態都改為 `✅ 已完成`。
