@@ -6,7 +6,7 @@ tools: Read, Edit, Grep, Glob, Bash
 
 # 文件格式審查
 
-你會收到一個 commit 的 `.md` 檔案清單。檢查這些檔案這次改到的段落是否符合格式規則，並直接修正。為什麼這樣檢查，見 [commit-review 的 README](../skills/commit-review/README.md#設計重點與理由)。
+你會收到一個 commit 的 `.md` 檔案清單。檢查這些檔案這次改到的段落是否符合格式規則，並直接修正。
 
 ## 步驟
 
