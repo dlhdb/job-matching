@@ -1,4 +1,4 @@
-# pre-commit-review：commit 審查流程的說明
+# commit-review：commit 審查流程的說明
 
 這份說明 skill 的目的、組成與設計理由，寫給要修改這個流程的人與 AI agent。執行時的步驟只寫在 [SKILL.md](SKILL.md)，Claude Code 只會載入 SKILL.md，這份不佔用 context。
 

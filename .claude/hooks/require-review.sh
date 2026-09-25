@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # Claude Code PreToolUse hook：上一個 commit 還沒審查就擋下下一個 git commit，有 commit 還沒審查就擋下 git push。
-# 設計理由見 .claude/skills/pre-commit-review/README.md。
+# 設計理由見 .claude/skills/commit-review/README.md。
 #
 # 用法：
 #   require-review.sh          由 hook 呼叫，從 stdin 讀 Bash 工具的輸入
@@ -54,7 +54,7 @@ if $has_commit; then
     head=$(git rev-parse -q --verify HEAD || true)
     if [[ -n "$head" ]] && grep -qvE "[[:space:]]--amend([[:space:]]|$)" <<< "$commits" \
         && unreviewed | grep -qxF "$head"; then
-        echo "上一個 commit $(git rev-parse --short HEAD) 尚未審查。請照 pre-commit-review skill 審查它，執行 .claude/hooks/require-review.sh --mark 後再 commit。" >&2
+        echo "上一個 commit $(git rev-parse --short HEAD) 尚未審查。請照 commit-review skill 審查它，執行 .claude/hooks/require-review.sh --mark 後再 commit。" >&2
         exit 2
     fi
 fi
@@ -62,7 +62,7 @@ fi
 if $has_push; then
     pending=$(unreviewed)
     if [[ -n "$pending" ]]; then
-        echo "下列 commit 尚未審查，請照 pre-commit-review skill 審查並 --mark 後再 push：" >&2
+        echo "下列 commit 尚未審查，請照 commit-review skill 審查並 --mark 後再 push：" >&2
         git log --no-walk --format='  %h %s' $pending >&2
         exit 2
     fi

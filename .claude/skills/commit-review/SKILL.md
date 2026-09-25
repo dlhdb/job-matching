@@ -1,5 +1,5 @@
 ---
-name: pre-commit-review
+name: commit-review
 description: commit 後、下一個 commit 或 push 前審查最新的 commit，從列出 commit 怎麼拆、git commit、/code-review HEAD~1..HEAD、逐點判斷修或不修、amend，到 --mark。要 commit 任何修改時都用這個 skill，只改文件的 commit 也一樣。
 ---
 
