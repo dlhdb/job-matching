@@ -9,15 +9,29 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 專案由 uv 管理，Python 3.14。
 
 ```bash
-scripts/setup-dev-env.sh     # 建立開發環境：uv sync + 設定 nbstripout git filter（可重複執行）
+scripts/setup-dev-env.sh     # 建立開發環境：uv sync + npm ci + 設定 nbstripout git filter（可重複執行）
 uv sync                      # 只安裝依賴（含 dev group）
 uv run pytest                # 離線測試（預設跳過需要網路的測試）
 uv run pytest -m network     # 只跑 tests/e2e 中連到外部服務的測試
 uv run mypy src/             # 型別檢查（mypy 已列為 dev 依賴，但尚無設定檔）
 uv add <pkg>                 # 新增依賴
+uv run src/app.py            # 啟動網頁（127.0.0.1:8000），要先 build 前端
+scripts/gen-api-types.sh     # 改了 API 後重新產生前端的 API 型別
 ```
 
-尚無 lint 設定。
+前端在 `frontend/` 執行：
+
+```bash
+npm run build                # build 前端（uv run pytest 的瀏覽器測試會自動 build）
+npm run dev                  # Vite 開發伺服器，/api 轉給 uv run src/app.py
+npm test                     # Vitest
+npm run typecheck            # 型別檢查
+npm run lint                 # ESLint
+npm run format               # Prettier 排版；npm run format:check 只檢查
+npm install <pkg>            # 新增依賴（開發用加 -D）
+```
+
+前端用 ESLint 與 Prettier，Python 尚無 lint 設定。
 
 ## 文件索引
 

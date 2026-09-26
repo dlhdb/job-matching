@@ -1,15 +1,19 @@
 # 職缺資料庫：技術設計
 
 - 功能文件：[job-database.md](../../product/features/job-database.md)
-- 程式碼：[src/job_db/](../../../src/job_db/)
+- 程式碼：
+  - 資料庫：[src/job_db/](../../../src/job_db/)
+  - 職缺表的 API：[src/web/job_table.py](../../../src/web/job_table.py)
+  - 職缺表的頁面：[frontend/src/job-database/](../../../frontend/src/job-database/)
 
 ## 1. 總覽
 
 ```mermaid
 flowchart LR
+    page["frontend/src/job-database/"] -->|"GET /api/jobs"| api["web/job_table.py"]
+    api --> queries["job_db/queries.py"]
     src["來源功能的進入點"] --> store["job_db/store.py"]
     src --> schema["job_db/schema.py"]
-    reader["查詢的呼叫端"] --> queries["job_db/queries.py"]
     store --> db[("data/jobs.db")]
     schema --> db
     queries --> db
@@ -22,7 +26,9 @@ flowchart LR
 - `job_db/store.py`：寫入一批職缺與該次的執行紀錄。
 - `job_db/queries.py`：查出職缺與執行紀錄。
 - `job_db/_sql.py`：查詢共用的 SQL 組裝（欄名轉 dict、`LIMIT`／`OFFSET`），與哪一張表無關，其他功能放在 `job_db` 的查詢模組也可以共用。
-- 呼叫者是各來源功能的進入點，見 [architecture.md 的模組依賴](../architecture.md#模組依賴)。
+- `web/job_table.py`：職缺表的 API，一次回傳全部職缺。
+- `frontend/src/job-database/`：職缺表的頁面，篩選、排序、選欄位、展開、記住檢視與只看剛存入的職缺都在這裡處理。
+- `job_db` 的呼叫者是各來源功能的進入點與職缺表的 API，見 [architecture.md 的模組依賴](../architecture.md#模組依賴)。
 
 依賴限制：
 
@@ -50,6 +56,43 @@ flowchart LR
 5. commit 後在 stderr 印出新增、更新筆數與資料庫路徑。
 
 任何一步拋出例外，整個 transaction rollback，三張表都不變。呼叫端怎麼回報錯誤由來源功能決定（例如 [104-job-scraper 技術設計](104-job-scraper.md#6-錯誤處理與結束碼)）。
+
+### 2.2 職缺表的前後端分工
+
+實現 FR-query-*、FR-just-saved-*。規則見功能文件的[職缺表](../../product/features/job-database.md#5-在職缺表瀏覽篩選累積下來的職缺query)與[只看剛存入的職缺](../../product/features/job-database.md#6-只看剛存入的職缺just-saved)。
+
+後端只負責把資料交出去：
+
+- `GET /api/jobs` 一次回傳全部職缺，排序同 `list_jobs`，不分頁、不篩選。
+- 回應模型從 `JOB_COLUMNS` 產生，[職缺欄位契約](../../product/features/job-database.md#821-職缺欄位契約)只寫在一處。
+  - 除了 `職缺代碼` 與兩個出現時間，其他欄位都允許 `null`：資料表沒有 `NOT NULL`，模型不能比資料表嚴格。
+- 前端的型別從這個模型產生（見 [development.md 的 API 型別](../../conventions/development.md#api-型別)）。
+
+看資料的方式都在前端：
+
+- 篩選、排序、選欄位、展開、記住的檢視與只看剛存入的職缺，只影響畫面，不改資料。
+- 全部職缺載入一次，之後在瀏覽器篩選、排序，不必每次改條件都呼叫 API。
+  - 資料量在上千筆以內，不需要分頁或虛擬捲動。
+- 規則寫成純函式（欄位、排序、篩選、檢視、剛存入），用 Vitest 測；元件只負責畫面。
+- 表格元件不綁定資料：要列的職缺、欄位定義、展開的內容與每列的標記都由呼叫端傳入。
+- 不用表格函式庫：排序規則是自訂的（沒有值的排最後、最後以職缺代碼排序），寫成純函式比設定函式庫直接。
+
+前後端要一致的地方：
+
+- 排序的最後一個鍵都是 `職缺代碼`，前端逐字元比較，和 SQLite 的預設比較方式相同，預設排序在前後端排出來的順序才一致。
+
+記住的檢視：
+
+- 存在 `localStorage` 的 `jobDatabase.view.v1`，內容是欄位、排序與篩選。
+- 讀取時逐項檢查，不合法的項目退回預設，其他項目照用：記錄可能來自舊版，不應讓職缺表打不開。
+- 結構改變時換鍵名的版本號，舊的記錄就不會被誤讀。
+
+只看剛存入的職缺：
+
+- 存入職缺的一方以 `/?saved=代碼,代碼` 打開職缺表，這是兩者之間的約定。
+- 不另外做「依代碼取出」的 API：全部職缺已經載入，直接從中挑出，N 是挑到的筆數。
+- 只看網址，不寫進記住的檢視。
+- 關掉標籤時以取代的方式拿掉網址上的參數，重新整理後才不會又套用一次。
 
 ## 3. 資料與儲存
 
@@ -100,13 +143,13 @@ flowchart LR
 
 ### 3.3 查詢
 
-實現 FR-query-*。`queries.py` 提供職缺與執行紀錄的查詢，回傳以中文欄名為鍵的 `dict`，鍵就是[職缺欄位契約](../../product/features/job-database.md#821-職缺欄位契約)的欄名，呼叫端不必做欄名對照：
+`queries.py` 提供職缺與執行紀錄的查詢，回傳以中文欄名為鍵的 `dict`，鍵就是[職缺欄位契約](../../product/features/job-database.md#821-職缺欄位契約)的欄名，呼叫端不必做欄名對照：
 
-- `list_jobs`：依條件列出職缺，`run_id` 經由 `run_jobs` 篩出某一次寫入出現的職缺。
-- `get_job`：以職缺代碼取單筆，查不到時回傳 `None`，不回傳空 `dict`。
-- `list_runs`：列出執行紀錄。
+- `list_jobs`：列出全部職缺，職缺表的 API 用它（見 [2.2](#22-職缺表的前後端分工)）。
+- `get_job`：以職缺代碼取單筆，查不到時回傳 `None`，不回傳空 `dict`。評分 CLI 用它取出指定的職缺。
+- `list_runs`：列出執行紀錄。目前沒有使用者需求用到它，留給之後的趨勢分析。
 
-排序都加上主鍵當最後一個排序鍵（職缺是 `最後出現時間` 後接 `職缺代碼`），同樣的資料每次查出來的順序才一致，分頁才不會漏或重複。
+排序都加上主鍵當最後一個排序鍵（職缺是 `最後出現時間` 後接 `職缺代碼`），同樣的資料每次查出來的順序才一致。
 
 查詢介面沒有涵蓋的臨時查詢，仍然直接下 SQL：
 
@@ -118,15 +161,23 @@ flowchart LR
 測試資料：
 
 - `job_db` 的測試在 `tests/test_job_db.py`。
+- 職缺表 API 的測試在 `tests/test_web_job_table.py`。
+- 職缺表的規則以 Vitest 測，測試檔在 `frontend/src/` 裡、與原始碼放在一起。
+- 職缺表的瀏覽器行為以 Playwright 測，在 `tests/test_browser_job_table.py`。
+  - 測試開始前會自動 build 前端（見 [development.md 的瀏覽器測試](../../conventions/development.md#瀏覽器測試)）。
 - 資料庫建在 `tmp_path`，職缺資料寫在測試碼裡。
 
 一次跑完所有離線驗收：
 
 ```bash
-uv run pytest tests/test_job_db.py
+uv run pytest tests/test_job_db.py tests/test_web_job_table.py tests/test_browser_job_table.py
+npm test --prefix frontend
 ```
 
-型別檢查：`uv run mypy src/`，通過條件為沒有錯誤。
+其他檢查：
+
+- 型別檢查：`uv run mypy src/` 與 `npm run typecheck --prefix frontend`，通過條件為沒有錯誤。
+- 前端的 API 型別是否最新：`uv run pytest tests/test_web_openapi.py`。
 
 ### save
 
@@ -136,9 +187,20 @@ uv run pytest tests/test_job_db.py
 
 ### query
 
-- [AC-query-list](../../product/features/job-database.md#ac-query-list依條件列出職缺)：`uv run pytest tests/test_job_db.py -k list_jobs`
-- [AC-query-get](../../product/features/job-database.md#ac-query-get取出單筆職缺)：`uv run pytest tests/test_job_db.py -k get_job`
-- [AC-query-runs](../../product/features/job-database.md#ac-query-runs列出執行紀錄)：`uv run pytest tests/test_job_db.py -k list_runs`
+- [AC-query-list](../../product/features/job-database.md#ac-query-list一次列出全部符合的職缺)：`uv run pytest tests/test_browser_job_table.py -k lists_all_jobs`
+  - API 回傳全部職缺與順序：`uv run pytest tests/test_web_job_table.py -k get_jobs`
+- [AC-query-columns](../../product/features/job-database.md#ac-query-columns選欄位)：`uv run pytest tests/test_browser_job_table.py -k columns`，以及 `npm test --prefix frontend -- columns`
+- [AC-query-sort](../../product/features/job-database.md#ac-query-sort排序)：`uv run pytest tests/test_browser_job_table.py -k sort`，以及 `npm test --prefix frontend -- sort`
+- [AC-query-expand](../../product/features/job-database.md#ac-query-expand展開一列)：`uv run pytest tests/test_browser_job_table.py -k expand`
+  - 連結開在新分頁時攔下請求，不真的連到 104。
+- [AC-query-filter](../../product/features/job-database.md#ac-query-filter關鍵字與地區篩選)：`uv run pytest tests/test_browser_job_table.py -k filter`，以及 `npm test --prefix frontend -- filter`
+- [AC-query-remember](../../product/features/job-database.md#ac-query-remember記住欄位篩選與排序)：`uv run pytest tests/test_browser_job_table.py -k "remembers_view or storage_blocked"`，以及 `npm test --prefix frontend -- view storage`
+  - 不允許保存的瀏覽器：以 Playwright 的 init script 讓讀取 `localStorage` 丟出例外。
+- [AC-query-reset](../../product/features/job-database.md#ac-query-reset還原預設檢視)：`uv run pytest tests/test_browser_job_table.py -k reset_view`，以及 `npm test --prefix frontend -- view`
+
+### just-saved
+
+- [AC-just-saved-list](../../product/features/job-database.md#ac-just-saved-list只列出剛存入的職缺)：`uv run pytest tests/test_browser_job_table.py -k just_saved`，以及 `npm test --prefix frontend -- justSaved view`
 
 ### 共用規則
 

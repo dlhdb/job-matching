@@ -9,15 +9,16 @@
 
 ## 快速開始
 
-需要 [uv](https://docs.astral.sh/uv/) 與 Python 3.14，第一次使用先執行設定腳本：
+需要 [uv](https://docs.astral.sh/uv/) 與 Python 3.14，網頁的前端另外需要 [Node.js](https://nodejs.org/)。第一次使用先執行設定腳本：
 
 ```bash
 scripts/setup-dev-env.sh
 ```
 
-腳本會做兩件事，可以重複執行：
+腳本會做三件事，可以重複執行：
 
 - 安裝依賴（`uv sync`）。
+- 安裝前端依賴（`npm ci`）；沒有 Node.js 時略過，其他步驟照常完成。
 - 設定 git filter，`git add` 時自動移除 notebook 的輸出，避免職缺資料進版控。
 
 每次重新 clone 都要再執行一次：
@@ -147,7 +148,8 @@ uv run src/import_jobs.py output/104/*.json
 ## 專案結構
 
 ```
-src/            程式碼：爬蟲、職缺資料庫、評分 CLI 與評分邏輯
+src/            程式碼：爬蟲、職缺資料庫、評分 CLI 與評分邏輯、網頁的後端
+frontend/       網頁的前端（React + TypeScript + Vite）
 tests/          測試
 notebooks/      分析資料的 Jupyter notebook
 scripts/        工具腳本
@@ -175,7 +177,7 @@ docs/           文件：product/（產品）、tech/（技術）、conventions/
   - [docs/tech/tech-design/job-auto-scoring.md](docs/tech/tech-design/job-auto-scoring.md)：模組分工、`job_scores` 的自動評分欄位、LLM 抽象層、驗收對照
   - [docs/tech/tech-design/job-score-database.md](docs/tech/tech-design/job-score-database.md)：`job_scores` 資料表、評分查詢、驗收對照
   - [docs/tech/tech-design/104-job-scraper.md](docs/tech/tech-design/104-job-scraper.md)：104 API 的限制與請求標頭、欄位來源、寫入資料庫與匯入、驗收對照
-  - [docs/tech/tech-design/job-database.md](docs/tech/tech-design/job-database.md)：模組依賴、資料表 schema、查詢方式、驗收對照
+  - [docs/tech/tech-design/job-database.md](docs/tech/tech-design/job-database.md)：模組依賴、職缺表的前後端分工、資料表 schema、查詢方式、驗收對照
   - [docs/tech/ai-coding-setup/devcontainer.md](docs/tech/ai-coding-setup/devcontainer.md)：隔離容器與防火牆白名單（所有 AI coding 工具共用）、Remote Control 要的網域與環境變數
   - [docs/tech/ai-coding-setup/claude-code.md](docs/tech/ai-coding-setup/claude-code.md)：Claude Code 專屬的權限規則（deny/ask）
 - 慣例：
