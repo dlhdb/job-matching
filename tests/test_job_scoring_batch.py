@@ -10,7 +10,7 @@ import pytest
 
 import job_db
 import job_db.scores
-from job_db import get_score, get_score_details, list_scored_jobs, list_scores, save_auto_score, save_run
+from job_db import list_current_scores, list_scores, save_auto_score, save_run
 from job_scoring.batch import score_batch, write_dry_run_results
 from job_scoring.llm import LLMError
 from job_scoring.models import DIMENSIONS
@@ -24,10 +24,6 @@ CSV_HEADER = [
     "總分", *DIMENSIONS,
     "未知維度", "淘汰原因", "評語", "失敗原因", "職缺連結",
 ]
-
-
-def _no_progress(message):
-    pass
 
 
 def _seed(conn, *jobs):
@@ -74,7 +70,7 @@ def five_results(five_jobs, scoring_settings, make_batch_client, db_conn):
         "戊職缺": {},
     })
     _seed(db_conn, *five_jobs)
-    return score_batch(five_jobs, scoring_settings, lambda: client, _no_progress, **_store(db_conn)), client
+    return score_batch(five_jobs, scoring_settings, lambda: client, **_store(db_conn)), client
 
 
 def test_score_batch_scoring_order_and_calls(five_results):
@@ -100,7 +96,7 @@ def test_score_batch_failure_does_not_stop(make_job, scoring_settings, make_batc
     client = make_batch_client({"甲職缺": "llm_error", "乙職缺": "invalid", "丙職缺": {}})
     _seed(db_conn, *jobs)
 
-    results = score_batch(jobs, scoring_settings, lambda: client, _no_progress, **_store(db_conn))
+    results = score_batch(jobs, scoring_settings, lambda: client, **_store(db_conn))
 
     for r in results[:2]:
         assert r.failure
@@ -119,23 +115,22 @@ def test_score_batch_all_eliminated_no_client(out_job, scoring_settings, db_conn
         pytest.fail("全部被淘汰時不應建立 client")
 
     _seed(db_conn, out_job)
-    progress = []
-    results = score_batch([out_job, out_job], scoring_settings, _factory, progress.append, **_store(db_conn))
+    results = score_batch([out_job, out_job], scoring_settings, _factory, **_store(db_conn))
 
     assert all(r.eliminated for r in results)
-    assert progress[1].startswith("⏳ [i] (2/2) 業務專員 - 甲公司")
 
 
 def test_score_batch_client_error_writes_nothing(ok_job, out_job, scoring_settings, db_conn):
     def _factory():
         raise LLMError("缺少 GEMINI_API_KEY")
 
-    progress = []
+    started = []
     with pytest.raises(LLMError):
-        score_batch([out_job, ok_job], scoring_settings, _factory, progress.append, **_store(db_conn))
+        score_batch([out_job, ok_job], scoring_settings, _factory, on_start=lambda i, job: started.append(i),
+                    **_store(db_conn))
 
     # 開始評分前就建立 client，會被淘汰的那筆也還沒評、沒寫入
-    assert progress == []
+    assert started == []
     assert _score_rows(db_conn) == {}
 
 
@@ -159,7 +154,7 @@ def test_score_batch_store_write(make_job, scoring_settings, make_batch_client, 
     client = make_batch_client({"甲職缺": {}, "丙職缺": "llm_error"})
     _seed(db_conn, *jobs)
 
-    results = score_batch(jobs, scoring_settings, lambda: client, _no_progress, **_store(db_conn))
+    results = score_batch(jobs, scoring_settings, lambda: client, **_store(db_conn))
     rows = _score_rows(db_conn)
 
     assert set(rows) == {"a", "b"}
@@ -185,38 +180,60 @@ def test_score_batch_store_write(make_job, scoring_settings, make_batch_client, 
     assert results[2].failure
 
 
-def test_get_score_details_returns_stored_result(make_job, scoring_settings, make_batch_client, db_conn):
-    jobs = [make_job(**{"職缺代碼": "a", "職缺名稱": "甲職缺"})]
-    client = make_batch_client({"甲職缺": {}})
-    _seed(db_conn, *jobs)
-    results = score_batch(jobs, scoring_settings, lambda: client, _no_progress, **_store(db_conn))
+def test_score_batch_callbacks(five_jobs, scoring_settings, make_batch_client, db_conn):
+    client = make_batch_client({"丁職缺": "llm_error"})
+    _seed(db_conn, *five_jobs)
+    events = []
 
-    stored = get_score_details(db_conn, "a")
+    results = score_batch(
+        five_jobs, scoring_settings, lambda: client,
+        on_start=lambda i, job: events.append(("start", i, job["職缺代碼"])),
+        on_result=lambda i, result: events.append(("result", i, result.failure is not None)),
+        **_store(db_conn),
+    )
 
-    assert list(stored) == ["職缺代碼", "淘汰", "淘汰原因", "維度", "總分", "未知維度", "評語"]
-    assert list(stored["維度"]) == list(DIMENSIONS)
-    assert all(dim["理由"] for dim in stored["維度"].values())
-    assert (stored["總分"], stored["評語"]) == (results[0].total, results[0].comment)
+    # 每筆開始前通知一次、評完（含失敗）後通知一次，依輸入順序
+    assert events == [
+        event for i, job in enumerate(five_jobs)
+        for event in (("start", i, job["職缺代碼"]), ("result", i, job["職缺代碼"] == "j4"))
+    ]
+    assert len(results) == 5
 
 
-def test_get_score_details_missing_is_none(db_conn):
-    assert get_score_details(db_conn, "沒有這筆") is None
+def test_score_batch_should_stop(five_jobs, scoring_settings, make_batch_client, db_conn):
+    # 評完第 2 筆後要求停止：第 3 筆以後不評、不寫入
+    client = make_batch_client({})
+    _seed(db_conn, *five_jobs)
+    done = []
+
+    results = score_batch(
+        five_jobs, scoring_settings, lambda: client,
+        should_stop=lambda: len(done) >= 2, on_result=lambda i, result: done.append(i),
+        **_store(db_conn),
+    )
+
+    assert [r.job_no for r in results] == ["j1", "j2"]
+    assert set(_score_rows(db_conn)) == {"j1", "j2"}
 
 
-def test_list_scored_jobs_adds_provider_and_model(make_job, scoring_settings, make_batch_client, db_conn):
+def test_stored_details_match_result(make_job, scoring_settings, make_batch_client, db_conn):
     jobs = [
         make_job(**{"職缺代碼": "a", "職缺名稱": "甲職缺"}),
         make_job(**{"職缺代碼": "b", "職缺名稱": "業務專員"}),
     ]
     client = make_batch_client({"甲職缺": {}})
     _seed(db_conn, *jobs)
-    score_batch(jobs, scoring_settings, lambda: client, _no_progress, **_store(db_conn))
+    results = score_batch(jobs, scoring_settings, lambda: client, **_store(db_conn))
 
-    rows = {row["職缺代碼"]: row for row in list_scored_jobs(db_conn)}
+    rows = {row["職缺代碼"]: row for row in list_current_scores(db_conn)}
 
+    stored = rows["a"]["評分明細"]
+    assert list(stored) == ["職缺代碼", "淘汰", "淘汰原因", "維度", "總分", "未知維度", "評語"]
+    assert list(stored["維度"]) == list(DIMENSIONS)
+    assert all(dim["理由"] for dim in stored["維度"].values())
+    assert (stored["總分"], stored["評語"]) == (results[0].total, results[0].comment)
     assert (rows["a"]["供應商"], rows["a"]["模型"]) == ("gemini", "測試模型")
     assert (rows["b"]["供應商"], rows["b"]["模型"]) == (None, None)
-    assert all("評分明細" not in row for row in rows.values())
 
 
 def test_write_dry_run_results_output_files(five_results, tmp_path):
@@ -262,7 +279,7 @@ def test_score_batch_filter_comment(make_job, scoring_settings, db_conn, tmp_pat
     job = make_job(**{"職缺代碼": "out", "職缺名稱": "業務專員", "公司名稱": "乙公司"})
     _seed(db_conn, job)
 
-    [result] = score_batch([job], scoring_settings, lambda: None, _no_progress, **_store(db_conn))
+    [result] = score_batch([job], scoring_settings, lambda: None, **_store(db_conn))
     json_path, csv_path = write_dry_run_results([result], tmp_path / "scores", datetime(2026, 1, 2, 3, 4, 5))
 
     expected = "淘汰：公司在排除名單：乙公司；職稱含排除關鍵字：業務"
@@ -290,7 +307,7 @@ def test_score_batch_basis(ok_job, out_job, make_job, scoring_settings, make_bat
     _seed(db_conn, ok_job, out_job)
 
     # (a) 沒被淘汰與被淘汰的職缺都記下評分依據
-    score_batch([ok_job, out_job], scoring_settings, lambda: make_batch_client({}), _no_progress, **_store(db_conn))
+    score_batch([ok_job, out_job], scoring_settings, lambda: make_batch_client({}), **_store(db_conn))
     # 之後職缺的工作內容被更新，快照仍是評分當時的內容
     _seed(db_conn, make_job(工作內容="更新後的工作內容"))
 
@@ -307,7 +324,7 @@ def test_score_batch_basis(ok_job, out_job, make_job, scoring_settings, make_bat
 def test_score_batch_dry_run_writes_nothing(ok_job, scoring_settings, make_batch_client, db_conn):
     _seed(db_conn, ok_job)
 
-    [result] = score_batch([ok_job], scoring_settings, lambda: make_batch_client({}), _no_progress,
+    [result] = score_batch([ok_job], scoring_settings, lambda: make_batch_client({}),
                            conn=None, provider="gemini", model="測試模型")
 
     assert result.total == 75
@@ -316,11 +333,11 @@ def test_score_batch_dry_run_writes_nothing(ok_job, scoring_settings, make_batch
 
 def test_score_batch_rescore_failure_keeps_old_score(ok_job, scoring_settings, make_batch_client, db_conn):
     _seed(db_conn, ok_job)
-    score_batch([ok_job], scoring_settings, lambda: make_batch_client({}), _no_progress, **_store(db_conn))
+    score_batch([ok_job], scoring_settings, lambda: make_batch_client({}), **_store(db_conn))
     before = _records(db_conn, "ok")
 
     client = make_batch_client({"Python 工程師": "llm_error"})
-    [result] = score_batch([ok_job], scoring_settings, lambda: client, _no_progress, **_store(db_conn))
+    [result] = score_batch([ok_job], scoring_settings, lambda: client, **_store(db_conn))
 
     assert result.failure == "模擬的 API 錯誤"
     assert _records(db_conn, "ok") == before
@@ -331,8 +348,8 @@ def test_score_batch_history_append(ok_job, scoring_settings, make_batch_client,
     client = make_batch_client({})
 
     # (a) 職缺與設定都不變，評兩次：每次都呼叫 AI，也都新增一筆
-    score_batch([ok_job], scoring_settings, lambda: client, _no_progress, **_store(db_conn))
-    score_batch([ok_job], scoring_settings, lambda: client, _no_progress, **_store(db_conn))
+    score_batch([ok_job], scoring_settings, lambda: client, **_store(db_conn))
+    score_batch([ok_job], scoring_settings, lambda: client, **_store(db_conn))
     first_two = _records(db_conn, "ok")
 
     assert len(client.calls) == 2
@@ -345,7 +362,7 @@ def test_score_batch_history_append(ok_job, scoring_settings, make_batch_client,
         preferences=scoring_settings.preferences.model_copy(update={"weights": weights}),
         versions={**scoring_settings.versions, "preferences": 4},
     )
-    [result] = score_batch([ok_job], new_settings, lambda: client, _no_progress, **_store(db_conn))
+    [result] = score_batch([ok_job], new_settings, lambda: client, **_store(db_conn))
     records = _records(db_conn, "ok")
 
     assert len(records) == 3
@@ -357,9 +374,9 @@ def test_score_batch_history_append(ok_job, scoring_settings, make_batch_client,
 
 def test_score_batch_history_no_delete(ok_job, scoring_settings, make_batch_client, db_conn):
     _seed(db_conn, ok_job)
-    score_batch([ok_job], scoring_settings, lambda: make_batch_client({}), _no_progress, **_store(db_conn))
+    score_batch([ok_job], scoring_settings, lambda: make_batch_client({}), **_store(db_conn))
     before = _records(db_conn, "ok")
-    score_batch([ok_job], scoring_settings, lambda: make_batch_client({}), _no_progress, **_store(db_conn))
+    score_batch([ok_job], scoring_settings, lambda: make_batch_client({}), **_store(db_conn))
 
     # 重評後原本的評分紀錄還在
     assert _records(db_conn, "ok")[:1] == before
@@ -401,27 +418,12 @@ def current_records(db_conn, make_job):
     return {"A": newer_a, "B": later_b, "C": newer_c}
 
 
-def test_current_pick_list(db_conn, current_records):
-    rows = list_scored_jobs(db_conn)
+def test_current_pick(db_conn, current_records):
+    rows = list_current_scores(db_conn)
 
     # 每筆職缺只有一筆最新的評分：A 用較新的，B 用時間相同但後寫入的淘汰那筆
-    assert [(r["職缺代碼"], r["總分"], r["淘汰"]) for r in rows] == [("C", 90, 0), ("A", 70, 0), ("B", None, 1)]
-    # 篩選以代表的評分計算：B 較早寫入的那筆沒被淘汰，但代表的那筆被淘汰
-    assert [r["職缺代碼"] for r in list_scored_jobs(db_conn, eliminated=False)] == ["C", "A"]
-    assert [r["職缺代碼"] for r in list_scored_jobs(db_conn, eliminated=True)] == ["B"]
-
-
-def test_current_pick_get_score(db_conn, current_records):
-    listed = {r["職缺代碼"]: r for r in list_scored_jobs(db_conn)}
-
-    for job_no in ("A", "B", "C"):
-        record = get_score(db_conn, job_no)
-        assert record == {name: listed[job_no][name] for name in record}
-
-
-def test_current_pick_details(db_conn, current_records):
-    for job_no in ("A", "B", "C"):
-        assert get_score_details(db_conn, job_no) == current_records[job_no]
+    assert [(r["職缺代碼"], r["總分"], r["淘汰"]) for r in rows] == [("A", 70, 0), ("B", None, 1), ("C", 90, 0)]
+    assert {r["職缺代碼"]: r["評分明細"] for r in rows} == current_records
 
 
 def test_current_all(db_conn, current_records):

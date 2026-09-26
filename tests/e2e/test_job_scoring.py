@@ -1,7 +1,8 @@
-"""工作評分需要網路的測試：把固定的測試職缺寫進測試資料庫，以 Gemini API 評所有職缺，並印出 AI 給的理由供使用者閱讀。"""
+"""工作評分需要網路的測試：把固定的測試職缺寫進測試資料庫，經由網頁的 API 送去評分（Gemini），並印出 AI 給的理由供使用者閱讀。"""
 
 import json
 import os
+import time
 from contextlib import closing
 from datetime import datetime
 from pathlib import Path
@@ -9,12 +10,14 @@ from pathlib import Path
 import pytest
 from dotenv import load_dotenv
 
-from job_db import get_score_details, list_scores, open_db, save_run
-from job_scoring.batch import score_batch
-from job_scoring.llm import DEFAULT_MODEL, DEFAULT_PROVIDER, get_client
+from fastapi.testclient import TestClient
+
+from job_db import list_scores, open_db, save_run
+from job_scoring.llm import DEFAULT_MODEL
 from job_scoring.models import DIMENSIONS
 from job_scoring.rules import check_hard_filters
-from job_scoring.settings import DEFAULTS, TEMPLATE, ScoringSettings, parse_preferences
+from job_scoring.settings import parse_preferences
+from web import create_app
 
 PROJECT_ROOT = Path(__file__).resolve().parents[2]
 DATA_DIR = Path(__file__).resolve().parent / "data"
@@ -24,18 +27,14 @@ JOBS_FILE = DATA_DIR / "104" / "jobs.json"
 E2E_DB = PROJECT_ROOT / "output" / "e2e" / "jobs.db"
 
 
-def _settings():
+def _profile(name):
     """
-    e2e 的固定設定：擬真的偏好與經歷（測試資料，不是使用者的設定），加上預設模板
+    e2e 的固定設定：擬真的偏好與經歷（測試資料，不是使用者的設定）；模板用預設模板
 
-    :return: ScoringSettings
+    :param name: str, tests/e2e/data/profile/ 下的檔名
+    :return: str, 檔案內容
     """
-    return ScoringSettings(
-        preferences=parse_preferences((PROFILE_DIR / "preferences.yaml").read_text(encoding="utf-8")),
-        experience=(PROFILE_DIR / "experience.md").read_text(encoding="utf-8"),
-        template=DEFAULTS[TEMPLATE],
-        versions={"preferences": 1, "experience": 1, "template": 1},
-    )
+    return (PROFILE_DIR / name).read_text(encoding="utf-8")
 
 
 def _require_api_key():
@@ -94,36 +93,49 @@ def _pick_jobs():
 
     :return: list[dict], 職缺
     """
-    prefs = _settings().preferences
+    prefs = parse_preferences(_profile("preferences.yaml"))
     jobs = [job for job in _load_jobs() if job.get("工作內容") and not check_hard_filters(job, prefs)]
     if not jobs:
         pytest.fail(f"{JOBS_FILE.name} 中沒有「有工作內容且未被淘汰」的職缺")
     return jobs
 
 
+def _score_via_api(db_path, codes):
+    """
+    以網頁的 API 存入 e2e 的偏好與經歷，送去評分並等到評完
+
+    :param db_path: Path, 測試資料庫路徑
+    :param codes: list[str], 送去評分的職缺代碼
+    :return: dict, 結束時的 RunOut
+    """
+    with TestClient(create_app(db_path)) as client:
+        for kind, name in (("preferences", "preferences.yaml"), ("experience", "experience.md")):
+            response = client.post(
+                f"/api/settings/{kind}/versions", json={"name": "e2e", "description": "", "content": _profile(name)},
+            )
+            assert response.status_code == 201, response.text
+        response = client.post("/api/scoring", json={"codes": codes, "rescore": False, "model": DEFAULT_MODEL})
+        assert response.status_code == 202, response.text
+        while (state := client.get("/api/scoring").json())["running"] is not None:
+            time.sleep(1)
+        return state["last"]
+
+
 @pytest.mark.network
 def test_ai_scoring(e2e_db):
-    progress = []
+    run = _score_via_api(e2e_db, [str(job["職缺代碼"]) for job in _load_jobs()])
     with closing(open_db(e2e_db)) as conn:
-        results = score_batch(
-            _load_jobs(), _settings(), lambda: get_client(DEFAULT_PROVIDER, DEFAULT_MODEL), progress.append,
-            conn=conn, provider=DEFAULT_PROVIDER, model=DEFAULT_MODEL,
-        )
-        jobs = _pick_jobs()
-        scored = [
-            (job, get_score_details(conn, str(job["職缺代碼"])), list_scores(conn, str(job["職缺代碼"])))
-            for job in jobs
-        ]
+        scored = [(job, list_scores(conn, str(job["職缺代碼"]))) for job in _pick_jobs()]
 
-    print("\n" + "\n".join(progress))
-    for result in results:
-        if result.failure:
-            print(f"[!] {result.job_no} {result.job_name}：{result.failure}")
-    for job, data, _ in scored:
+    print(f"\n[i] 成功 {run['ok']}、淘汰 {run['eliminated']}、失敗 {run['failed']}")
+    for status in run["statuses"]:
+        print(f"[!] {status['code']}：{status['reason']}")
+    for job, records in scored:
         print(f"\n職缺：{job['職缺名稱']}｜{job['公司名稱']}")
-        print(json.dumps(data, ensure_ascii=False, indent=2))
+        print(json.dumps(records[0]["評分明細"] if records else None, ensure_ascii=False, indent=2))
     print(f"[i] 資料庫：{e2e_db}")
 
+    assert run["error"] is None
     # 這些職缺都要評分成功，使用者才有理由可以閱讀
-    for _, data, records in scored:
-        _assert_scored(data, records[0] if records else None)
+    for _, records in scored:
+        _assert_scored(records[0]["評分明細"] if records else None, records[0] if records else None)

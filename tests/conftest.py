@@ -14,10 +14,10 @@ import uvicorn
 import yaml
 
 import fetch_104_jobs
-from job_db import open_db, save_run
+from job_db import add_version, open_db, save_run
 from job_scoring.llm import LLMError
 from job_scoring.models import AIAssessment
-from job_scoring.settings import DEFAULTS, TEMPLATE, ScoringSettings, parse_preferences
+from job_scoring.settings import DEFAULTS, TEMPLATE, ScoringSettings, ensure_defaults, parse_preferences
 from web import create_app
 
 FRONTEND_DIR = Path(__file__).resolve().parents[1] / "frontend"
@@ -478,3 +478,80 @@ def make_batch_client():
     :return: callable, make_batch_client(behaviors: dict) -> BatchFakeLLMClient
     """
     return BatchFakeLLMClient
+
+
+class FakeScoringLLM:
+    """
+    網頁評分用的假 LLM：換掉 web.scoring.get_client，依 user 提示詞中的職缺名稱決定行為
+
+    behaviors 的值同 BatchFakeLLMClient：dict（make_assessment 的參數）、"llm_error" 或 "invalid"；
+    hold(name) 之後，評到職缺名稱含 name 的職缺時停住，直到 release(name)，用來觀察評分中的狀態。
+    """
+
+    def __init__(self):
+        self.behaviors = {}
+        self.prompts = []
+        self.models = []
+        self._gates = {}
+
+    def get_client(self, provider, model):
+        self.models.append(model)
+        return self
+
+    def hold(self, name):
+        self._gates[name] = threading.Event()
+
+    def release(self, name):
+        self._gates[name].set()
+
+    def release_all(self):
+        for gate in self._gates.values():
+            gate.set()
+
+    def calls(self, *names):
+        """
+        :return: list[str], 依呼叫順序，每次呼叫的 user 提示詞含 names 中的哪一個
+        """
+        return [next((n for n in names if n in user), None) for user in self.prompts]
+
+    def assess(self, system, user):
+        self.prompts.append(user)
+        for name, gate in self._gates.items():
+            if name in user:
+                assert gate.wait(timeout=10), f"{name} 等不到 release"
+        behavior = next((b for n, b in self.behaviors.items() if n in user), {})
+        if behavior == "llm_error":
+            raise LLMError("模擬的 API 錯誤")
+        if behavior == "invalid":
+            return make_assessment(career=6)
+        return make_assessment(**behavior)
+
+
+@pytest.fixture
+def fake_llm(monkeypatch):
+    """
+    換掉網頁評分用的 LLM，並設定假的 GEMINI_API_KEY；結束時放行所有暫停的職缺，背景的評分才會結束
+
+    :return: FakeScoringLLM
+    """
+    fake = FakeScoringLLM()
+    monkeypatch.setattr("web.scoring.get_client", fake.get_client)
+    monkeypatch.setenv("GEMINI_API_KEY", "測試用的 key")
+    yield fake
+    fake.release_all()
+
+
+@pytest.fixture
+def scoring_db(isolate_db, preferences_data):
+    """
+    isolate_db 的資料庫，已寫入設定：偏好第 2 版是測試偏好，經歷第 2 版是「經歷標記-BBB」，模板是預設的第 1 版
+
+    :return: Path, 資料庫路徑
+    """
+    with closing(open_db(isolate_db)) as conn:
+        ensure_defaults(conn)
+        saved_at = datetime(2026, 9, 20, 9, 0, 0)
+        add_version(conn, "preferences", name="測試偏好", description="", saved_at=saved_at,
+                    content=yaml.safe_dump(preferences_data, allow_unicode=True))
+        add_version(conn, "experience", name="測試經歷", description="", saved_at=saved_at, content="經歷標記-BBB")
+    return isolate_db

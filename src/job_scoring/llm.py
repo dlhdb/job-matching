@@ -13,6 +13,10 @@ from job_scoring.models import AIAssessment
 
 DEFAULT_PROVIDER = "gemini"
 DEFAULT_MODEL = "gemini-3.8-flash"
+# 各供應商可以選的模型，第一個是預設；名稱以供應商的模型清單 API 確認過
+MODELS: dict[str, list[str]] = {
+    "gemini": [DEFAULT_MODEL, "gemini-3.1-pro-preview"],
+}
 API_KEY_ENV = "GEMINI_API_KEY"
 # 單次 LLM 請求的逾時秒數
 REQUEST_TIMEOUT = 120
@@ -97,6 +101,17 @@ class GeminiClient:
 _PROVIDERS: dict[str, Callable[[str], LLMClient]] = {
     "gemini": GeminiClient,
 }
+
+
+def api_key_missing(provider: str) -> bool:
+    """
+    供應商的 API key 是否沒有設定；開始評分前先檢查，不必等到建立 client 才失敗。
+
+    :param provider: str, 供應商名稱
+    :return: bool, 環境變數沒有設定或是空字串時為 True
+    """
+    # 目前只支援 gemini；新增供應商時一併記下它的環境變數
+    return not os.environ.get({"gemini": API_KEY_ENV}[provider])
 
 
 def get_client(provider: str, model: str) -> LLMClient:

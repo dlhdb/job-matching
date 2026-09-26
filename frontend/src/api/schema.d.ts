@@ -228,6 +228,110 @@ export interface paths {
         patch: operations["update_meta_api_settings__kind__versions__version__patch"];
         trace?: never;
     };
+    "/api/scores": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * 列出各職缺代表的評分
+         * @description 每筆評過分的職缺只列一筆：評分時間最新的一筆，同一秒內後寫入的；職缺表的評分欄位、排序與篩選都用它。
+         */
+        get: operations["get_scores_api_scores_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/scores/{job_no}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * 取出一筆職缺的所有評分紀錄
+         * @description 展開列用：每筆含評分明細與評分依據，依據中的提示詞由送評時的職缺快照與當時的設定版本組回。
+         */
+        get: operations["get_score_history_api_scores__job_no__get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/scoring/plan": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * 送去評分前的確認
+         * @description 確認視窗用：將評幾筆、其中幾筆淘汰、用哪一版設定，以及開始前的錯誤。
+         */
+        post: operations["plan_scoring_api_scoring_plan_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/scoring": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * 取得評分作業的狀態
+         * @description 評分中的進度與每筆的狀態、最近一次結束的評分，以及正在跑的其他作業。
+         */
+        get: operations["get_scoring_state_api_scoring_get"];
+        put?: never;
+        /**
+         * 開始評分
+         * @description 重讀目前設定並重做開始前的檢查，有錯時回 422（detail 是錯誤清單）；已有作業在跑時回 409。通過後在背景照 codes 的順序逐筆評，進度以 GET /api/scoring 取得。
+         */
+        post: operations["start_scoring_api_scoring_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/scoring/stop": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * 停止評分
+         * @description 評完目前這一筆就不再評，還在排隊的不評；已評完的留在資料庫。
+         */
+        post: operations["stop_scoring_api_scoring_stop_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
 }
 export type webhooks = Record<string, never>;
 export interface components {
@@ -241,6 +345,26 @@ export interface components {
         AreaList: {
             /** Areas */
             areas: string[];
+        };
+        /** Basis */
+        Basis: {
+            preferences: components["schemas"]["VersionOut"];
+            experience: components["schemas"]["VersionOut"];
+            template: components["schemas"]["VersionOut"];
+            /**
+             * Snapshot
+             * @description 送評時的職缺內容快照
+             */
+            snapshot: {
+                [key: string]: string | number | null;
+            };
+            /** @description 由快照與三份設定的版本組回的提示詞；被淘汰或組不回來時為 null */
+            prompt: components["schemas"]["PromptOut"] | null;
+            /**
+             * Prompt Error
+             * @description 沒被淘汰卻組不回提示詞的原因
+             */
+            prompt_error: string | null;
         };
         /** CheckRequest */
         CheckRequest: {
@@ -307,6 +431,30 @@ export interface components {
              */
             outcome: string | null;
         };
+        /** CurrentScore */
+        CurrentScore: {
+            /** 職缺代碼 */
+            "\u8077\u7F3A\u4EE3\u78BC": string;
+            /** 評分時間 */
+            "\u8A55\u5206\u6642\u9593": string;
+            /** 淘汰 */
+            "\u6DD8\u6C70": boolean;
+            /** 總分 */
+            "\u7E3D\u5206": number | null;
+            /** 評語 */
+            "\u8A55\u8A9E": string;
+            /** 供應商 */
+            "\u4F9B\u61C9\u5546": string | null;
+            /** 模型 */
+            "\u6A21\u578B": string | null;
+            /**
+             * 維度分數
+             * @description 維度名稱 → 1–5 分或 null；被淘汰時為 null
+             */
+            "\u7DAD\u5EA6\u5206\u6578": {
+                [key: string]: number | null;
+            } | null;
+        };
         /** DetailProgressOut */
         DetailProgressOut: {
             /**
@@ -319,6 +467,13 @@ export interface components {
             index: number;
             /** Total */
             total: number;
+        };
+        /** DimensionOut */
+        DimensionOut: {
+            /** 分數 */
+            "\u5206\u6578": number | null;
+            /** 理由 */
+            "\u7406\u7531": string;
         };
         /** HTTPValidationError */
         HTTPValidationError: {
@@ -443,6 +598,61 @@ export interface components {
             /** Content */
             content: string;
         };
+        /** Plan */
+        Plan: {
+            /**
+             * Selected
+             * @description 勾選幾筆
+             */
+            selected: number;
+            /**
+             * Scored
+             * @description 勾選的職缺中幾筆已評過
+             */
+            scored: number;
+            /**
+             * Targets
+             * @description 將評幾筆
+             */
+            targets: number;
+            /**
+             * Eliminated
+             * @description 將評的職缺中幾筆符合淘汰條件；偏好有錯時為 null
+             */
+            eliminated: number | null;
+            /**
+             * Versions
+             * @description 目前設定：preferences、experience、template
+             */
+            versions: {
+                [key: string]: components["schemas"]["VersionRef"];
+            };
+            /** Provider */
+            provider: string;
+            /**
+             * Models
+             * @description 可以選的模型，第一個是預設
+             */
+            models: string[];
+            /**
+             * Errors
+             * @description 開始前的錯誤；有錯誤時不能送出
+             */
+            errors: string[];
+        };
+        /** PlanRequest */
+        PlanRequest: {
+            /**
+             * Codes
+             * @description 勾選的職缺代碼，依職缺表的顯示順序
+             */
+            codes: string[];
+            /**
+             * Rescore
+             * @description 包含已評過的職缺（重評）
+             */
+            rescore: boolean;
+        };
         /** PreviewOut */
         PreviewOut: {
             /** Jobs */
@@ -456,6 +666,71 @@ export interface components {
             found: number;
             /** Stopped */
             stopped: boolean;
+        };
+        /** PromptOut */
+        PromptOut: {
+            /** System */
+            system: string;
+            /** User */
+            user: string;
+        };
+        /** RowStatus */
+        RowStatus: {
+            /** Code */
+            code: string;
+            /**
+             * Status
+             * @enum {string}
+             */
+            status: "queued" | "scoring" | "failed";
+            /**
+             * Reason
+             * @description 評分失敗的原因
+             */
+            reason: string | null;
+        };
+        /** RunOut */
+        RunOut: {
+            /** Id */
+            id: number;
+            /** Total */
+            total: number;
+            /**
+             * Done
+             * @description 評完幾筆，含失敗
+             */
+            done: number;
+            /**
+             * Ok
+             * @description 評分成功、沒被淘汰
+             */
+            ok: number;
+            /** Eliminated */
+            eliminated: number;
+            /** Failed */
+            failed: number;
+            /**
+             * Skipped
+             * @description 停止後沒評的筆數
+             */
+            skipped: number;
+            /** Stopping */
+            stopping: boolean;
+            /**
+             * Stopped
+             * @description 按了停止，或因為錯誤而停止
+             */
+            stopped: boolean;
+            /**
+             * Error
+             * @description 讓評分停止的錯誤
+             */
+            error: string | null;
+            /**
+             * Statuses
+             * @description 還沒評完或評分失敗的職缺，依評分的順序
+             */
+            statuses: components["schemas"]["RowStatus"][];
         };
         /** Running */
         Running: {
@@ -483,6 +758,74 @@ export interface components {
              */
             version: number;
         };
+        /** ScoreDetails */
+        ScoreDetails: {
+            /** 職缺代碼 */
+            "\u8077\u7F3A\u4EE3\u78BC": string;
+            /** 淘汰 */
+            "\u6DD8\u6C70": boolean;
+            /** 淘汰原因 */
+            "\u6DD8\u6C70\u539F\u56E0": string[];
+            /**
+             * 維度
+             * @description 依維度的順序排列；被淘汰時為 null
+             */
+            "\u7DAD\u5EA6": {
+                [key: string]: components["schemas"]["DimensionOut"];
+            } | null;
+            /** 總分 */
+            "\u7E3D\u5206": number | null;
+            /** 未知維度 */
+            "\u672A\u77E5\u7DAD\u5EA6": string[];
+            /** 評語 */
+            "\u8A55\u8A9E": string;
+        };
+        /** ScoreHistory */
+        ScoreHistory: {
+            /**
+             * Records
+             * @description 依評分時間由新到舊，同一秒內後寫入的在前；沒評過時為空清單
+             */
+            records: components["schemas"]["ScoreRecord"][];
+        };
+        /** ScoreList */
+        ScoreList: {
+            /**
+             * Scores
+             * @description 每筆評過分的職缺一筆代表的評分；沒評過的職缺不在其中
+             */
+            scores: components["schemas"]["CurrentScore"][];
+        };
+        /** ScoreRecord */
+        ScoreRecord: {
+            /** 評分時間 */
+            "\u8A55\u5206\u6642\u9593": string;
+            /** 淘汰 */
+            "\u6DD8\u6C70": boolean;
+            /** 總分 */
+            "\u7E3D\u5206": number | null;
+            /** 評語 */
+            "\u8A55\u8A9E": string;
+            /** 供應商 */
+            "\u4F9B\u61C9\u5546": string | null;
+            /** 模型 */
+            "\u6A21\u578B": string | null;
+            "\u8A55\u5206\u660E\u7D30": components["schemas"]["ScoreDetails"];
+            /** @description 評分依據；記錄依據之前的評分為 null */
+            basis: components["schemas"]["Basis"] | null;
+        };
+        /** ScoringState */
+        ScoringState: {
+            /** @description 沒在評分時為 null */
+            running: components["schemas"]["RunOut"] | null;
+            /** @description 最近一次結束的評分；web app 啟動後還沒評過時為 null */
+            last: components["schemas"]["RunOut"] | null;
+            /**
+             * Busy
+             * @description 正在跑的其他作業，例如「抓取」
+             */
+            busy: string | null;
+        };
         /** SearchProgressOut */
         SearchProgressOut: {
             /**
@@ -505,6 +848,26 @@ export interface components {
             preferences: components["schemas"]["KindState"];
             experience: components["schemas"]["KindState"];
             template: components["schemas"]["KindState"];
+        };
+        /** StartRequest */
+        StartRequest: {
+            /**
+             * Codes
+             * @description 勾選的職缺代碼，依職缺表的顯示順序
+             */
+            codes: string[];
+            /**
+             * Rescore
+             * @description 包含已評過的職缺（重評）
+             */
+            rescore: boolean;
+            /** Model */
+            model: string;
+        };
+        /** Started */
+        Started: {
+            /** Run Id */
+            run_id: number;
         };
         /** ValidationError */
         ValidationError: {
@@ -551,6 +914,24 @@ export interface components {
              * @default
              */
             description: string;
+        };
+        /** VersionOut */
+        VersionOut: {
+            /** Version */
+            version: number;
+            /** Name */
+            name: string;
+            /** Saved At */
+            saved_at: string;
+            /** Content */
+            content: string;
+        };
+        /** VersionRef */
+        VersionRef: {
+            /** Version */
+            version: number;
+            /** Name */
+            name: string;
         };
     };
     responses: never;
@@ -862,6 +1243,161 @@ export interface operations {
                 content: {
                     "application/json": components["schemas"]["HTTPValidationError"];
                 };
+            };
+        };
+    };
+    get_scores_api_scores_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ScoreList"];
+                };
+            };
+        };
+    };
+    get_score_history_api_scores__job_no__get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                job_no: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ScoreHistory"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    plan_scoring_api_scoring_plan_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["PlanRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Plan"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    get_scoring_state_api_scoring_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ScoringState"];
+                };
+            };
+        };
+    };
+    start_scoring_api_scoring_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["StartRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            202: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Started"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    stop_scoring_api_scoring_stop_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
             };
         };
     };

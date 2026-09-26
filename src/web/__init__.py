@@ -12,7 +12,7 @@ from fastapi.staticfiles import StaticFiles
 
 from job_db import open_db
 from job_scoring.settings import ensure_defaults
-from web import crawl, job_table, settings
+from web import crawl, job_table, scoring, settings
 from web.jobs import JobRunner
 
 
@@ -37,9 +37,11 @@ def create_app(db_path: str | Path, frontend_dir: Path | None = None) -> FastAPI
     # 同一時間只跑一個作業，各功能共用同一個執行器
     app.state.runner = JobRunner()
     app.state.crawl = crawl.CrawlSession()
+    app.state.scoring = scoring.ScoringSession()
     app.include_router(job_table.router)
     app.include_router(crawl.router)
     app.include_router(settings.router)
+    app.include_router(scoring.router)
 
     if frontend_dir is not None:
         _serve_frontend(app, frontend_dir)

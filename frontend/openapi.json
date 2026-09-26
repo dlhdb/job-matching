@@ -357,6 +357,172 @@
           }
         }
       }
+    },
+    "/api/scores": {
+      "get": {
+        "summary": "列出各職缺代表的評分",
+        "description": "每筆評過分的職缺只列一筆：評分時間最新的一筆，同一秒內後寫入的；職缺表的評分欄位、排序與篩選都用它。",
+        "operationId": "get_scores_api_scores_get",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ScoreList"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/scores/{job_no}": {
+      "get": {
+        "summary": "取出一筆職缺的所有評分紀錄",
+        "description": "展開列用：每筆含評分明細與評分依據，依據中的提示詞由送評時的職缺快照與當時的設定版本組回。",
+        "operationId": "get_score_history_api_scores__job_no__get",
+        "parameters": [
+          {
+            "name": "job_no",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Job No"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ScoreHistory"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/scoring/plan": {
+      "post": {
+        "summary": "送去評分前的確認",
+        "description": "確認視窗用：將評幾筆、其中幾筆淘汰、用哪一版設定，以及開始前的錯誤。",
+        "operationId": "plan_scoring_api_scoring_plan_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/PlanRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Plan"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/scoring": {
+      "get": {
+        "summary": "取得評分作業的狀態",
+        "description": "評分中的進度與每筆的狀態、最近一次結束的評分，以及正在跑的其他作業。",
+        "operationId": "get_scoring_state_api_scoring_get",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ScoringState"
+                }
+              }
+            }
+          }
+        }
+      },
+      "post": {
+        "summary": "開始評分",
+        "description": "重讀目前設定並重做開始前的檢查，有錯時回 422（detail 是錯誤清單）；已有作業在跑時回 409。通過後在背景照 codes 的順序逐筆評，進度以 GET /api/scoring 取得。",
+        "operationId": "start_scoring_api_scoring_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/StartRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "202": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Started"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/scoring/stop": {
+      "post": {
+        "summary": "停止評分",
+        "description": "評完目前這一筆就不再評，還在排隊的不評；已評完的留在資料庫。",
+        "operationId": "stop_scoring_api_scoring_stop_post",
+        "responses": {
+          "204": {
+            "description": "Successful Response"
+          }
+        }
+      }
     }
   },
   "components": {
@@ -389,6 +555,70 @@
           "areas"
         ],
         "title": "AreaList"
+      },
+      "Basis": {
+        "properties": {
+          "preferences": {
+            "$ref": "#/components/schemas/VersionOut"
+          },
+          "experience": {
+            "$ref": "#/components/schemas/VersionOut"
+          },
+          "template": {
+            "$ref": "#/components/schemas/VersionOut"
+          },
+          "snapshot": {
+            "additionalProperties": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "integer"
+                },
+                {
+                  "type": "null"
+                }
+              ]
+            },
+            "type": "object",
+            "title": "Snapshot",
+            "description": "送評時的職缺內容快照"
+          },
+          "prompt": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/PromptOut"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "由快照與三份設定的版本組回的提示詞；被淘汰或組不回來時為 null"
+          },
+          "prompt_error": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Prompt Error",
+            "description": "沒被淘汰卻組不回提示詞的原因"
+          }
+        },
+        "type": "object",
+        "required": [
+          "preferences",
+          "experience",
+          "template",
+          "snapshot",
+          "prompt",
+          "prompt_error"
+        ],
+        "title": "Basis"
       },
       "CheckRequest": {
         "properties": {
@@ -534,6 +764,93 @@
         ],
         "title": "CrawlState"
       },
+      "CurrentScore": {
+        "properties": {
+          "職缺代碼": {
+            "type": "string",
+            "title": "職缺代碼"
+          },
+          "評分時間": {
+            "type": "string",
+            "title": "評分時間"
+          },
+          "淘汰": {
+            "type": "boolean",
+            "title": "淘汰"
+          },
+          "總分": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "總分"
+          },
+          "評語": {
+            "type": "string",
+            "title": "評語"
+          },
+          "供應商": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "供應商"
+          },
+          "模型": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "模型"
+          },
+          "維度分數": {
+            "anyOf": [
+              {
+                "additionalProperties": {
+                  "anyOf": [
+                    {
+                      "type": "integer"
+                    },
+                    {
+                      "type": "null"
+                    }
+                  ]
+                },
+                "type": "object"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "維度分數",
+            "description": "維度名稱 → 1–5 分或 null；被淘汰時為 null"
+          }
+        },
+        "type": "object",
+        "required": [
+          "職缺代碼",
+          "評分時間",
+          "淘汰",
+          "總分",
+          "評語",
+          "供應商",
+          "模型",
+          "維度分數"
+        ],
+        "title": "CurrentScore"
+      },
       "DetailProgressOut": {
         "properties": {
           "stage": {
@@ -557,6 +874,31 @@
           "total"
         ],
         "title": "DetailProgressOut"
+      },
+      "DimensionOut": {
+        "properties": {
+          "分數": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "分數"
+          },
+          "理由": {
+            "type": "string",
+            "title": "理由"
+          }
+        },
+        "type": "object",
+        "required": [
+          "分數",
+          "理由"
+        ],
+        "title": "DimensionOut"
       },
       "HTTPValidationError": {
         "properties": {
@@ -1043,6 +1385,100 @@
         ],
         "title": "NewVersion"
       },
+      "Plan": {
+        "properties": {
+          "selected": {
+            "type": "integer",
+            "title": "Selected",
+            "description": "勾選幾筆"
+          },
+          "scored": {
+            "type": "integer",
+            "title": "Scored",
+            "description": "勾選的職缺中幾筆已評過"
+          },
+          "targets": {
+            "type": "integer",
+            "title": "Targets",
+            "description": "將評幾筆"
+          },
+          "eliminated": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Eliminated",
+            "description": "將評的職缺中幾筆符合淘汰條件；偏好有錯時為 null"
+          },
+          "versions": {
+            "additionalProperties": {
+              "$ref": "#/components/schemas/VersionRef"
+            },
+            "type": "object",
+            "title": "Versions",
+            "description": "目前設定：preferences、experience、template"
+          },
+          "provider": {
+            "type": "string",
+            "title": "Provider"
+          },
+          "models": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "title": "Models",
+            "description": "可以選的模型，第一個是預設"
+          },
+          "errors": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "title": "Errors",
+            "description": "開始前的錯誤；有錯誤時不能送出"
+          }
+        },
+        "type": "object",
+        "required": [
+          "selected",
+          "scored",
+          "targets",
+          "eliminated",
+          "versions",
+          "provider",
+          "models",
+          "errors"
+        ],
+        "title": "Plan"
+      },
+      "PlanRequest": {
+        "properties": {
+          "codes": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "title": "Codes",
+            "description": "勾選的職缺代碼，依職缺表的顯示順序"
+          },
+          "rescore": {
+            "type": "boolean",
+            "title": "Rescore",
+            "description": "包含已評過的職缺（重評）"
+          }
+        },
+        "type": "object",
+        "required": [
+          "codes",
+          "rescore"
+        ],
+        "title": "PlanRequest"
+      },
       "PreviewOut": {
         "properties": {
           "jobs": {
@@ -1077,6 +1513,139 @@
           "stopped"
         ],
         "title": "PreviewOut"
+      },
+      "PromptOut": {
+        "properties": {
+          "system": {
+            "type": "string",
+            "title": "System"
+          },
+          "user": {
+            "type": "string",
+            "title": "User"
+          }
+        },
+        "type": "object",
+        "required": [
+          "system",
+          "user"
+        ],
+        "title": "PromptOut"
+      },
+      "RowStatus": {
+        "properties": {
+          "code": {
+            "type": "string",
+            "title": "Code"
+          },
+          "status": {
+            "type": "string",
+            "enum": [
+              "queued",
+              "scoring",
+              "failed"
+            ],
+            "title": "Status"
+          },
+          "reason": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Reason",
+            "description": "評分失敗的原因"
+          }
+        },
+        "type": "object",
+        "required": [
+          "code",
+          "status",
+          "reason"
+        ],
+        "title": "RowStatus"
+      },
+      "RunOut": {
+        "properties": {
+          "id": {
+            "type": "integer",
+            "title": "Id"
+          },
+          "total": {
+            "type": "integer",
+            "title": "Total"
+          },
+          "done": {
+            "type": "integer",
+            "title": "Done",
+            "description": "評完幾筆，含失敗"
+          },
+          "ok": {
+            "type": "integer",
+            "title": "Ok",
+            "description": "評分成功、沒被淘汰"
+          },
+          "eliminated": {
+            "type": "integer",
+            "title": "Eliminated"
+          },
+          "failed": {
+            "type": "integer",
+            "title": "Failed"
+          },
+          "skipped": {
+            "type": "integer",
+            "title": "Skipped",
+            "description": "停止後沒評的筆數"
+          },
+          "stopping": {
+            "type": "boolean",
+            "title": "Stopping"
+          },
+          "stopped": {
+            "type": "boolean",
+            "title": "Stopped",
+            "description": "按了停止，或因為錯誤而停止"
+          },
+          "error": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Error",
+            "description": "讓評分停止的錯誤"
+          },
+          "statuses": {
+            "items": {
+              "$ref": "#/components/schemas/RowStatus"
+            },
+            "type": "array",
+            "title": "Statuses",
+            "description": "還沒評完或評分失敗的職缺，依評分的順序"
+          }
+        },
+        "type": "object",
+        "required": [
+          "id",
+          "total",
+          "done",
+          "ok",
+          "eliminated",
+          "failed",
+          "skipped",
+          "stopping",
+          "stopped",
+          "error",
+          "statuses"
+        ],
+        "title": "RunOut"
       },
       "Running": {
         "properties": {
@@ -1138,6 +1707,227 @@
         ],
         "title": "SavedVersion"
       },
+      "ScoreDetails": {
+        "properties": {
+          "職缺代碼": {
+            "type": "string",
+            "title": "職缺代碼"
+          },
+          "淘汰": {
+            "type": "boolean",
+            "title": "淘汰"
+          },
+          "淘汰原因": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "title": "淘汰原因"
+          },
+          "維度": {
+            "anyOf": [
+              {
+                "additionalProperties": {
+                  "$ref": "#/components/schemas/DimensionOut"
+                },
+                "type": "object"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "維度",
+            "description": "依維度的順序排列；被淘汰時為 null"
+          },
+          "總分": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "總分"
+          },
+          "未知維度": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "title": "未知維度"
+          },
+          "評語": {
+            "type": "string",
+            "title": "評語"
+          }
+        },
+        "type": "object",
+        "required": [
+          "職缺代碼",
+          "淘汰",
+          "淘汰原因",
+          "維度",
+          "總分",
+          "未知維度",
+          "評語"
+        ],
+        "title": "ScoreDetails"
+      },
+      "ScoreHistory": {
+        "properties": {
+          "records": {
+            "items": {
+              "$ref": "#/components/schemas/ScoreRecord"
+            },
+            "type": "array",
+            "title": "Records",
+            "description": "依評分時間由新到舊，同一秒內後寫入的在前；沒評過時為空清單"
+          }
+        },
+        "type": "object",
+        "required": [
+          "records"
+        ],
+        "title": "ScoreHistory"
+      },
+      "ScoreList": {
+        "properties": {
+          "scores": {
+            "items": {
+              "$ref": "#/components/schemas/CurrentScore"
+            },
+            "type": "array",
+            "title": "Scores",
+            "description": "每筆評過分的職缺一筆代表的評分；沒評過的職缺不在其中"
+          }
+        },
+        "type": "object",
+        "required": [
+          "scores"
+        ],
+        "title": "ScoreList"
+      },
+      "ScoreRecord": {
+        "properties": {
+          "評分時間": {
+            "type": "string",
+            "title": "評分時間"
+          },
+          "淘汰": {
+            "type": "boolean",
+            "title": "淘汰"
+          },
+          "總分": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "總分"
+          },
+          "評語": {
+            "type": "string",
+            "title": "評語"
+          },
+          "供應商": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "供應商"
+          },
+          "模型": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "模型"
+          },
+          "評分明細": {
+            "$ref": "#/components/schemas/ScoreDetails"
+          },
+          "basis": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/Basis"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "評分依據；記錄依據之前的評分為 null"
+          }
+        },
+        "type": "object",
+        "required": [
+          "評分時間",
+          "淘汰",
+          "總分",
+          "評語",
+          "供應商",
+          "模型",
+          "評分明細",
+          "basis"
+        ],
+        "title": "ScoreRecord"
+      },
+      "ScoringState": {
+        "properties": {
+          "running": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/RunOut"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "沒在評分時為 null"
+          },
+          "last": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/RunOut"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "最近一次結束的評分；web app 啟動後還沒評過時為 null"
+          },
+          "busy": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Busy",
+            "description": "正在跑的其他作業，例如「抓取」"
+          }
+        },
+        "type": "object",
+        "required": [
+          "running",
+          "last",
+          "busy"
+        ],
+        "title": "ScoringState"
+      },
       "SearchProgressOut": {
         "properties": {
           "stage": {
@@ -1191,6 +1981,47 @@
           "template"
         ],
         "title": "SettingsState"
+      },
+      "StartRequest": {
+        "properties": {
+          "codes": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "title": "Codes",
+            "description": "勾選的職缺代碼，依職缺表的顯示順序"
+          },
+          "rescore": {
+            "type": "boolean",
+            "title": "Rescore",
+            "description": "包含已評過的職缺（重評）"
+          },
+          "model": {
+            "type": "string",
+            "title": "Model"
+          }
+        },
+        "type": "object",
+        "required": [
+          "codes",
+          "rescore",
+          "model"
+        ],
+        "title": "StartRequest"
+      },
+      "Started": {
+        "properties": {
+          "run_id": {
+            "type": "integer",
+            "title": "Run Id"
+          }
+        },
+        "type": "object",
+        "required": [
+          "run_id"
+        ],
+        "title": "Started"
       },
       "ValidationError": {
         "properties": {
@@ -1286,6 +2117,52 @@
           "name"
         ],
         "title": "VersionMeta"
+      },
+      "VersionOut": {
+        "properties": {
+          "version": {
+            "type": "integer",
+            "title": "Version"
+          },
+          "name": {
+            "type": "string",
+            "title": "Name"
+          },
+          "saved_at": {
+            "type": "string",
+            "title": "Saved At"
+          },
+          "content": {
+            "type": "string",
+            "title": "Content"
+          }
+        },
+        "type": "object",
+        "required": [
+          "version",
+          "name",
+          "saved_at",
+          "content"
+        ],
+        "title": "VersionOut"
+      },
+      "VersionRef": {
+        "properties": {
+          "version": {
+            "type": "integer",
+            "title": "Version"
+          },
+          "name": {
+            "type": "string",
+            "title": "Name"
+          }
+        },
+        "type": "object",
+        "required": [
+          "version",
+          "name"
+        ],
+        "title": "VersionRef"
       }
     }
   }
