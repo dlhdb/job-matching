@@ -32,7 +32,7 @@
   - 拿掉只為手動評分存在的規則：評分的職缺不必先寫進職缺資料庫、評分來源、手動與自動評分並存。
 - 程式模組維持分開：評分紀錄的保存與自動評分仍是不同的模組，分層留在技術設計的模組層級。
 - 之後真的出現第二種產生評分的方式時再拆，拆的成本不高。
-- 標記不共用評分紀錄，由之後的標記功能另外保存（見 [TODO.md](../../../backlog/TODO.md#標記職缺)）。
+- 標記不共用評分紀錄，由之後的標記功能另外保存（見 [待辦：標記職缺](../../../backlog/tasks/job-marks.md)）。
 - 影響的文件：
   - [job-auto-scoring.md](../../product/features/job-auto-scoring.md)，原本的 job-score-database.md 併入後刪除
   - [overview.md](../../product/overview.md)
