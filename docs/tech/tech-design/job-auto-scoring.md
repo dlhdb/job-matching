@@ -134,7 +134,7 @@ profile/
   - 有 `快取鍵` 欄位時 `ALTER TABLE ... DROP COLUMN`。
 - 更早的版本（`job_scores` 以 `職缺代碼` 為主鍵、欄名是 `評分結果`）不遷移，要刪除後重建。`open_db` 建表前先檢查：`job_scores` 已存在但沒有 `評分來源` 欄位時，拋出 `sqlite3.DatabaseError`，提示刪除資料庫檔後重建，評分 CLI 印出 `[-]` 並回傳 1。
   - 不擋下的話，SQLite 會把找不到的雙引號欄名當成字串：查詢靜默查不到，呼叫 AI 付了費用之後寫入才失敗。
-  - 爬蟲與匯入 CLI 也經過 `open_db`，同樣會被擋下。
+  - 網頁啟動時也經過 `open_db`，同樣會被擋下，網頁不會啟動。
 - 遷移的做法見 [待辦：補上評分紀錄的遷移](../../../backlog/tasks/score-history-migration.md)。
 
 查詢（都在 `job_db/scores.py`）：

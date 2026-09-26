@@ -28,61 +28,36 @@ scripts/setup-dev-env.sh
 
 使用 devcontainer 時，建立容器會自動執行這支腳本。
 
-### 我想先隨便看看有哪些職缺
+### 我想抓 104 的職缺
 
-用互動模式，照提示依序輸入關鍵字、縣市、頁數與職缺性質：
+1. build 前端，再啟動網頁：
 
-```bash
-uv run src/fetch_104_jobs.py
-```
+   ```bash
+   npm run build --prefix frontend
+   uv run src/app.py
+   ```
 
-### 我已經知道要找什麼
+2. 用瀏覽器打開 `http://127.0.0.1:8000`，切到「抓取」。devcontainer 內 VS Code 會自動轉發 port。
+3. 填條件後按「開始抓取」：
+   - 關鍵字：多個用逗號分隔，重複的職缺會自動合併。
+   - 縣市：不選代表全台灣。
+   - 每個關鍵字抓幾頁（每頁 30 筆）與職缺性質。
+   - 抓取在背景跑，重新整理或關掉頁面都不會中斷，回來時接回進度。
+   - 可以按「停止」，已取完內容的職缺照樣列出。
+4. 抓完先預覽，標「新」的是資料庫裡還沒有的職缺。整批按「存入職缺資料庫」或「捨棄」。
+   - 存入後會打開職缺表，只列出剛存入的職缺。
+   - 條件會記在瀏覽器，下次打開抓取頁時沿用。
 
-用命令列模式直接指定條件，例如在台北市找全職的 Python 職缺，抓 2 頁：
+### 我想瀏覽或分析累積下來的職缺
 
-```bash
-uv run src/fetch_104_jobs.py -k Python -a 台北市 -t 1 -p 2
-```
-
-### 我想一次搜尋多個相關職稱
-
-用逗號分隔多個關鍵字，重複的職缺會自動合併：
-
-```bash
-uv run src/fetch_104_jobs.py -k "後端工程師,Backend,Python" -a 新竹
-```
-
-縣市的寫法：
-
-- 可以簡寫，例如 `台北`。
-- 不填則搜尋全台灣。
-- 同名的市與縣會對應到清單中先出現的那個。例如 `新竹` 會視為新竹市，要搜新竹縣請寫全名。
-
-### 我想瀏覽或分析抓到的結果
-
-每次執行都會在 `output/104/` 產生同名的兩個檔案：
-
-- `jobs_104_<關鍵字>_<時間>.csv`：用 Excel 直接開啟篩選，中文不會亂碼
-- `jobs_104_<關鍵字>_<時間>.json`：交給程式或 AI 做後續分析
-
+- 在網頁的「職缺表」選欄位、排序、篩選，點一列看完整的工作內容。
+- 職缺存在 `data/jobs.db`（SQLite）：
+  - 同一筆職缺只保留一列，並記錄第一次與最後一次被抓到的時間。
+  - 每次存入都記下這次的搜尋條件。
 - 各欄位的意義見 [job-database §8.2.1 職缺欄位契約](docs/product/features/job-database.md#821-職缺欄位契約)。
-- 完整參數說明見 `uv run src/fetch_104_jobs.py --help`。
-- 想做統計或篩選時，打開 [notebooks/analyze_104_jobs.ipynb](notebooks/analyze_104_jobs.ipynb)，kernel 選專案的虛擬環境（devcontainer 內是 `~/.venv/bin/python`）。
-
-### 我想累積每次抓到的職缺，看出哪些是新的
-
-每次抓取完，職缺也會寫進 `data/jobs.db`（SQLite）：
-
-- 同一筆職缺只保留一列，並記錄第一次與最後一次被抓到的時間。
-- 加上 `--no-db` 可以只輸出檔案。
-
-以前抓的 JSON 可以補匯入，重複匯入同一個檔案不會改變資料庫：
-
-```bash
-uv run src/import_jobs.py output/104/*.json
-```
-
-用 `pandas.read_sql` 或任何 SQLite 工具讀取即可，保存的資訊見 [job-database §8.2.2](docs/product/features/job-database.md#822-保存的資訊)，資料表 schema 見 [job-database 技術設計](docs/tech/tech-design/job-database.md#32-資料表)。
+- 想自己分析時，用 `pandas.read_sql` 或任何 SQLite 工具讀取即可：
+  - 保存的資訊見 [job-database §8.2.2](docs/product/features/job-database.md#822-保存的資訊)。
+  - 資料表 schema 見 [job-database 技術設計](docs/tech/tech-design/job-database.md#32-資料表)。
 
 ### 我想讓 AI 幫我評估職缺適不適合
 
@@ -94,7 +69,7 @@ uv run src/import_jobs.py output/104/*.json
    cp .env.example .env
    ```
 
-2. 先讓職缺進到 `data/jobs.db`（爬蟲預設會寫入，以前的 JSON 用上一節的 `import_jobs.py` 匯入），再評所有還沒評分的職缺：
+2. 先在抓取頁把職缺存進 `data/jobs.db`，再評所有還沒評分的職缺：
 
    ```bash
    uv run src/score_job.py
@@ -176,7 +151,7 @@ docs/           文件：product/（產品）、tech/（技術）、conventions/
   - [docs/tech/architecture.md](docs/tech/architecture.md)：系統架構（模組依賴、資料存放、技術選型）
   - [docs/tech/tech-design/job-auto-scoring.md](docs/tech/tech-design/job-auto-scoring.md)：模組分工、`job_scores` 的自動評分欄位、LLM 抽象層、驗收對照
   - [docs/tech/tech-design/job-score-database.md](docs/tech/tech-design/job-score-database.md)：`job_scores` 資料表、評分查詢、驗收對照
-  - [docs/tech/tech-design/104-job-scraper.md](docs/tech/tech-design/104-job-scraper.md)：104 API 的限制與請求標頭、欄位來源、寫入資料庫與匯入、驗收對照
+  - [docs/tech/tech-design/104-job-scraper.md](docs/tech/tech-design/104-job-scraper.md)：模組分工、抓取作業與預覽的流程、欄位來源、104 API 的限制與請求標頭、驗收對照
   - [docs/tech/tech-design/job-database.md](docs/tech/tech-design/job-database.md)：模組依賴、職缺表的前後端分工、資料表 schema、查詢方式、驗收對照
   - [docs/tech/ai-coding-setup/devcontainer.md](docs/tech/ai-coding-setup/devcontainer.md)：隔離容器與防火牆白名單（所有 AI coding 工具共用）、Remote Control 要的網域與環境變數
   - [docs/tech/ai-coding-setup/claude-code.md](docs/tech/ai-coding-setup/claude-code.md)：Claude Code 專屬的權限規則（deny/ask）

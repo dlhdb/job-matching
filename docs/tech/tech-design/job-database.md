@@ -34,7 +34,9 @@ flowchart LR
 
 - `job_db` 在最底層，不 import 專案內的其他模組。
   - 原因：來源功能會 import `job_db`，反向 import 會形成循環。
-  - `schema.py` 的 `JOB_COLUMNS` 是[職缺欄位契約](../../product/features/job-database.md#821-職缺欄位契約)的實作，來源功能自己的欄名（例如爬蟲的 `CSV_FIELDNAMES`）對齊它，是否一致由來源功能的測試檢查（見 [104-job-scraper 技術設計](104-job-scraper.md#7-驗收對照)）。
+  - `schema.py` 的 `JOB_COLUMNS` 是[職缺欄位契約](../../product/features/job-database.md#821-職缺欄位契約)的實作：
+    - 來源功能整理出來的欄位（例如爬蟲）對齊它。
+    - 是否一致由來源功能的測試檢查（見 [104-job-scraper 技術設計](104-job-scraper.md#6-驗收對照)）。
   - 其他模組呼叫 `job_db` 時，參數都用基本型別。
 - 使用標準函式庫 `sqlite3`，不新增依賴（選用 SQLite 的理由見 [決策紀錄：資料庫選型](../../decisions/tech/database-selection.md)）。
 - 以 `uv run src/<腳本>.py` 執行時，`src/` 在 import 路徑上，來源功能不需要額外設定就能 import `job_db`。
@@ -53,9 +55,9 @@ flowchart LR
    - 更新時，`工作內容`、`薪資待遇` 以 `COALESCE(新值, 舊值)` 寫入，其他欄位直接覆蓋。
 3. 逐筆以 `INSERT OR IGNORE` 寫入 `run_jobs`，同一次寫入中重複的職缺代碼只留一列。
 4. 以不重複的職缺代碼數回填 `scrape_runs.職缺數`。
-5. commit 後在 stderr 印出新增、更新筆數與資料庫路徑。
 
-任何一步拋出例外，整個 transaction rollback，三張表都不變。呼叫端怎麼回報錯誤由來源功能決定（例如 [104-job-scraper 技術設計](104-job-scraper.md#6-錯誤處理與結束碼)）。
+- 新增與更新的筆數以回傳值交給呼叫端，`job_db` 不印任何訊息。
+- 任何一步拋出例外，整個 transaction rollback，三張表都不變。呼叫端怎麼回報錯誤由來源功能決定（例如 [104-job-scraper 技術設計](104-job-scraper.md#5-錯誤處理)）。
 
 ### 2.2 職缺表的前後端分工
 
@@ -125,11 +127,12 @@ flowchart LR
 - `地區`（TEXT）
 - `職缺性質`（INTEGER）
 - `頁數`（INTEGER）
-- `來源檔`（TEXT UNIQUE）：匯入時用來判斷是否已匯入過
-  - 不是匯入時為 `NULL`，SQLite 的 UNIQUE 允許多個 `NULL`
+- `來源檔`（TEXT UNIQUE）：舊的匯入紀錄匯入的 JSON 檔名，當時用來判斷是否已匯入過
+  - 匯入已拿掉，目前沒有寫入這一欄的來源，新的紀錄都是 `NULL`
+  - SQLite 的 UNIQUE 允許多個 `NULL`
 - `職缺數`（INTEGER NOT NULL）
 
-`關鍵字`、`地區`、`職缺性質`、`頁數`、`來源檔` 是來源功能提供的寫入條件（見 [job-database §8.2.2](../../product/features/job-database.md#822-保存的資訊)），目前的欄位是唯一的來源 104-job-scraper 留下的形狀。接第二個求職平台時要重新設計（見 [TODO.md](../../../backlog/TODO.md#把職缺欄位契約改成平台中立)）。
+`關鍵字`、`地區`、`職缺性質`、`頁數` 是來源功能提供的寫入條件（見 [job-database §8.2.2](../../product/features/job-database.md#822-保存的資訊)），目前的欄位是唯一的來源 104-job-scraper 留下的形狀。接第二個求職平台時要重新設計（見 [TODO.md](../../../backlog/TODO.md#把職缺欄位契約改成平台中立)）。
 
 `run_jobs`：一次寫入與其中出現的職缺。
 
@@ -143,10 +146,12 @@ flowchart LR
 
 ### 3.3 查詢
 
-`queries.py` 提供職缺與執行紀錄的查詢，回傳以中文欄名為鍵的 `dict`，鍵就是[職缺欄位契約](../../product/features/job-database.md#821-職缺欄位契約)的欄名，呼叫端不必做欄名對照：
+`queries.py` 提供職缺與執行紀錄的查詢。職缺與執行紀錄回傳以中文欄名為鍵的 `dict`，鍵就是[職缺欄位契約](../../product/features/job-database.md#821-職缺欄位契約)的欄名，呼叫端不必做欄名對照：
 
 - `list_jobs`：列出全部職缺，職缺表的 API 用它（見 [2.2](#22-職缺表的前後端分工)）。
 - `get_job`：以職缺代碼取單筆，查不到時回傳 `None`，不回傳空 `dict`。評分 CLI 用它取出指定的職缺。
+- `existing_job_codes`：從一批職缺代碼中找出資料庫已有的，抓取的預覽用它標出新職缺。
+  - 代碼以一個 JSON 陣列帶入，不受 SQLite 單一語句參數個數的上限影響。
 - `list_runs`：列出執行紀錄。目前沒有使用者需求用到它，留給之後的趨勢分析。
 
 排序都加上主鍵當最後一個排序鍵（職缺是 `最後出現時間` 後接 `職缺代碼`），同樣的資料每次查出來的順序才一致。

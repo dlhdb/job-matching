@@ -82,14 +82,15 @@ TypeScript 的說明用 `/** */`（JSDoc）：
 - 共用 fixture 放在 `tests/conftest.py`，只有單一檔案會用到的 helper 留在該檔案裡。
 - 只換外部依賴：
   - 離線測試用 `monkeypatch` 把 `requests.get`、LLM client 等外部呼叫換成假函式，專案內的函式照常執行，重構時測試才不會跟著壞。
-  - 只有準備假資料的成本明顯過高時，才換掉專案內的函式，例如測 `main` 的參數解析時換掉 `execute_scraping`。
-  - `time.sleep` 用 `no_sleep` fixture 取代，它也會記錄延遲秒數，方便驗證頻率限制。
+  - 只有準備假資料的成本明顯過高時，才換掉專案內的函式，例如確認不會呼叫 AI 時換掉評分 CLI 的 `get_client`。
+  - 爬蟲請求之間的延遲用 `no_sleep` fixture 取代，它也會記錄延遲秒數，方便驗證頻率限制。
 - 測試資料固定不變：
   - 不讀 `profile/`、`output/` 這類會變動的專案資料。範本檔（`*.example.*`）只在驗證範本本身的測試中讀取。
   - 離線測試的資料寫在測試碼裡，e2e 的輸入資料放在 `tests/e2e/data/`。
 - 檔案一律寫到 `tmp_path`。會寫入 `output/` 的程式，用 monkeypatch 把輸出目錄改掉。
   - 例外：e2e 測試中要讓使用者跑完直接打開查看的檔案，寫到 `output/e2e/`（不進版控），每次執行前刪除上次留下的檔案，跑完保留。
-- 測試函式名稱以被測的函式名稱開頭（例如 `test_parse_keywords_*`），技術設計的驗收對照才能用 `-k <函式名>` 挑出對應的測試。功能文件驗收中逐項列出的「輸入 → 預期」，用 `@pytest.mark.parametrize` 對應成參數。
+- 測試函式名稱以被測的函式名稱開頭（例如 `test_parse_keywords_*`），技術設計的驗收對照才能用 `-k <函式名>` 挑出對應的測試。
+- 功能文件驗收中逐項列出的「輸入 → 預期」，用 `@pytest.mark.parametrize` 對應成參數。
 - CLI 進入點提供 `main(argv) -> int`，測試直接呼叫並用 `capsys` 檢查輸出。只有訊號處理這類必須在真實行程中驗證的行為，才用 subprocess。
 
 ### 瀏覽器測試
