@@ -1,0 +1,53 @@
+"""職缺表的 API：列出職缺資料庫的全部職缺，篩選與排序由前端處理。"""
+
+from typing import Any
+
+from fastapi import APIRouter, Request
+from pydantic import BaseModel, create_model
+
+from job_db import JOB_COLUMNS, list_jobs
+from web.db import connect
+
+_SQL_TYPES: dict[str, type] = {"TEXT": str, "INTEGER": int}
+
+# 資料表沒有 NOT NULL 的欄位都可能是 null；這三欄由資料表保證有值
+_REQUIRED = {"職缺代碼", "首次出現時間", "最後出現時間"}
+
+
+def _job_model() -> type[BaseModel]:
+    """
+    從職缺欄位契約產生單筆職缺的回應模型，契約只寫在 JOB_COLUMNS 一處
+
+    :return: type[BaseModel], 欄位依序是職缺欄位契約的欄位，接著是首次、最後出現時間
+    """
+    columns = [*JOB_COLUMNS, ("首次出現時間", "TEXT"), ("最後出現時間", "TEXT")]
+    fields: dict[str, Any] = {}
+    for name, sql_type in columns:
+        py_type = _SQL_TYPES[sql_type]
+        fields[name] = (py_type, ...) if name in _REQUIRED else (py_type | None, ...)
+    return create_model("Job", **fields)
+
+
+Job = _job_model()
+# Job 是執行時產生的類別，mypy 無法把它當成型別檢查
+JobList = create_model("JobList", jobs=(list[Job], ...))  # type: ignore[valid-type]
+
+router = APIRouter(prefix="/api")
+
+
+@router.get(
+    "/jobs",
+    response_model=JobList,
+    summary="列出全部職缺",
+    # 明寫 description，OpenAPI 才不會帶上 docstring 的 :param 等內容
+    description="排序為最後出現時間由新到舊；篩選與排序由前端處理。",
+)
+def get_jobs(request: Request) -> dict[str, Any]:
+    """
+    列出全部職缺，排序為最後出現時間由新到舊
+
+    :param request: Request, 目前的請求
+    :return: dict, {"jobs": [...]}；沒有職缺時為空清單
+    """
+    with connect(request) as conn:
+        return {"jobs": list_jobs(conn)}

@@ -1,5 +1,5 @@
 #!/bin/sh
-# 建立開發環境：安裝依賴，並設定 git filter。
+# 建立開發環境：安裝 Python 與前端的依賴，並設定 git filter。
 # 主機與 devcontainer 都執行這支腳本（devcontainer 由 postCreateCommand 自動執行），可重複執行。
 set -eu
 
@@ -12,6 +12,14 @@ fi
 
 echo "⏳ 安裝依賴（uv sync）"
 uv sync
+
+# 前端依賴：依 package-lock.json 安裝。沒有 npm 時只影響前端，其他設定照常完成
+if command -v npm >/dev/null 2>&1; then
+    echo "⏳ 安裝前端依賴（npm ci）"
+    npm ci --prefix frontend
+else
+    echo "[!] 找不到 npm，略過前端依賴；要開發前端時先安裝 Node.js，再執行 npm ci --prefix frontend" >&2
+fi
 
 # nbstripout git filter：git add 時移除 notebook 輸出，工作目錄中的 notebook 保留輸出。
 # 哪些檔案套用 filter 由 .gitattributes 決定，這裡只設定 filter 要執行的指令（寫進 .git/config）。

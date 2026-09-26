@@ -1,0 +1,251 @@
+{
+  "openapi": "3.1.0",
+  "info": {
+    "title": "求職雷達",
+    "version": "0.1.0"
+  },
+  "paths": {
+    "/api/jobs": {
+      "get": {
+        "summary": "列出全部職缺",
+        "description": "排序為最後出現時間由新到舊；篩選與排序由前端處理。",
+        "operationId": "get_jobs_api_jobs_get",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/JobList"
+                }
+              }
+            }
+          }
+        }
+      }
+    }
+  },
+  "components": {
+    "schemas": {
+      "Job": {
+        "properties": {
+          "職缺代碼": {
+            "type": "string",
+            "title": "職缺代碼"
+          },
+          "職缺名稱": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "職缺名稱"
+          },
+          "公司名稱": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "公司名稱"
+          },
+          "產業類別": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "產業類別"
+          },
+          "地區": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "地區"
+          },
+          "薪資待遇": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "薪資待遇"
+          },
+          "薪資下限": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "薪資下限"
+          },
+          "薪資上限": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "薪資上限"
+          },
+          "更新日期": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "更新日期"
+          },
+          "應徵人數": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "應徵人數"
+          },
+          "工作內容": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "工作內容"
+          },
+          "電腦專長": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "電腦專長"
+          },
+          "科系要求": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "科系要求"
+          },
+          "特色標籤": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "特色標籤"
+          },
+          "職缺連結": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "職缺連結"
+          },
+          "公司連結": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "公司連結"
+          },
+          "首次出現時間": {
+            "type": "string",
+            "title": "首次出現時間"
+          },
+          "最後出現時間": {
+            "type": "string",
+            "title": "最後出現時間"
+          }
+        },
+        "type": "object",
+        "required": [
+          "職缺代碼",
+          "職缺名稱",
+          "公司名稱",
+          "產業類別",
+          "地區",
+          "薪資待遇",
+          "薪資下限",
+          "薪資上限",
+          "更新日期",
+          "應徵人數",
+          "工作內容",
+          "電腦專長",
+          "科系要求",
+          "特色標籤",
+          "職缺連結",
+          "公司連結",
+          "首次出現時間",
+          "最後出現時間"
+        ],
+        "title": "Job"
+      },
+      "JobList": {
+        "properties": {
+          "jobs": {
+            "items": {
+              "$ref": "#/components/schemas/Job"
+            },
+            "type": "array",
+            "title": "Jobs"
+          }
+        },
+        "type": "object",
+        "required": [
+          "jobs"
+        ],
+        "title": "JobList"
+      }
+    }
+  }
+}

@@ -1,10 +1,16 @@
 """pytest 共用 fixture。"""
 
 import copy
+import shutil
+import subprocess
+import threading
+import time
 from contextlib import closing
 from datetime import datetime
+from pathlib import Path
 
 import pytest
+import uvicorn
 import yaml
 
 import fetch_104_jobs
@@ -13,6 +19,11 @@ from job_db import open_db, save_run
 from job_scoring.llm import LLMError
 from job_scoring.models import AIAssessment
 from job_scoring.profile import load_preferences
+from web import create_app
+
+FRONTEND_DIR = Path(__file__).resolve().parents[1] / "frontend"
+# 容器以 apt 裝的 Chromium；Playwright 預設只找自己下載的瀏覽器，要明確指定
+CHROMIUM = Path("/usr/bin/chromium")
 
 
 @pytest.fixture(autouse=True)
@@ -37,6 +48,63 @@ def db_conn(tmp_path):
     connection = open_db(tmp_path / "jobs.db")
     yield connection
     connection.close()
+
+
+@pytest.fixture(scope="session")
+def frontend_dist():
+    """
+    整個測試過程 build 一次前端，瀏覽器測試才不會拿到改前端之前的舊 build
+
+    沒有 npm 或還沒安裝前端依賴時 skip；build 失敗時讓測試失敗並附上輸出。
+
+    :return: Path, build 好的前端目錄
+    """
+    npm = shutil.which("npm")
+    if npm is None:
+        pytest.skip("找不到 npm，無法 build 前端")
+    if not (FRONTEND_DIR / "node_modules" / ".bin").is_dir():
+        pytest.skip("還沒安裝前端依賴，先執行 npm ci --prefix frontend")
+    result = subprocess.run([npm, "run", "build"], cwd=FRONTEND_DIR, capture_output=True, text=True)
+    if result.returncode != 0:
+        pytest.fail(f"前端 build 失敗：\n{result.stdout}{result.stderr}")
+    return FRONTEND_DIR / "dist"
+
+
+@pytest.fixture
+def live_server(isolate_db, frontend_dist):
+    """
+    在測試行程的執行緒中起網頁伺服器（隨機 port），提供剛 build 好的前端，資料庫是 isolate_db
+
+    資料在打開頁面前寫進 isolate_db 即可：每個請求各自開連線，讀得到最新的內容。
+
+    :return: str, 伺服器的網址，例如 http://127.0.0.1:54321
+    """
+    config = uvicorn.Config(create_app(isolate_db, frontend_dist), host="127.0.0.1", port=0,
+                            log_level="warning")
+    server = uvicorn.Server(config)
+    thread = threading.Thread(target=server.run, daemon=True)
+    thread.start()
+    deadline = time.monotonic() + 10
+    while not server.started:
+        if not thread.is_alive() or time.monotonic() > deadline:
+            pytest.fail("網頁伺服器沒有啟動")
+        time.sleep(0.01)
+    port = server.servers[0].sockets[0].getsockname()[1]
+    yield f"http://127.0.0.1:{port}"
+    server.should_exit = True
+    thread.join(timeout=10)
+
+
+@pytest.fixture(scope="session")
+def browser_type_launch_args(browser_type_launch_args):
+    """
+    覆寫 pytest-playwright 的同名 fixture，改用系統的 Chromium；找不到時 skip
+
+    :return: dict, 啟動瀏覽器的參數
+    """
+    if not CHROMIUM.is_file():
+        pytest.skip(f"找不到 {CHROMIUM}，瀏覽器測試要在 devcontainer 內執行")
+    return {**browser_type_launch_args, "executable_path": str(CHROMIUM)}
 
 
 @pytest.fixture

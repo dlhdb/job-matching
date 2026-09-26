@@ -1,0 +1,5 @@
+# 產出檔：由 npm、vite build、scripts/gen-api-types.sh 產生，不手動排版
+dist/
+package-lock.json
+openapi.json
+src/api/schema.d.ts

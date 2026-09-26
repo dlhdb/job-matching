@@ -9,6 +9,9 @@ wheels/
 # Virtual environments
 .venv
 
+# Frontend dependencies (frontend/dist/ is covered by dist/ above)
+node_modules/
+
 # Scraper outputs
 output/
 
