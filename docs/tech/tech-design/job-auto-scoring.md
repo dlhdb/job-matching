@@ -5,14 +5,26 @@
   - 評分：[src/job_scoring/](../../../src/job_scoring/)
   - 評分紀錄與設定的讀寫：[src/job_db/scores.py](../../../src/job_db/scores.py)、[src/job_db/settings.py](../../../src/job_db/settings.py)，建表語法在 [src/job_db/schema.py](../../../src/job_db/schema.py)
   - 設定頁：[src/web/settings.py](../../../src/web/settings.py)、[frontend/src/settings/](../../../frontend/src/settings/)
+  - 職缺表上的評分與送去評分：[src/web/scoring.py](../../../src/web/scoring.py)、[frontend/src/scoring/](../../../frontend/src/scoring/)
 
 ## 1. 總覽
 
 ```mermaid
 flowchart LR
     page["frontend/src/settings/"] --> api["web/settings.py"]
+    table["frontend/src/scoring/"] --> ext["frontend/src/job-database/ 的擴充點"]
+    table --> sapi["web/scoring.py"]
     api --> settings["job_scoring/settings.py"]
     api --> dbsettings["job_db/settings.py"]
+    sapi --> batch
+    sapi --> settings
+    sapi --> scores
+    sapi --> runner["web/jobs.py"]
+    sapi --> llm
+    sapi --> rules
+    sapi --> prompt
+    sapi --> dbsettings
+    sapi --> queries["job_db/queries.py"]
     settings --> defaults["job_scoring/defaults/"]
     settings --> prompt
     settings --> dbsettings
@@ -39,9 +51,10 @@ flowchart LR
 - `job_db/scores.py`：讀寫 `job_scores`。
 - `job_db/settings.py`：讀寫設定的版本。
 - `web/settings.py`：設定頁的 API。
+- `web/scoring.py`：職缺表上的評分與送去評分的 API。
+  - 評分作業交給共用的作業執行器 `web/jobs.py` 在背景跑。
 - `frontend/src/settings/`：設定頁。
-
-整批評分目前沒有呼叫端：評分 CLI 已拿掉，在職缺表送去評分的介面還沒做。
+- `frontend/src/scoring/`：疊加在職缺表上的評分（欄位、篩選、勾選、確認視窗、展開列），以及頁首的評分進度。
 
 依賴限制：
 
@@ -50,9 +63,12 @@ flowchart LR
   - 由[驗收對照](#6-驗收對照)的「供應商隔離」以 `ast` 掃描 import 檢查。
 - 評分紀錄與設定的讀寫放在 `job_db` 套件，不另開套件：同一個套件管理整份資料庫的連線、schema 與改版。
   - `job_db` 不 import 專案內的其他模組（原因見 [job-database 技術設計的總覽](job-database.md#1-總覽)），所以 `scores.py`、`settings.py` 的參數都用基本型別，由 `scorer.py`、`job_scoring/settings.py` 把資料轉好再傳入。
-- 帶職缺欄位的評分查詢放在 `scores.py`，不放 `queries.py`：
-  - `queries.py` 屬於 job-database，job-database 不依賴任何功能，它的查詢不能 JOIN `job_scores`。
-  - 本功能依賴 job-database，由 `scores.py` JOIN `jobs` 不違反依賴方向。
+- 職缺表的職缺與評分分成兩個 API，由前端以職缺代碼合併：
+  - `GET /api/jobs` 屬於 job-database，job-database 不依賴任何功能，不能帶評分。
+  - `GET /api/scores` 只給評分，不 JOIN `jobs`。
+- 前端的 `frontend/src/scoring/` 實作職缺表的擴充點（見 [job-database 技術設計的職缺表的前後端分工](job-database.md#22-職缺表的前後端分工)）：
+  - `frontend/src/job-database/` 不 import 評分。
+  - 由外殼 `frontend/src/app/App.tsx` 把評分的擴充交給職缺表。
 
 ## 2. 流程
 
@@ -78,14 +94,19 @@ flowchart LR
 
 ### 2.2 整批評分
 
-實現 FR-score-failure。`batch.score_batch` 是評分的共用進入點：
+實現 FR-score-failure、FR-score-order。`batch.score_batch` 是評分的共用進入點：
 
 - 要評的職缺、設定、資料庫連線、供應商與模型都由呼叫端傳入，整批用同一組設定。
+- 依傳入的順序逐筆評。
+- 呼叫端以回呼得知進度，並決定要不要停：
+  - 每筆開始前先問要不要停，要停就不再評之後的職缺，回傳的結果只有評過的那幾筆。
+  - 每筆開始前、評完（含失敗）後各通知一次。
 - client 以 `client_factory` 傳入：
   - 開始評分前先以 `rules.check_hard_filters` 檢查，有需要呼叫 AI 的職缺時才建立 client，之後整批共用。
   - 整批都被淘汰時就不需要 API key。
   - 建立失敗（不支援的供應商、缺少 API key）時直接往外拋，這時還沒評任何一筆，所以會被淘汰的職缺也不會寫入。
 - 每筆都經過 `scorer.score_and_save`，哪些錯誤算單筆失敗見 [§5](#5-錯誤處理)。
+- 呼叫端是送去評分的作業（[§2.5](#25-送去評分)）。
 - `batch.write_dry_run_results` 把試跑結果寫成 JSON 與 CSV，目前沒有呼叫端。
 
 ### 2.3 提示詞模板
@@ -134,6 +155,89 @@ flowchart LR
 - 儲存或套用成功後，那份設定的編輯區仍是送出的內容時才清掉：等待回應時又改過的內容保留。
   - 伺服器上已經改好，所以不論重新取得設定成不成功都要清掉，否則重新打開時會把已存的內容當成修改再存一次。
   - 重新取得設定失敗時，畫面上的版本紀錄與目前設定都已過時，整頁改成請使用者重新整理。
+
+### 2.5 送去評分
+
+實現 FR-score-pick、FR-score-confirm、FR-score-settings、FR-score-progress、FR-score-stop、FR-score-summary、FR-rescore、FR-job 與 FR-llm 的模型選擇。規則見功能文件的[勾選與送出](../../product/features/job-auto-scoring.md#4212-勾選與送出)到[評分中與評完](../../product/features/job-auto-scoring.md#4214-評分中與評完)。
+
+```mermaid
+sequenceDiagram
+    participant T as 職缺表（frontend/src/scoring/）
+    participant A as web/scoring.py
+    participant J as 評分作業（背景執行緒）
+    T->>A: POST /api/scoring/plan（勾選的職缺、重評）
+    A-->>T: 將評幾筆、淘汰幾筆、設定的版本、模型、開始前的錯誤
+    T->>A: POST /api/scoring（職缺依表格順序、重評、模型）
+    A->>A: 重讀目前設定、重做檢查
+    A->>J: 開始作業（這時讀到的設定與職缺）
+    loop 評分中每秒
+        T->>A: GET /api/scoring
+        A-->>T: 進度、每筆的狀態
+        T->>A: 進度變了時 GET /api/scores
+    end
+```
+
+確認與開始（後端）：
+
+- 開始前的檢查只寫在後端，確認視窗與開始評分共用：
+  - 勾選的職缺不在職缺資料庫、將評 0 筆
+  - 目前設定的偏好或模板有錯（和評分時用同一個檢查）
+  - 偏好或經歷還是預設範例
+  - 缺 API key，而且有需要呼叫 AI 的職缺：
+    - 淘汰筆數用目前的偏好算
+    - 偏好有錯時當作每筆都要呼叫 AI
+  - 有其他作業在跑：
+    - 確認視窗列在錯誤裡
+    - 開始時其他檢查都通過才回 409，否則照其他錯誤回 422（見 [§5](#5-錯誤處理)）
+- 開始時重讀目前設定、重做一次檢查：確認視窗開著時換了設定，以按下開始時的為準。
+  - 有錯時回 422，錯誤清單顯示在確認視窗。
+- 通過後把這時讀到的設定與職缺交給作業，整批都用它們。
+  - 評分中換了設定只影響之後開始的評分。
+- 模型只能選 `llm.MODELS` 列出的：
+  - 清單的名稱以供應商的模型清單 API 確認過。
+  - 第一個是預設。
+
+作業（後端）：
+
+- 由各功能共用的作業執行器 `web/jobs.py` 在背景執行緒跑：
+  - 同一時間只跑一個作業。
+  - 背景執行緒開自己的資料庫連線。
+- 進度與每筆的狀態（排隊中、評分中、評分失敗與原因）只放在記憶體。
+  - 評完的職缺不留狀態，分數從資料庫讀。
+- 作業結束時保留最近一次的結果（各結果的筆數、沒評的筆數、失敗的列、讓作業停止的錯誤），web app 關閉時一起消失。
+- 停止以作業的停止旗標傳給 `score_batch`，評完目前這一筆才生效。
+
+前端：
+
+- 評分的狀態放在包住整個頁面的 context，頁首的進度與職缺表共用。
+- 評分中每秒輪詢：
+  - 收到回應後才排下一次。
+  - 只採用最後送出的那次回應。
+- 評完一筆或作業結束時，重新取各職缺代表的評分。
+  - 取不到時每 2 秒自動重試。
+  - 讀過一次之後再讀不到時沿用上次的評分，原因顯示在表格上方。
+- 結束後的摘要與失敗標示只給「這次打開頁面後看過它在跑」的作業：伺服器保留最近一次的結果，評分結束後重新整理時就不再顯示，符合「評分結束後重新整理，失敗標示就消失」。
+- 固定的列順序：
+  - 開始評分時記下職缺表列出的職缺代碼與檢視（排序、篩選、剛存入的清單），記在 `localStorage` 的 `jobAutoScoring.frozen.v1`，連同作業編號。
+  - 檢視相同時照記下的順序列出這些職缺，分數改變後不再符合篩選的列也留著。
+  - 使用者改排序或篩選時丟掉。
+  - 重新整理後第一次取到狀態時，同一個作業還在跑才沿用，所以評分結束後重新整理就重新排列。
+- 勾選只在職缺表這一頁，改篩選或開始評分時清掉。
+
+### 2.6 職缺表上的評分
+
+實現 FR-rank-*、FR-score-detail、FR-history-current、FR-history-all、FR-history-view、FR-basis-show、FR-basis-legacy。規則見功能文件的[在職缺表依分數排序、篩選](../../product/features/job-auto-scoring.md#6-在職缺表依分數排序篩選rank)、[所有評分紀錄](../../product/features/job-auto-scoring.md#1022-所有評分紀錄)與[顯示評分依據](../../product/features/job-auto-scoring.md#1122-顯示評分依據)。
+
+- `GET /api/scores` 一次給每筆職缺代表的評分，只帶職缺表的欄位要用的值（含四個維度的分數），不帶理由等完整明細。
+- 評分的欄位、預設檢視與篩選都經由職缺表的擴充點加上去，所以選欄位、排序、記住的檢視、還原預設檢視與剛存入的職缺都照職缺表的規則。
+  - 依總分排序時，總分相同或都沒有總分的，以欄位的 `tieBreak` 依最後出現時間由新到舊排，最後才是職缺代碼。
+  - 篩選的值和關鍵字、地區一起記在職缺表的檢視裡。
+- 展開一列時才取 `GET /api/scores/{職缺代碼}`：這筆職缺的所有評分紀錄，含明細與評分依據。
+  - 代表的評分改變（例如剛評完）時：
+    - 重新取。
+    - 檢視中的舊評分回到目前的評分。
+- 評分依據的提示詞在後端組回：用評分時存下的職缺快照與三份設定的版本，經過評分時同一個組提示詞的函式，規則只寫一份。
+  - 那一版的偏好不符合現在的規則、組不回來時，回傳原因代替提示詞。
 
 ## 3. 資料與儲存
 
@@ -194,7 +298,9 @@ flowchart LR
 
 - 和 `jobs` 分開存放：職缺被重新寫入時，job-database 會覆寫整列（見[功能文件的寫入規則](../../product/features/job-database.md#421-寫入規則)），分數放在同一張表就得另外避開。
 - `職缺代碼` 以外鍵指向 `jobs`：評分的職缺都來自職缺資料庫。
-- `淘汰`、`總分`、`評語` 與 `評分明細` 中的值重複：另外成欄是為了讓 SQL 可以直接篩選與排序，不解析 JSON。
+- `淘汰`、`總分`、`評語` 與 `評分明細` 中的值重複，另外成欄：
+  - 列出各職缺代表的評分與所有評分紀錄時直接讀欄位，不必解析 JSON。
+  - 之後要在 SQL 裡篩選或排序時也用得到。
 - 版本欄不設外鍵：
   - 外鍵的目標是（`種類`, `版本`）組合鍵，每欄的種類固定，SQLite 的外鍵寫不出常數。
   - 版本只新增、不刪除，不會指到不存在的版本。
@@ -212,13 +318,10 @@ flowchart LR
 
 - 代表的評分（見[功能文件的代表的評分](../../product/features/job-auto-scoring.md#1323-代表的評分)）以 window function 挑出：`ROW_NUMBER() OVER (PARTITION BY 職缺代碼 ORDER BY 評分時間 DESC, 評分編號 DESC)` 取第 1 列。
   - 評分時間相同時，後寫入的 `評分編號` 較大，排在前面。
-  - 依分數列出、取出單筆評分紀錄、取出評分明細共用這個子查詢。
-- 依分數列出時先挑代表再套 `淘汰` 篩選與排序：先篩再挑的話，代表被篩掉的職缺會改以別列出現。
-  - 第一個排序鍵明寫 `總分 IS NULL`，把沒有總分的列排到最後，不依賴 SQLite 對 `NULL` 的預設排序。
-  - 最後一個排序鍵是 `職缺代碼`，同樣的資料每次查出來的順序才一致。
-  - `limit`、`offset` 是負數時拋出 `ValueError`：SQLite 把負的 `LIMIT` 當成不限筆數，不擋下來會靜默回傳全部。
-- 取出所有評分紀錄時不經過代表的挑選。
-  - `評分明細` 與 `職缺快照` 以 `json.loads` 還原。
+  - 列出各職缺代表的評分時使用。
+  - 篩選與排序在前端做。
+- 取出一筆職缺的所有評分紀錄時不經過代表的挑選，順序同上，第一筆就是代表的評分。
+- `評分明細` 與 `職缺快照` 以 `json.loads` 還原。
 
 ### 3.4 改版：舊版的 job_scores
 
@@ -305,6 +408,20 @@ AI 必須輸出以下 JSON（Pydantic 模型 `AIAssessment`）：
 - `sqlite3.Error` 讓評分中止，已寫入的職缺留在資料庫。
 - 其他例外代表程式錯誤，直接往外拋。
 
+送去評分的作業：
+
+- client 建立失敗：一筆都不評，作業以錯誤結束，全部算沒評。
+- 寫入資料庫失敗、或其他例外：
+  - 正在評的那一筆算失敗，之後的不評。
+  - 作業以錯誤結束，摘要照停止處理。
+  - 其他例外在記下錯誤之後照樣往外拋，留下 traceback。
+
+送去評分的 API：
+
+- 開始前的檢查有錯時回 422，`detail` 是錯誤清單。
+- 不認得的模型也是 422。
+- 其他檢查都通過、但已有作業在跑時回 409。
+
 設定頁的 API：
 
 - 名稱空白、內容檢查有錯時回 422，`detail` 寫出原因，什麼都不存。
@@ -317,7 +434,8 @@ AI 必須輸出以下 JSON（Pydantic 模型 `AIAssessment`）：
 
 - 只列已實作的 AC；〔規劃中〕的 AC 完成後再補上。
 - 除了〔需網路〕的條目，都離線執行，也不需要 API key：AI 的回應以假的 LLM client 代替。
-- 設定頁的瀏覽器行為以 Playwright 測，開始前會自動 build 前端（見 [development.md 的瀏覽器測試](../../conventions/development.md#瀏覽器測試)）。
+- 網頁的 API 以 FastAPI 的 TestClient 測。
+- 設定頁與職缺表上的評分以 Playwright 測，開始前會自動 build 前端（見 [development.md 的瀏覽器測試](../../conventions/development.md#瀏覽器測試)）。
 
 共用的測試資料放在 `tests/conftest.py`：
 
@@ -326,6 +444,8 @@ AI 必須輸出以下 JSON（Pydantic 模型 `AIAssessment`）：
   - 測試設定的版本號是偏好第 2 版、經歷第 3 版、模板第 1 版，三個都不同，才分得出寫錯欄。
 - 假的 LLM client：回傳固定內容並記錄呼叫次數。
   - 整批用的版本可以對指定職缺拋出 `LLMError` 或回傳超出範圍的分數。
+  - 網頁用的版本換掉 API 建立 client 的函式，另外可以停在指定的職缺，用來觀察評分中的狀態。
+- 網頁的評分測試用已換掉預設範例的設定：偏好與經歷都是第 2 版。
 - 資料庫建在 `tmp_path`。
   - 評分紀錄有外鍵，測試先把職缺寫進資料庫再評分。
 - 改版的測試以 SQL 建出各種舊版的資料庫。
@@ -334,8 +454,8 @@ AI 必須輸出以下 JSON（Pydantic 模型 `AIAssessment`）：
 一次跑完所有離線驗收：
 
 ```bash
-uv run pytest tests/test_job_scoring_*.py tests/test_job_db_scores.py tests/test_job_db_settings.py tests/test_job_db_upgrade.py tests/test_app.py tests/test_web_settings.py tests/test_browser_settings.py
-npm test --prefix frontend -- drafts
+uv run pytest tests/test_job_scoring_*.py tests/test_job_db_scores.py tests/test_job_db_settings.py tests/test_job_db_upgrade.py tests/test_app.py tests/test_web_settings.py tests/test_web_scoring.py tests/test_browser_settings.py tests/test_browser_scoring.py
+npm test --prefix frontend -- drafts scoring
 ```
 
 其他檢查：
@@ -343,18 +463,8 @@ npm test --prefix frontend -- drafts
 - 型別檢查：`uv run mypy src/` 與 `npm run typecheck --prefix frontend`，通過條件為沒有錯誤。
 - 前端的 API 型別是否最新：`uv run pytest tests/test_web_openapi.py`。
 - 供應商隔離：`uv run pytest tests/test_job_scoring_llm.py -k provider_sdk_isolated`，通過條件為只有 `llm.py` import `google` 開頭的模組。
-- 真實的 `.env` 不進版控、`.env.example` 有進版控：`uv run pytest tests/test_job_scoring_llm.py -k env_ignored`。
-- 整合檢查〔需網路〕：`uv run pytest -m network -s tests/e2e/test_job_scoring.py`
-  - 以 e2e 的固定輸入與預設模板評所有職缺，沒有設定 `GEMINI_API_KEY` 時跳過並說明原因。
-  - 自動檢查：每一筆有工作內容、而且沒被淘汰的職缺都評分成功，評分明細的格式、各維度的理由與分數範圍、供應商與模型都正確。
-  - 印出這些職缺的評分明細與測試資料庫的路徑，給使用者閱讀理由。
-- 操作改成在網頁送去評分、判斷的結果不變的 AC，送去評分的介面完成前，由整批評分的測試驗判斷的部分：
-  - 評分結果入庫：`uv run pytest tests/test_job_scoring_batch.py -k store`
-  - 被淘汰的不需要 API key：`uv run pytest tests/test_job_scoring_batch.py -k all_eliminated`
-  - 淘汰時的評語：`uv run pytest tests/test_job_scoring_batch.py -k filter_comment`
-  - 重評失敗時保留原本的評分：`uv run pytest tests/test_job_scoring_batch.py -k rescore_failure`
-  - 重評新增而不覆寫、不提供刪除：`uv run pytest tests/test_job_scoring_batch.py -k "history_append or history_no_delete"`
-  - 代表的評分與所有評分紀錄的查詢：`uv run pytest tests/test_job_scoring_batch.py -k current`
+- 評分作業的錯誤處理：`uv run pytest tests/test_web_scoring.py -k "write_failure or unexpected_error or client_error"`
+- 職缺表上的評分資料讀不到時：`uv run pytest tests/test_browser_scoring.py -k "failure_keeps or retry_after or state_failure or stop_failure"`
 
 ### score
 
@@ -362,12 +472,39 @@ npm test --prefix frontend -- drafts
 - [AC-score-total](../../product/features/job-auto-scoring.md#ac-score-total總分計算)：`uv run pytest tests/test_job_scoring_scorer.py -k compute_total`
 - [AC-score-flow](../../product/features/job-auto-scoring.md#ac-score-flow評分流程與-ai-回應處理)：`uv run pytest tests/test_job_scoring_scorer.py -k score_job`
   - 送給 AI 的資料與「（無資料）」：`uv run pytest tests/test_job_scoring_prompt.py`
-- [AC-score-failure](../../product/features/job-auto-scoring.md#ac-score-failure單筆失敗不中斷整批)：`uv run pytest tests/test_job_scoring_batch.py -k failure_does_not_stop`
-  - 只驗寫入與整批不中斷；列上的失敗標示〔規劃中〕
+- [AC-score-settings](../../product/features/job-auto-scoring.md#ac-score-settings評分用的設定)：`uv run pytest tests/test_web_scoring.py -k settings_read_at_start`
+  - 以假的 LLM 停在第一筆，這時經由設定頁的 API 儲存第 3 版。
+- [AC-score-ai](../../product/features/job-auto-scoring.md#ac-score-ai理由引用職缺內容分數符合判斷)〔需網路〕：`uv run pytest -m network -s tests/e2e/test_job_scoring.py`
+  - 經由網頁的 API 存入 e2e 的偏好與經歷、送去評分所有職缺，以真的 Gemini 評分。
+  - 沒有設定 `GEMINI_API_KEY` 時跳過並說明原因。
+  - 自動檢查：作業沒有錯誤，每一筆有工作內容、而且沒被淘汰的職缺都評分成功，評分明細的格式、各維度的理由與分數範圍、供應商與模型都正確。
+  - 印出這些職缺的評分明細與測試資料庫的路徑，給使用者閱讀理由。
+- [AC-score-store](../../product/features/job-auto-scoring.md#ac-score-store評分結果入庫)：`uv run pytest tests/test_job_scoring_batch.py -k store_write`
+  - 經由網頁送去評分，成功與淘汰的寫入、失敗的不寫入：`uv run pytest tests/test_web_scoring.py -k order_failure_and_summary`
+- [AC-score-detail](../../product/features/job-auto-scoring.md#ac-score-detail展開列的評分)：`uv run pytest tests/test_browser_scoring.py -k detail_history_and_basis`
+- [AC-score-pick](../../product/features/job-auto-scoring.md#ac-score-pick勾選)：`uv run pytest tests/test_browser_scoring.py -k test_pick`
+- [AC-score-confirm](../../product/features/job-auto-scoring.md#ac-score-confirm送出前的確認)：`uv run pytest tests/test_browser_scoring.py -k confirm` 與 `uv run pytest tests/test_web_scoring.py -k "plan or selected_model or no_api_key"`
+- [AC-score-order](../../product/features/job-auto-scoring.md#ac-score-order照表格順序評分)：`uv run pytest tests/test_web_scoring.py -k order_failure_and_summary`
+  - 職缺依表格的顯示順序送出：`uv run pytest tests/test_browser_scoring.py -k run_progress`
+- [AC-score-failure](../../product/features/job-auto-scoring.md#ac-score-failure單筆失敗不中斷整批)：`uv run pytest tests/test_web_scoring.py -k order_failure_and_summary` 與 `uv run pytest tests/test_browser_scoring.py -k run_summary_and_failure`
+- [AC-score-run](../../product/features/job-auto-scoring.md#ac-score-run評分中停止與摘要)：`uv run pytest tests/test_browser_scoring.py -k "run_progress or run_summary"` 與 `uv run pytest tests/test_web_scoring.py -k "running_state or stop"`，以及 `npm test --prefix frontend -- scoring/summary`
 
 ### filter
 
 - [AC-filter-rules](../../product/features/job-auto-scoring.md#ac-filter-rules硬性淘汰)：`uv run pytest tests/test_job_scoring_rules.py -k check_hard_filters`
+- [AC-filter-no-key](../../product/features/job-auto-scoring.md#ac-filter-no-key被淘汰的職缺不需要-api-key)：`uv run pytest tests/test_web_scoring.py -k no_api_key`
+- [AC-filter-comment](../../product/features/job-auto-scoring.md#ac-filter-comment淘汰時的評語)：`uv run pytest tests/test_web_scoring.py -k eliminated_comment`
+
+### rank
+
+- [AC-rank-columns](../../product/features/job-auto-scoring.md#ac-rank-columns評分的欄位)：`uv run pytest tests/test_browser_scoring.py -k rank_columns`，以及 `npm test --prefix frontend -- scoring/columns`
+- [AC-rank-sort](../../product/features/job-auto-scoring.md#ac-rank-sort預設依總分排序)：`uv run pytest tests/test_browser_scoring.py -k rank_columns_and_sort`，以及 `npm test --prefix frontend -- scoring/columns`
+- [AC-rank-filter](../../product/features/job-auto-scoring.md#ac-rank-filter評分的篩選)：`uv run pytest tests/test_browser_scoring.py -k rank_filter`，以及 `npm test --prefix frontend -- scoring/filters`
+
+### rescore
+
+- [AC-rescore](../../product/features/job-auto-scoring.md#ac-rescore包含已評過的職缺)：`uv run pytest tests/test_web_scoring.py -k "test_rescore or rescore_counts"` 與 `uv run pytest tests/test_browser_scoring.py -k test_confirm`
+- [AC-rescore-failure](../../product/features/job-auto-scoring.md#ac-rescore-failure重評失敗時保留原本的評分)：`uv run pytest tests/test_web_scoring.py -k rescore_failure`
 
 ### settings
 
@@ -381,18 +518,39 @@ npm test --prefix frontend -- drafts
 - [AC-settings-check](../../product/features/job-auto-scoring.md#ac-settings-check檢查)：`uv run pytest tests/test_job_scoring_settings.py -k check` 與 `uv run pytest tests/test_browser_settings.py -k settings_check`
   - 不能試跑那一項〔規劃中〕
 - [AC-settings-default](../../product/features/job-auto-scoring.md#ac-settings-default第一版與預設範例)：`uv run pytest tests/test_browser_settings.py -k settings_default` 與 `uv run pytest tests/test_web_settings.py -k first_versions`
-  - 確認視窗那一項〔規劃中〕
+  - 確認視窗擋下預設範例：`uv run pytest tests/test_web_scoring.py -k default` 與 `uv run pytest tests/test_browser_scoring.py -k default_experience`
+
+### history
+
+- [AC-history-append](../../product/features/job-auto-scoring.md#ac-history-append重評新增而不覆寫)：`uv run pytest tests/test_web_scoring.py -k history_append`
+- [AC-history-no-delete](../../product/features/job-auto-scoring.md#ac-history-no-delete不提供刪除評分紀錄)：`uv run pytest tests/test_web_settings.py -k no_delete_endpoints` 與 `uv run pytest tests/test_job_scoring_batch.py -k history_no_delete`
+  - 以 OpenAPI 列出所有端點，唯一的刪除是抓取頁的捨棄預覽。
+  - `job_db` 沒有刪除評分紀錄的函式。
+- [AC-history-current](../../product/features/job-auto-scoring.md#ac-history-current代表的評分)：`uv run pytest tests/test_browser_scoring.py -k detail_history_and_basis` 與 `uv run pytest tests/test_web_scoring.py -k scores_current`
+  - 依評分狀態「淘汰」篩選時以代表的評分為準：`npm test --prefix frontend -- scoring/filters`
+  - 試跑清單那一項〔規劃中〕
+- [AC-history-all](../../product/features/job-auto-scoring.md#ac-history-all所有評分紀錄與檢視舊評分)：`uv run pytest tests/test_browser_scoring.py -k detail_history_and_basis` 與 `uv run pytest tests/test_web_scoring.py -k history_order`
 
 ### basis
 
-- [AC-basis](../../product/features/job-auto-scoring.md#ac-basis記錄與顯示評分依據)：`uv run pytest tests/test_job_scoring_batch.py -k basis`
-  - 只驗 (a) 的記錄；(b)、(c) 的顯示〔規劃中〕
+- [AC-basis](../../product/features/job-auto-scoring.md#ac-basis記錄與顯示評分依據)：`uv run pytest tests/test_web_scoring.py -k history_basis` 與 `uv run pytest tests/test_browser_scoring.py -k detail_history_and_basis`
+  - 記錄的部分另見 `uv run pytest tests/test_job_scoring_batch.py -k basis`
+- [AC-basis-legacy](../../product/features/job-auto-scoring.md#ac-basis-legacy沒有依據的舊評分)：`uv run pytest tests/test_browser_scoring.py -k detail_history_and_basis` 與 `uv run pytest tests/test_web_scoring.py -k legacy`
 
 ### 非功能需求
 
-- [AC-nfr-migration](../../product/features/job-auto-scoring.md#ac-nfr-migration改版時保留評分資料)：`uv run pytest tests/test_job_db_upgrade.py tests/test_app.py`
+- [AC-nfr-migration](../../product/features/job-auto-scoring.md#ac-nfr-migration改版時保留評分資料)：`uv run pytest tests/test_job_db_upgrade.py tests/test_app.py -k "not env"`
   - 以 SQL 建出三種舊版的資料庫，各含自動、手動與沒有對應職缺的評分。
   - 中途失敗以替換改版步驟模擬。
   - 設定的版本：第 0 版還沒有設定的資料表，沒有要保留的內容。
     - 目前只驗改版後建出空的設定資料表。
     - 之後改版時要補上「設定的版本筆數與內容不變」的驗證。
+
+### 共用規則
+
+- [AC-job](../../product/features/job-auto-scoring.md#ac-job作業)：`uv run pytest tests/test_browser_scoring.py -k run_progress`
+  - (a) 評分中重新整理、(b) 另開一個頁面，都接回進度。
+  - 已有其他作業在跑時不能開始：`uv run pytest tests/test_web_scoring.py -k while_other_job_running`
+  - 在設定頁按試跑那一項〔規劃中〕
+- [AC-llm](../../product/features/job-auto-scoring.md#ac-llmai-供應商與-api-key)：`uv run pytest tests/test_app.py -k env` 與 `uv run pytest tests/test_browser_scoring.py -k test_confirm`
+  - 真實的 `.env` 不進版控、`.env.example` 有進版控：`uv run pytest tests/test_job_scoring_llm.py -k env_ignored`

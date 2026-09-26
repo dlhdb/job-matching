@@ -9,5 +9,4 @@
     - 列出執行紀錄的查詢：職缺表用不到，等趨勢分析規劃時再決定去留（見[做趨勢圖表](trend-charts.md)）
   - job-auto-scoring：
     - 試跑結果檔（`output/scores/`）與寫出它的 `batch.write_dry_run_results`：試跑的介面完成時拿掉
-    - 技術設計的驗收對照：操作改成網頁版的 AC（例如 AC-score-store、AC-rescore-failure、AC-history-append）目前以整批評分的測試暫代，送去評分的介面完成時改成網頁的驗證方式
-  - README.md：送去評分與試跑的使用說明
+  - README.md：試跑的使用說明
