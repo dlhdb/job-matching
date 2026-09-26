@@ -1,7 +1,6 @@
 """把一批符合職缺欄位契約的職缺寫入資料庫。"""
 
 import sqlite3
-import sys
 from dataclasses import dataclass
 from datetime import datetime
 from typing import Any
@@ -68,19 +67,6 @@ def _upsert_job(conn: sqlite3.Connection, job: dict[str, Any], t: str) -> bool:
     return False
 
 
-def _db_path(conn: sqlite3.Connection) -> str:
-    """
-    取得連線對應的資料庫檔路徑
-
-    :param conn: sqlite3.Connection, 已開啟的連線
-    :return: str, 資料庫檔路徑
-    """
-    for _, name, file in conn.execute("PRAGMA database_list"):
-        if name == "main":
-            return str(file)
-    return ""
-
-
 def save_run(
     conn: sqlite3.Connection,
     jobs: list[dict[str, Any]],
@@ -91,7 +77,6 @@ def save_run(
     area: str | None = None,
     job_type: int | None = None,
     pages: int | None = None,
-    source_file: str | None = None,
 ) -> SaveResult:
     """
     把一次抓取或匯入的職缺寫入資料庫，並記錄這次執行；整批在同一個交易中，失敗時全部 rollback。
@@ -99,21 +84,20 @@ def save_run(
     :param conn: sqlite3.Connection, open_db 開啟的連線
     :param jobs: list[dict], 符合職缺欄位契約的職缺
     :param run_time: datetime, 本次執行時間（本地時間）
-    :param source: str, "爬蟲" 或 "匯入"
+    :param source: str, 寫入方式的名稱，例如 "爬蟲"
     :param keywords: str or None, 以 ", " 合併的關鍵字
     :param area: str or None, 縣市名稱或「全台灣」
     :param job_type: int or None, 職缺性質 0／1／2
     :param pages: int or None, 每個關鍵字抓取的頁數
-    :param source_file: str or None, 匯入的 JSON 檔名（不含目錄）
     :return: SaveResult, 新增與更新的筆數
     """
     t = run_time.isoformat(timespec="seconds")
     inserted = updated = 0
     with conn:
         cursor = conn.execute(
-            'INSERT INTO scrape_runs ("執行時間", "來源", "關鍵字", "地區", "職缺性質", "頁數", "來源檔", "職缺數") '
-            "VALUES (?, ?, ?, ?, ?, ?, ?, 0)",
-            (t, source, keywords, area, job_type, pages, source_file),
+            'INSERT INTO scrape_runs ("執行時間", "來源", "關鍵字", "地區", "職缺性質", "頁數", "職缺數") '
+            "VALUES (?, ?, ?, ?, ?, ?, 0)",
+            (t, source, keywords, area, job_type, pages),
         )
         run_id = cursor.lastrowid
         seen: set[Any] = set()
@@ -128,6 +112,4 @@ def save_run(
                 (run_id, job.get("職缺代碼")),
             )
         conn.execute('UPDATE scrape_runs SET "職缺數" = ? WHERE "執行編號" = ?', (len(seen), run_id))
-
-    print(f"[+] 已寫入資料庫：新增 {inserted} 筆、更新 {updated} 筆（{_db_path(conn)}）", file=sys.stderr)
     return SaveResult(inserted, updated)

@@ -505,7 +505,7 @@ def test_execute_scraping_filename(fake_search, tmp_path, keywords, prefix):
     assert json_file.name.startswith(prefix)
 
 
-def test_main_db_writes_scraped_jobs(fake_search, tmp_path, capsys):
+def test_main_db_writes_scraped_jobs(fake_search, tmp_path):
     fake_search({("A", 1): (["1", "2"], 2), ("A", 2): (["3"], 2), ("B", 1): (["2"], 1)})
     db = tmp_path / "db" / "jobs.db"
 
@@ -526,7 +526,6 @@ def test_main_db_writes_scraped_jobs(fake_search, tmp_path, capsys):
     assert rows == [(no, DETAIL["jobDescription"], stamp, stamp) for no in ("1", "2", "3")]
     assert runs == [(1, stamp, "爬蟲", "A, B", "台北市", 1, 2, None, 3)]
     assert run_jobs == [(1, "1"), (1, "2"), (1, "3")]
-    assert "[+] 已寫入資料庫：新增 3 筆、更新 0 筆" in capsys.readouterr().err
 
 
 def test_main_db_skipped_with_no_db(fake_search, tmp_path):

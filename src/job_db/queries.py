@@ -1,5 +1,6 @@
-"""查出職缺欄位契約的職缺，以及每次寫入的執行紀錄。"""
+"""查出職缺欄位契約的職缺、哪些職缺代碼已經在資料庫裡，以及每次寫入的執行紀錄。"""
 
+import json
 import sqlite3
 from typing import Any
 
@@ -37,6 +38,24 @@ def get_job(conn: sqlite3.Connection, job_no: str) -> dict[str, Any] | None:
         conn.execute(f'SELECT {columns} FROM jobs WHERE "職缺代碼" = ?', (job_no,))
     )
     return rows[0] if rows else None
+
+
+def existing_job_codes(conn: sqlite3.Connection, codes: list[str]) -> set[str]:
+    """
+    從一批職缺代碼中找出資料庫裡已經有的。
+
+    :param conn: sqlite3.Connection, open_db 開啟的連線
+    :param codes: list[str], 要檢查的職缺代碼
+    :return: set[str], 其中已經在資料庫裡的職缺代碼
+    """
+    if not codes:
+        return set()
+    # 用 JSON 陣列一次帶入，不受 SQLite 單一語句參數個數的上限影響
+    rows = conn.execute(
+        'SELECT "職缺代碼" FROM jobs WHERE "職缺代碼" IN (SELECT value FROM json_each(?))',
+        (json.dumps(codes),),
+    )
+    return {row[0] for row in rows}
 
 
 def list_runs(conn: sqlite3.Connection, *, limit: int | None = None) -> list[dict[str, Any]]:

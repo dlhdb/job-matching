@@ -5,7 +5,7 @@ from datetime import datetime
 
 import pytest
 
-from job_db import JOB_COLUMNS, SaveResult, get_job, list_jobs, list_runs, open_db, save_run
+from job_db import JOB_COLUMNS, SaveResult, existing_job_codes, get_job, list_jobs, list_runs, open_db, save_run
 
 COLUMN_NAMES = [name for name, _ in JOB_COLUMNS]
 
@@ -111,10 +111,8 @@ def test_save_run_dedups_and_tracks_times(conn, two_batches, capsys, order):
     assert save_run(conn, two_batches[first], first, "爬蟲") == SaveResult(inserted=2, updated=0)
     assert save_run(conn, two_batches[second], second, "爬蟲") == SaveResult(inserted=1, updated=1)
 
-    err = capsys.readouterr().err
-    assert "[+] 已寫入資料庫：新增 2 筆、更新 0 筆" in err
-    assert "[+] 已寫入資料庫：新增 1 筆、更新 1 筆" in err
-    assert "jobs.db" in err
+    # 寫入的結果只以回傳值交給呼叫端，不印在終端機
+    assert capsys.readouterr() == ("", "")
 
     jobs = jobs_by_no(conn)
     assert sorted(jobs) == ["a", "b", "c"]
@@ -140,7 +138,7 @@ def test_save_run_order_does_not_matter(tmp_path, two_batches):
 def test_save_run_same_time_counts_as_update(conn, make_job):
     save_run(conn, [make_job()], T1, "爬蟲")
 
-    assert save_run(conn, [make_job(職缺名稱="改名")], T1, "匯入", source_file="x.json") == SaveResult(0, 1)
+    assert save_run(conn, [make_job(職缺名稱="改名")], T1, "匯入") == SaveResult(0, 1)
     assert jobs_by_no(conn)["ok"]["職缺名稱"] == "改名"
 
 
@@ -209,10 +207,10 @@ def test_save_run_records_run(conn, make_job):
 
 def test_save_run_records_each_run(conn, make_job):
     save_run(conn, [make_job(職缺代碼="a")], T1, "爬蟲")
-    save_run(conn, [make_job(職缺代碼="a"), make_job(職缺代碼="b")], T2, "匯入", source_file="x.json")
+    save_run(conn, [make_job(職缺代碼="a"), make_job(職缺代碼="b")], T2, "匯入")
 
     runs = dump(conn, "scrape_runs")
-    assert [(r[0], r[2], r[7], r[8]) for r in runs] == [(1, "爬蟲", None, 1), (2, "匯入", "x.json", 2)]
+    assert [(r[0], r[2], r[8]) for r in runs] == [(1, "爬蟲", 1), (2, "匯入", 2)]
     assert dump(conn, "run_jobs") == [(1, "a"), (2, "a"), (2, "b")]
 
 
@@ -238,7 +236,7 @@ def queried(conn, make_job):
     兩次寫入：t1 寫 a、b，t2 寫 b、c，所以 b 的最後出現時間是 t2
     """
     save_run(conn, [make_job(職缺代碼="a"), make_job(職缺代碼="b")], T1, "爬蟲", keywords="Python")
-    save_run(conn, [make_job(職缺代碼="b"), make_job(職缺代碼="c")], T2, "匯入", source_file="jobs.json")
+    save_run(conn, [make_job(職缺代碼="b"), make_job(職缺代碼="c")], T2, "匯入")
 
 
 def test_list_jobs_orders_by_last_seen(conn, queried):
@@ -272,6 +270,21 @@ def test_get_job_missing_is_none(conn, queried):
     assert get_job(conn, "沒有這筆") is None
 
 
+def test_existing_job_codes_picks_saved_codes(conn, queried):
+    assert existing_job_codes(conn, ["c", "x", "a", "a"]) == {"a", "c"}
+
+
+def test_existing_job_codes_empty(conn, queried):
+    assert existing_job_codes(conn, []) == set()
+
+
+def test_existing_job_codes_many_codes(conn, queried):
+    # 超過 SQLite 單一語句的參數上限（32766）也查得出來
+    codes = [f"x{i}" for i in range(40000)] + ["b"]
+
+    assert existing_job_codes(conn, codes) == {"b"}
+
+
 def test_list_runs_orders_by_run_time(conn, queried):
     runs = list_runs(conn)
 
@@ -282,8 +295,8 @@ def test_list_runs_orders_by_run_time(conn, queried):
 def test_list_runs_keeps_missing_conditions_null(conn, queried):
     latest, earliest = list_runs(conn)
 
-    # 匯入沒有提供搜尋條件、爬蟲沒有提供來源檔，都不回填
-    assert latest["來源檔"] == "jobs.json" and latest["關鍵字"] is None
+    # 沒有提供的條件不回填；來源檔只有舊的匯入紀錄才有
+    assert latest["關鍵字"] is None and latest["來源檔"] is None
     assert earliest["關鍵字"] == "Python" and earliest["來源檔"] is None
 
 
