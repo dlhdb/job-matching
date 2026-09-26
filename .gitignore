@@ -15,7 +15,7 @@ node_modules/
 # Scraper outputs
 output/
 
-# Personal profile and secrets (templates are *.example and stay tracked)
+# Old personal profile files (settings now live in the job database) and secrets
 profile/preferences.yaml
 profile/experience.md
 .env

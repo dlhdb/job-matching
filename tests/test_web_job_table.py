@@ -49,12 +49,12 @@ def test_get_jobs_empty_db_is_empty_list(client):
 
 
 def test_create_app_opens_db_on_startup(tmp_path):
-    # 舊版的評分紀錄表沒有評分來源，open_db 會拒絕開啟
+    # 還沒改版的舊版資料庫（user_version 0、已有資料表），open_db 會拒絕開啟
     path = tmp_path / "old.db"
     with closing(sqlite3.connect(path)) as conn:
         conn.execute('CREATE TABLE job_scores ("職缺代碼" TEXT)')
 
-    with pytest.raises(sqlite3.DatabaseError):
+    with pytest.raises(sqlite3.DatabaseError, match="舊版"):
         with TestClient(create_app(path)):
             pass
 

@@ -1,5 +1,8 @@
-"""工作評分 LLM 抽象層的測試：以假的 SDK client 驗證 GeminiClient 的請求與錯誤處理，不連網。"""
+"""工作評分 LLM 抽象層的測試：以假的 SDK client 驗證 GeminiClient 的請求與錯誤處理，不連網；另檢查供應商 SDK 的隔離與 API key 的版控。"""
 
+import ast
+import subprocess
+from pathlib import Path
 from types import SimpleNamespace
 
 import pytest
@@ -7,6 +10,8 @@ from pydantic import ValidationError
 
 from job_scoring import llm
 from job_scoring.models import AIAssessment
+
+PROJECT_ROOT = Path(__file__).resolve().parents[1]
 
 VALID_RESPONSE = (
     '{"career_fit": {"score": 4, "reason": "a"}, "skill_match": {"score": null, "reason": "b"},'
@@ -78,3 +83,37 @@ def test_get_client_gemini_requires_key(monkeypatch):
 
     with pytest.raises(llm.LLMError, match="GEMINI_API_KEY"):
         llm.get_client("gemini", "m")
+
+
+def _imported_modules(path):
+    """
+    列出一個 Python 檔 import 的模組名稱
+
+    :return: Iterator[str]
+    """
+    for node in ast.walk(ast.parse(path.read_text(encoding="utf-8"))):
+        if isinstance(node, ast.Import):
+            yield from (alias.name for alias in node.names)
+        elif isinstance(node, ast.ImportFrom) and node.module:
+            yield node.module
+
+
+def test_provider_sdk_isolated_to_llm():
+    files = sorted((PROJECT_ROOT / "src" / "job_scoring").glob("*.py"))
+    importing_google = {
+        path.name for path in files
+        if any(name == "google" or name.startswith("google.") for name in _imported_modules(path))
+    }
+
+    assert importing_google == {"llm.py"}
+
+
+def _is_ignored(path):
+    result = subprocess.run(["git", "check-ignore", "-q", path], cwd=PROJECT_ROOT, check=False)
+    return result.returncode == 0
+
+
+def test_llm_env_ignored_and_example_tracked():
+    assert _is_ignored(".env")
+    assert not _is_ignored(".env.example")
+    assert (PROJECT_ROOT / ".env.example").is_file()

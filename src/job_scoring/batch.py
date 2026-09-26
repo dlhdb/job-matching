@@ -10,9 +10,10 @@ from typing import Any, Callable
 from pydantic import ValidationError
 
 from job_scoring.llm import LLMClient, LLMError
-from job_scoring.models import DIMENSIONS, BatchResult, Preferences
+from job_scoring.models import DIMENSIONS, BatchResult
 from job_scoring.rules import check_hard_filters
 from job_scoring.scorer import score_and_save
+from job_scoring.settings import ScoringSettings
 
 # CSV 欄位順序；四個維度欄只放分數，理由要查 JSON
 CSV_FIELDNAMES = [
@@ -41,8 +42,7 @@ def _job_fields(job: dict[str, Any]) -> dict[str, Any]:
 
 def score_batch(
     jobs: list[dict[str, Any]],
-    prefs: Preferences,
-    experience: str,
+    settings: ScoringSettings,
     client_factory: Callable[[], LLMClient],
     progress: Callable[[str], None],
     *,
@@ -58,8 +58,7 @@ def score_batch(
     所以直接往外拋，這時還沒有寫入任何一筆。
 
     :param jobs: list[dict], 符合職缺欄位契約的職缺
-    :param prefs: Preferences, 偏好設定
-    :param experience: str, experience.md 全文
+    :param settings: ScoringSettings, 評分用的設定，整批都用同一組
     :param client_factory: callable, 建立 LLM client；整批都被淘汰時不呼叫
     :param progress: callable, 接收每筆開始前的進度訊息
     :param conn: sqlite3.Connection or None, open_db 開啟的連線，評分結果寫入其中的 job_scores；None 表示試跑
@@ -70,7 +69,7 @@ def score_batch(
     :raises LLMError: client_factory 建立 client 失敗（例如缺少 API key）
     :raises sqlite3.Error: 寫入資料庫失敗；已寫入的職缺留在資料庫中
     """
-    needs_ai = any(not check_hard_filters(job, prefs) for job in jobs)
+    needs_ai = any(not check_hard_filters(job, settings.preferences) for job in jobs)
     client = client_factory() if needs_ai else None
 
     results = []
@@ -78,7 +77,7 @@ def score_batch(
         progress(f"⏳ [i] ({i}/{len(jobs)}) {job.get('職缺名稱')} - {job.get('公司名稱')}")
         fields = _job_fields(job)
         try:
-            score = score_and_save(job, prefs, experience, client, conn, provider, model)
+            score = score_and_save(job, settings, client, conn, provider, model)
         except (LLMError, ValidationError) as e:
             results.append(BatchResult(
                 **fields, eliminated=False, elimination_reasons=[], dimensions=None,

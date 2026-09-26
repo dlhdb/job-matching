@@ -18,8 +18,9 @@ from job_scoring.models import (
     JobScore,
     Preferences,
 )
-from job_scoring.prompt import build_prompt
+from job_scoring.prompt import build_prompt, snapshot
 from job_scoring.rules import check_hard_filters, round_half_up, score_salary
+from job_scoring.settings import EXPERIENCE, PREFERENCES, TEMPLATE, ScoringSettings
 
 # 分數未知的維度以此分數（中性）代入，讓每筆職缺都用相同的維度與權重計算，總分才能互相比較
 UNKNOWN_SCORE = 3
@@ -83,46 +84,44 @@ def _combine(job: dict[str, Any], prefs: Preferences, assessment: AIAssessment) 
     )
 
 
-def score_job(job: dict[str, Any], prefs: Preferences, experience: str, client: LLMClient | None) -> JobScore:
+def score_job(job: dict[str, Any], settings: ScoringSettings, client: LLMClient | None) -> JobScore:
     """
     對單筆職缺評分；被淘汰的職缺不呼叫 LLM。
 
     :param job: dict, 符合職缺欄位契約的單筆職缺
-    :param prefs: Preferences, 偏好設定
-    :param experience: str, experience.md 全文
+    :param settings: ScoringSettings, 評分用的偏好、經歷與提示詞模板
     :param client: LLMClient or None, LLM client；呼叫端確定這筆會被淘汰時才可以是 None
     :return: JobScore, 評分結果
     :raises LLMError: LLM 呼叫失敗
     :raises pydantic.ValidationError: LLM 回應不符合 schema
     :raises ValueError: 沒被淘汰卻沒有提供 client，代表呼叫端的程式錯誤
     """
+    prefs = settings.preferences
     reasons = check_hard_filters(job, prefs)
     if reasons:
         return _eliminated_score(str(job.get("職缺代碼") or ""), reasons)
     if client is None:
         raise ValueError(f"職缺 {job.get('職缺代碼')} 需要呼叫 AI，但沒有提供 LLM client")
-    system, user = build_prompt(job, prefs, experience)
+    system, user = build_prompt(job, prefs, settings.experience, settings.template)
     return _combine(job, prefs, client.assess(system, user))
 
 
 def score_and_save(
     job: dict[str, Any],
-    prefs: Preferences,
-    experience: str,
+    settings: ScoringSettings,
     client: LLMClient | None,
     conn: sqlite3.Connection | None,
     provider: str,
     model: str,
 ) -> JobScore:
     """
-    對單筆職缺評分並新增一筆自動評分紀錄；評分失敗時例外直接往外拋，不寫入。
+    對單筆職缺評分並新增一筆評分紀錄；評分失敗時例外直接往外拋，不寫入。
     每次都重新評分，沒被淘汰的職缺一律呼叫 AI。
 
     conn 為 None 時是試跑：只評分，不寫入資料庫。
 
     :param job: dict, 符合職缺欄位契約的單筆職缺
-    :param prefs: Preferences, 偏好設定
-    :param experience: str, experience.md 全文
+    :param settings: ScoringSettings, 評分用的設定；它的版本號與職缺內容快照記成評分依據
     :param client: LLMClient or None, LLM client；整批都會被淘汰時可以是 None
     :param conn: sqlite3.Connection or None, open_db 開啟的連線；None 表示試跑
     :param provider: str, client 使用的 LLM 供應商
@@ -132,10 +131,10 @@ def score_and_save(
     :raises pydantic.ValidationError: LLM 回應不符合 schema
     :raises sqlite3.Error: 寫入資料庫失敗
     """
-    score = score_job(job, prefs, experience, client)
+    score = score_job(job, settings, client)
     if conn is None:
         return score
-    # 被淘汰的職缺沒有呼叫 AI，也就沒有使用任何 LLM
+    # 被淘汰的職缺沒有呼叫 AI，也就沒有使用任何 LLM；評分依據照樣記下
     save_auto_score(
         conn,
         job_no=score.job_no,
@@ -146,5 +145,11 @@ def score_and_save(
         details=score.model_dump(by_alias=True),
         provider=None if score.eliminated else provider,
         model=None if score.eliminated else model,
+        basis={
+            "偏好版本": settings.versions[PREFERENCES],
+            "經歷版本": settings.versions[EXPERIENCE],
+            "模板版本": settings.versions[TEMPLATE],
+            "職缺快照": snapshot(job),
+        },
     )
     return score

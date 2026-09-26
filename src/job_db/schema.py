@@ -41,7 +41,61 @@ def _jobs_ddl() -> str:
     return "CREATE TABLE IF NOT EXISTS jobs (\n    " + ",\n    ".join(columns) + "\n)"
 
 
-SCHEMA = [
+# 資料庫結構的版本，記在 PRAGMA user_version；0 是開始記版本之前的各種舊版，改版見 job_db/upgrade.py
+LATEST_VERSION = 1
+
+# 設定的種類：偏好、經歷、提示詞模板
+SETTING_KINDS = ("preferences", "experience", "template")
+
+JOB_SCORES_DDL = """
+    CREATE TABLE IF NOT EXISTS job_scores (
+        "評分編號" INTEGER PRIMARY KEY AUTOINCREMENT,
+        "職缺代碼" TEXT NOT NULL REFERENCES jobs("職缺代碼"),
+        "評分時間" TEXT NOT NULL,
+        "淘汰" INTEGER NOT NULL,
+        "總分" INTEGER,
+        "評語" TEXT,
+        "評分明細" TEXT,
+        "供應商" TEXT,
+        "模型" TEXT,
+        "偏好版本" INTEGER,
+        "經歷版本" INTEGER,
+        "模板版本" INTEGER,
+        "職缺快照" TEXT,
+        CHECK (
+            ("偏好版本" IS NULL) = ("經歷版本" IS NULL)
+            AND ("經歷版本" IS NULL) = ("模板版本" IS NULL)
+            AND ("模板版本" IS NULL) = ("職缺快照" IS NULL)
+        )
+    )
+"""
+
+JOB_SCORES_INDEX_DDL = 'CREATE INDEX IF NOT EXISTS job_scores_job ON job_scores("職缺代碼", "評分時間")'
+
+_KIND_CHECK = ", ".join(f"'{kind}'" for kind in SETTING_KINDS)
+
+SETTINGS_DDL = [
+    f"""
+    CREATE TABLE IF NOT EXISTS settings_versions (
+        "種類" TEXT NOT NULL CHECK ("種類" IN ({_KIND_CHECK})),
+        "版本" INTEGER NOT NULL,
+        "名稱" TEXT NOT NULL,
+        "描述" TEXT NOT NULL,
+        "儲存時間" TEXT NOT NULL,
+        "內容" TEXT NOT NULL,
+        PRIMARY KEY ("種類", "版本")
+    )
+    """,
+    """
+    CREATE TABLE IF NOT EXISTS current_settings (
+        "種類" TEXT PRIMARY KEY,
+        "版本" INTEGER NOT NULL,
+        FOREIGN KEY ("種類", "版本") REFERENCES settings_versions("種類", "版本")
+    )
+    """,
+]
+
+JOB_DDL = [
     _jobs_ddl(),
     """
     CREATE TABLE IF NOT EXISTS scrape_runs (
@@ -63,59 +117,44 @@ SCHEMA = [
         PRIMARY KEY ("執行編號", "職缺代碼")
     )
     """,
-    # 評分紀錄，同一筆職缺可以有多筆：自動與手動評分每次都新增一筆；
-    # 不設外鍵，評分的職缺不一定匯入過 jobs
-    """
-    CREATE TABLE IF NOT EXISTS job_scores (
-        "評分編號" INTEGER PRIMARY KEY AUTOINCREMENT,
-        "職缺代碼" TEXT NOT NULL,
-        "評分來源" TEXT NOT NULL CHECK ("評分來源" IN ('auto', 'manual')),
-        "評分時間" TEXT NOT NULL,
-        "淘汰" INTEGER NOT NULL,
-        "總分" INTEGER,
-        "評語" TEXT,
-        "評分明細" TEXT,
-        "供應商" TEXT,
-        "模型" TEXT
-    )
-    """,
-    'CREATE INDEX IF NOT EXISTS job_scores_job ON job_scores("職缺代碼", "評分時間")',
 ]
 
+# 最新版的完整結構。評分紀錄同一筆職缺可以有多筆，每次評分都新增一筆；設定的每個版本只新增、不刪除
+SCHEMA = [*JOB_DDL, JOB_SCORES_DDL, JOB_SCORES_INDEX_DDL, *SETTINGS_DDL]
 
-def _check_job_scores(conn: sqlite3.Connection) -> None:
+
+def db_version(conn: sqlite3.Connection) -> int:
     """
-    檢查既有的 job_scores 不是舊版（沒有評分來源）；舊版不遷移，要刪除資料庫後重建
-
-    SQLite 把找不到的雙引號欄名當成字串，不先擋下的話，查詢會靜默查不到、寫入到最後才失敗。
+    取出資料庫結構的版本
 
     :param conn: sqlite3.Connection, 開啟中的連線
-    :raises sqlite3.DatabaseError: job_scores 是舊版
+    :return: int, PRAGMA user_version 的值
     """
-    columns = {row[1] for row in conn.execute("PRAGMA table_info(job_scores)")}
-    if columns and "評分來源" not in columns:
-        raise sqlite3.DatabaseError("評分紀錄的資料表是舊版，不支援遷移，請刪除資料庫檔後重建")
+    return conn.execute("PRAGMA user_version").fetchone()[0]
 
 
-def _migrate_job_scores(conn: sqlite3.Connection) -> None:
+def is_empty(conn: sqlite3.Connection) -> bool:
     """
-    移除舊版留下的快取欄位與「每筆職缺最多一筆手動評分」的唯一索引，保留既有的評分紀錄
+    是否還沒有任何資料表（剛建立的資料庫檔）
 
-    :param conn: sqlite3.Connection, 開啟中的連線（呼叫端負責交易）
+    :param conn: sqlite3.Connection, 開啟中的連線
+    :return: bool
     """
-    conn.execute("DROP INDEX IF EXISTS job_scores_manual")
-    columns = {row[1] for row in conn.execute("PRAGMA table_info(job_scores)")}
-    if "快取鍵" in columns:
-        conn.execute('ALTER TABLE job_scores DROP COLUMN "快取鍵"')
+    row = conn.execute(
+        "SELECT 1 FROM sqlite_master WHERE type = 'table' AND name NOT LIKE 'sqlite_%' LIMIT 1"
+    ).fetchone()
+    return row is None
 
 
 def open_db(path: str | Path = DEFAULT_DB_PATH) -> sqlite3.Connection:
     """
-    開啟資料庫；檔案或上層目錄不存在時自動建立，並建立缺少的資料表。
+    開啟資料庫；檔案或上層目錄不存在時自動建立，並建立最新版的資料表。
+
+    舊版的資料庫不在這裡改版，要先經過 upgrade_db（網頁啟動時會做）。
 
     :param path: str or Path, 資料庫檔路徑，預設為專案根目錄的 data/jobs.db
     :return: sqlite3.Connection, 交易需以 commit 或 with 區塊結束
-    :raises sqlite3.DatabaseError: 評分紀錄的資料表是舊版
+    :raises sqlite3.DatabaseError: 資料庫是舊版或比程式新的版本
     """
     path = Path(path)
     path.parent.mkdir(parents=True, exist_ok=True)
@@ -124,23 +163,23 @@ def open_db(path: str | Path = DEFAULT_DB_PATH) -> sqlite3.Connection:
     conn.execute("PRAGMA foreign_keys = ON")
     conn.autocommit = False
     try:
-        _check_job_scores(conn)
+        version = db_version(conn)
+        if version > LATEST_VERSION:
+            raise sqlite3.DatabaseError(
+                f"資料庫是第 {version} 版，比這份程式支援的第 {LATEST_VERSION} 版新，請更新程式"
+            )
+        # 不先擋下的話，舊版的表會被 CREATE TABLE IF NOT EXISTS 略過，查詢到欄位不存在時才失敗
+        if version < LATEST_VERSION and not is_empty(conn):
+            raise sqlite3.DatabaseError(
+                f"資料庫是舊版（第 {version} 版），請先用 uv run src/app.py 啟動網頁，改成第 {LATEST_VERSION} 版"
+            )
         with conn:
             for ddl in SCHEMA:
                 conn.execute(ddl)
-            _migrate_job_scores(conn)
+            # 只在剛建立時寫入版本：已是最新版時再寫一次會讓每條連線都要搶寫入鎖
+            if version != LATEST_VERSION:
+                conn.execute(f"PRAGMA user_version = {LATEST_VERSION}")
     except BaseException:
         conn.close()
         raise
     return conn
-
-
-def open_db_readonly(path: str | Path = DEFAULT_DB_PATH) -> sqlite3.Connection:
-    """
-    以唯讀模式開啟既有的資料庫：不建立檔案、不建表，任何寫入都會失敗。
-
-    :param path: str or Path, 資料庫檔路徑，預設為專案根目錄的 data/jobs.db
-    :return: sqlite3.Connection
-    :raises sqlite3.OperationalError: 檔案不存在或無法開啟
-    """
-    return sqlite3.connect(f"{Path(path).resolve().as_uri()}?mode=ro", uri=True)

@@ -26,8 +26,8 @@ def test_compute_total(career, skill, industry, salary, expected):
     assert compute_total(scores, WEIGHTS) == expected
 
 
-def test_score_job_eliminated_skips_llm(out_job, prefs, fake_client):
-    result = score_job(out_job, prefs, "經歷", fake_client)
+def test_score_job_eliminated_skips_llm(out_job, scoring_settings, fake_client):
+    result = score_job(out_job, scoring_settings, fake_client)
 
     assert fake_client.calls == []
     assert result.eliminated is True
@@ -36,8 +36,8 @@ def test_score_job_eliminated_skips_llm(out_job, prefs, fake_client):
     assert result.total is None
 
 
-def test_score_job_ok(ok_job, prefs, fake_client):
-    result = score_job(ok_job, prefs, "經歷", fake_client)
+def test_score_job_ok(ok_job, scoring_settings, fake_client):
+    result = score_job(ok_job, scoring_settings, fake_client)
     data = result.model_dump(by_alias=True)
 
     assert len(fake_client.calls) == 1
@@ -51,10 +51,10 @@ def test_score_job_ok(ok_job, prefs, fake_client):
     assert data["淘汰原因"] == []
 
 
-def test_score_job_multiple_unknown_dimensions(ok_job, prefs, make_client):
+def test_score_job_multiple_unknown_dimensions(ok_job, scoring_settings, make_client):
     client = make_client(career=None, skill=None)
 
-    data = score_job(ok_job, prefs, "經歷", client).model_dump(by_alias=True)
+    data = score_job(ok_job, scoring_settings, client).model_dump(by_alias=True)
 
     assert data["總分"] == 55
     assert data["未知維度"] == ["職涯方向契合度", "技能匹配度"]

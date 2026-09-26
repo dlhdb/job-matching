@@ -1,9 +1,10 @@
 """工作評分程式規則的測試：薪資計分與硬性淘汰。"""
 
 import pytest
+import yaml
 
-from job_scoring.profile import load_preferences
 from job_scoring.rules import check_hard_filters, score_salary
+from job_scoring.settings import parse_preferences
 
 # (薪資待遇, 下限, 上限, 預期薪資分數)，這些職缺都不會被淘汰
 SALARY_CASES = [
@@ -66,8 +67,8 @@ def test_check_hard_filters_collects_all_reasons(make_job, prefs):
     assert any("底線" in r for r in reasons)
 
 
-def test_check_hard_filters_title_keyword_case_insensitive(make_job, preferences_data, write_profile):
+def test_check_hard_filters_title_keyword_case_insensitive(make_job, preferences_data):
     preferences_data["淘汰條件"]["職稱關鍵字"] = ["sales"]
-    prefs = load_preferences(write_profile(preferences_data) / "preferences.yaml")
+    prefs = parse_preferences(yaml.safe_dump(preferences_data, allow_unicode=True))
 
     assert check_hard_filters(make_job(**{"職缺名稱": "Senior SALES Manager"}), prefs) == ["職稱含排除關鍵字：sales"]

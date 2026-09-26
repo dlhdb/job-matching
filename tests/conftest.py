@@ -14,11 +14,10 @@ import uvicorn
 import yaml
 
 import fetch_104_jobs
-import score_job as score_job_cli
 from job_db import open_db, save_run
 from job_scoring.llm import LLMError
 from job_scoring.models import AIAssessment
-from job_scoring.profile import load_preferences
+from job_scoring.settings import DEFAULTS, TEMPLATE, ScoringSettings, parse_preferences
 from web import create_app
 
 FRONTEND_DIR = Path(__file__).resolve().parents[1] / "frontend"
@@ -27,15 +26,13 @@ CHROMIUM = Path("/usr/bin/chromium")
 
 
 @pytest.fixture(autouse=True)
-def isolate_db(tmp_path, monkeypatch):
+def isolate_db(tmp_path):
     """
-    把評分 CLI 的預設資料庫指到 tmp_path，沒有指定 --db 的測試也不會寫入 data/jobs.db
+    tmp_path 下的資料庫路徑；web app 與評分的測試都用它，不會寫入 data/jobs.db
 
-    :return: Path, 預設資料庫的路徑
+    :return: Path, 資料庫的路徑（還沒建立）
     """
-    path = tmp_path / "jobs.db"
-    monkeypatch.setattr(score_job_cli, "DEFAULT_DB_PATH", path)
-    return path
+    return tmp_path / "jobs.db"
 
 
 @pytest.fixture
@@ -322,40 +319,29 @@ def preferences_data():
 
 
 @pytest.fixture
-def write_profile(tmp_path):
+def prefs(preferences_data):
     """
-    把偏好 dict 與經歷寫到 tmp_path 下的 profile 目錄
-
-    :return: callable, write_profile(preferences: dict) -> Path（profile 目錄）
-    """
-    def _write(preferences):
-        profile_dir = tmp_path / "profile"
-        profile_dir.mkdir(exist_ok=True)
-        (profile_dir / "preferences.yaml").write_text(
-            yaml.safe_dump(preferences, allow_unicode=True), encoding="utf-8")
-        (profile_dir / "experience.md").write_text("經歷標記-BBB", encoding="utf-8")
-        return profile_dir
-    return _write
-
-
-@pytest.fixture
-def profile_dir(write_profile, preferences_data):
-    """
-    寫好共用測試偏好與經歷的 profile 目錄
-
-    :return: Path, profile 目錄
-    """
-    return write_profile(preferences_data)
-
-
-@pytest.fixture
-def prefs(profile_dir):
-    """
-    載入共用測試偏好
+    共用測試偏好
 
     :return: Preferences
     """
-    return load_preferences(profile_dir / "preferences.yaml")
+    return parse_preferences(yaml.safe_dump(preferences_data, allow_unicode=True))
+
+
+# 共用測試設定的版本號：偏好第 2 版、經歷第 3 版、模板第 1 版，三個都不同才分得出寫錯欄
+TEST_VERSIONS = {"preferences": 2, "experience": 3, "template": 1}
+
+
+@pytest.fixture
+def scoring_settings(prefs):
+    """
+    共用測試設定：測試偏好、經歷「經歷標記-BBB」、預設模板
+
+    :return: ScoringSettings
+    """
+    return ScoringSettings(
+        preferences=prefs, experience="經歷標記-BBB", template=DEFAULTS[TEMPLATE], versions=dict(TEST_VERSIONS),
+    )
 
 
 @pytest.fixture
@@ -404,12 +390,12 @@ def out_job(make_job):
 @pytest.fixture
 def jobs_db(isolate_db, ok_job, out_job):
     """
-    評分 CLI 預設的資料庫（isolate_db），已寫入 ok、out 兩筆職缺，還沒有任何評分
+    isolate_db 的資料庫，已寫入 ok、out 兩筆職缺，還沒有任何評分
 
     :return: Path, 資料庫路徑
     """
     with closing(open_db(isolate_db)) as conn:
-        save_run(conn, [ok_job, out_job], datetime(2026, 9, 1, 10, 0, 0), "匯入")
+        save_run(conn, [ok_job, out_job], datetime(2026, 9, 1, 10, 0, 0), "爬蟲")
     return isolate_db
 
 
@@ -492,21 +478,3 @@ def make_batch_client():
     :return: callable, make_batch_client(behaviors: dict) -> BatchFakeLLMClient
     """
     return BatchFakeLLMClient
-
-
-@pytest.fixture
-def forbid_client(monkeypatch):
-    """
-    禁止建立 LLM client：score_job.get_client 一被呼叫就讓測試失敗，並把 GEMINI_API_KEY 設為空字串
-
-    :return: list, 呼叫紀錄（正常情況應保持空清單）
-    """
-    calls = []
-
-    def _forbidden(*args, **kwargs):
-        calls.append(args)
-        pytest.fail("不應建立 LLM client")
-
-    monkeypatch.setattr(score_job_cli, "get_client", _forbidden)
-    monkeypatch.setenv("GEMINI_API_KEY", "")
-    return calls
