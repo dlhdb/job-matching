@@ -14,7 +14,9 @@
   "workspaceFolder": "/workspace",
   "mounts": [
     // Claude Code 的登入狀態與設定，重建容器後仍保留
-    "source=claude-code-config-${devcontainerId},target=/home/node/.claude,type=volume"
+    "source=claude-code-config-${devcontainerId},target=/home/node/.claude,type=volume",
+    // 前端依賴放在 volume，避免與主機（macOS）的 node_modules 互相覆蓋
+    "source=job-matching-agent-node-modules-${devcontainerId},target=/workspace/frontend/node_modules,type=volume"
   ],
   "containerEnv": {
     "CLAUDE_CONFIG_DIR": "/home/node/.claude",

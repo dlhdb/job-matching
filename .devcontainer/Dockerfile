@@ -33,7 +33,8 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
 COPY --from=ghcr.io/astral-sh/uv:0.12.15 /uv /uvx /bin/
 
 # npm 全域套件裝在 node 使用者可寫的位置，Claude Code 才能自動更新
-RUN mkdir -p /usr/local/share/npm-global /workspace /home/node/.claude && \
+# frontend/node_modules 是 volume 的掛載點：空的 volume 第一次掛上時沿用這裡的擁有者，node 才寫得進去
+RUN mkdir -p /usr/local/share/npm-global /workspace/frontend/node_modules /home/node/.claude && \
   chown -R node:node /usr/local/share/npm-global /workspace /home/node/.claude
 
 ENV DEVCONTAINER=true

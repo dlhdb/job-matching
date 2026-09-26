@@ -30,13 +30,17 @@
     - 瀏覽器會把中文顯示成方塊，截圖沒辦法看。
     - 文字的寬高不對。
 
-## 虛擬環境與 git 設定
+## 虛擬環境、前端依賴與 git 設定
 
 專案資料夾以 bind mount 掛進容器，主機與容器看到的是同一份 `/workspace`，包含 `.venv/` 與 `.git/config`：
 
 - 虛擬環境分開放：`UV_PROJECT_ENVIRONMENT` 把容器的虛擬環境指到 `/home/node/.venv`。
   - 原因：`/workspace/.venv` 是主機（macOS）建立的，Python 連結指向主機路徑，在容器內無法執行。
   - VS Code 會把 `/workspace/.venv` 標成推薦的 interpreter，但容器內要選 `/home/node/.venv/bin/python`。notebook 的 kernel 也一樣。
+- 前端依賴分開放：`devcontainer.json` 把一個 Docker volume 掛到 `/workspace/frontend/node_modules`，容器內的 `npm` 裝進 volume，不寫進主機的資料夾。
+  - 原因和虛擬環境相同：esbuild、rollup 這類套件會裝依作業系統編譯的執行檔，主機（macOS）與容器（Linux）共用同一份 `node_modules` 時會互相覆蓋，另一邊就無法執行。
+  - 不用環境變數改路徑：npm 沒有像 `UV_PROJECT_ENVIRONMENT` 的設定，只能從掛載點分開。
+  - 擁有者：空的 volume 第一次掛上時，沿用映像檔裡同一路徑的擁有者，所以 Dockerfile 先建好這個目錄並交給 `node`，`npm` 才寫得進去。
 - git filter 不寫絕對路徑：
   - `postCreateCommand` 執行 `scripts/setup-dev-env.sh`，安裝依賴並設定 nbstripout filter，在 `git add` 時移除 notebook 的輸出。
   - 問題：`nbstripout --install` 會把 Python 的絕對路徑寫進 `.git/config`。主機與容器共用這份設定，兩邊的虛擬環境路徑卻不同。
