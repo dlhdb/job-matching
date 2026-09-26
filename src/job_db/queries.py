@@ -1,4 +1,4 @@
-"""依條件查出職缺欄位契約的職缺，以及每次寫入的執行紀錄。"""
+"""查出職缺欄位契約的職缺，以及每次寫入的執行紀錄。"""
 
 import sqlite3
 from typing import Any
@@ -10,40 +10,18 @@ from job_db.schema import JOB_COLUMNS
 _JOB_FIELDS = [name for name, _ in JOB_COLUMNS] + ["首次出現時間", "最後出現時間"]
 
 # 最後出現時間相同時再比職缺代碼，同樣的資料每次查出來的順序才一致
-_JOB_ORDER = 'ORDER BY jobs."最後出現時間" DESC, jobs."職缺代碼"'
+_JOB_ORDER = 'ORDER BY "最後出現時間" DESC, "職缺代碼"'
 
 
-def list_jobs(
-    conn: sqlite3.Connection,
-    *,
-    run_id: int | None = None,
-    limit: int | None = None,
-    offset: int | None = None,
-) -> list[dict[str, Any]]:
+def list_jobs(conn: sqlite3.Connection) -> list[dict[str, Any]]:
     """
-    依條件列出職缺，排序為最後出現時間由新到舊。
+    列出全部職缺，排序為最後出現時間由新到舊。
 
     :param conn: sqlite3.Connection, open_db 開啟的連線
-    :param run_id: int or None, 只列出這次寫入出現的職缺；None 代表不限
-    :param limit: int or None, 最多取幾筆；None 代表不限
-    :param offset: int or None, 從第幾筆開始；None 代表從頭
-    :return: list[dict], 每筆是職缺欄位契約的欄位加上首次、最後出現時間；沒有符合的為空清單
-    :raises ValueError: limit 或 offset 是負數
+    :return: list[dict], 每筆是職缺欄位契約的欄位加上首次、最後出現時間；沒有職缺時為空清單
     """
-    columns = ", ".join(f'jobs."{name}"' for name in _JOB_FIELDS)
-    params: list[Any] = []
-    if run_id is None:
-        sql = f"SELECT {columns} FROM jobs {_JOB_ORDER}"
-    else:
-        sql = (
-            f"SELECT {columns} FROM jobs "
-            'JOIN run_jobs ON run_jobs."職缺代碼" = jobs."職缺代碼" '
-            'WHERE run_jobs."執行編號" = ? '
-            f"{_JOB_ORDER}"
-        )
-        params.append(run_id)
-    clause, extra = limit_clause(limit, offset)
-    return rows_to_dicts(conn.execute(sql + clause, params + extra))
+    columns = ", ".join(f'"{name}"' for name in _JOB_FIELDS)
+    return rows_to_dicts(conn.execute(f"SELECT {columns} FROM jobs {_JOB_ORDER}"))
 
 
 def get_job(conn: sqlite3.Connection, job_no: str) -> dict[str, Any] | None:
