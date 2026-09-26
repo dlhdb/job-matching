@@ -42,6 +42,12 @@ describe("toggleColumn", () => {
     ]);
   });
 
+  it("已顯示的欄位不在可選欄位的順序上時，順序不變，插在第一個排在它之後的欄位前面", () => {
+    const order = ["甲", "乙", "丙", "丁"];
+    expect(toggleColumn(order, ["甲", "丁", "丙"], "乙", true)).toEqual(["甲", "乙", "丁", "丙"]);
+    expect(toggleColumn(order, ["丙", "甲"], "丁", true)).toEqual(["丙", "甲", "丁"]);
+  });
+
   it("取消勾選時拿掉該欄", () => {
     expect(toggleColumn(ORDER, ["職缺名稱", "薪資待遇"], "薪資待遇", false)).toEqual(["職缺名稱"]);
   });

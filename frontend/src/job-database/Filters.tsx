@@ -1,18 +1,23 @@
-import type { Filters as FilterValues } from "./filter";
+import type { ReactNode } from "react";
+
+import type { FilterValues } from "./view";
 
 interface FiltersProps {
   filters: FilterValues;
   onChange: (filters: FilterValues) => void;
+  /** 擴充的篩選欄位，放在「清除篩選」之前 */
+  extra?: ReactNode;
   onClear: () => void;
   /** 只看剛存入的職缺時的筆數；null 代表沒有在看剛存入的職缺 */
   justSavedCount: number | null;
   onCloseJustSaved: () => void;
 }
 
-/** 職缺表的篩選列：關鍵字、地區、剛存入的標籤與清除篩選 */
+/** 職缺表的篩選列：關鍵字、地區、擴充的篩選、剛存入的標籤與清除篩選 */
 export function Filters({
   filters,
   onChange,
+  extra,
   onClear,
   justSavedCount,
   onCloseJustSaved,
@@ -45,6 +50,7 @@ export function Filters({
         />
         <span className="hint">多個地名用逗號分隔，「臺」視為「台」</span>
       </div>
+      {extra}
       {paused && (
         <div className="field">
           <span className="label">暫時篩選</span>

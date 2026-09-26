@@ -30,10 +30,12 @@ function times(job: Partial<Pick<Job, "首次出現時間" | "最後出現時間
 interface JobDetailProps {
   /** 抓取的預覽還沒存入，沒有出現時間 */
   job: JobFields & Partial<Pick<Job, "首次出現時間" | "最後出現時間">>;
+  /** 接在職缺內容之後的其他區塊，例如擴充的內容 */
+  children?: ReactNode;
 }
 
 /** 展開一列時顯示的職缺完整內容；出現時間有值才顯示 */
-export function JobDetail({ job }: JobDetailProps) {
+export function JobDetail({ job, children }: JobDetailProps) {
   const pairs: [string, ReactNode][] = [
     ["職缺代碼", text(job.職缺代碼)],
     ["職缺名稱", text(job.職缺名稱)],
@@ -79,6 +81,7 @@ export function JobDetail({ job }: JobDetailProps) {
           <pre className="content">{job.工作內容}</pre>
         )}
       </section>
+      {children}
     </div>
   );
 }

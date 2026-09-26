@@ -595,3 +595,199 @@ dialog.modal form .field {
 dialog.modal textarea {
   width: 100%;
 }
+
+/* 評分：頁首的進度、勾選、列上的狀態、展開列的評分與評分依據、確認視窗 */
+.job-indicator {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 13px;
+  background: var(--warn-soft);
+  color: inherit;
+  padding: 3px 10px;
+  border-radius: 999px;
+  cursor: pointer;
+  border: 0;
+}
+.job-indicator .bar {
+  width: 80px;
+  height: 6px;
+  background: var(--border);
+  border-radius: 3px;
+  overflow: hidden;
+}
+.job-indicator .bar > span {
+  display: block;
+  height: 100%;
+  background: var(--accent);
+}
+.selbar {
+  display: inline-flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px;
+}
+.range {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+}
+.tag.out {
+  background: var(--danger-soft);
+  color: var(--danger);
+}
+.tag.in {
+  color: var(--muted);
+}
+.tag.queued {
+  background: var(--surface-2);
+  color: var(--muted);
+}
+.tag.scoring {
+  background: var(--warn-soft);
+}
+.tag.failed {
+  background: var(--danger-soft);
+  color: var(--danger);
+  max-width: 260px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  vertical-align: middle;
+}
+.score {
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+}
+.notice[role="status"] {
+  display: flex;
+  gap: 8px;
+  align-items: flex-start;
+}
+.notice .close {
+  margin-left: auto;
+  background: none;
+  border: 0;
+  cursor: pointer;
+  font-size: 16px;
+  line-height: 1;
+  color: inherit;
+}
+.viewing {
+  background: var(--warn-soft);
+  border-radius: 6px;
+  padding: 6px 10px;
+  margin: 0 0 8px;
+  font-size: 13px;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  align-items: center;
+}
+.dims {
+  list-style: none;
+  padding: 0;
+  margin: 0 0 8px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+.dims li {
+  display: grid;
+  grid-template-columns: 110px 36px 1fr;
+  gap: 8px;
+  align-items: baseline;
+}
+.dims .reason {
+  color: var(--muted);
+}
+.history {
+  width: 100%;
+  font-size: 13px;
+}
+.history th {
+  cursor: default;
+  background: none;
+}
+.history th:hover {
+  color: inherit;
+}
+.history tbody tr {
+  cursor: pointer;
+}
+.history tbody tr:hover {
+  background: var(--row-hover);
+}
+.history tbody tr.shown {
+  background: var(--accent-soft);
+}
+.history .cur-mark {
+  font-size: 11px;
+  color: var(--accent);
+}
+details.basis > summary {
+  cursor: pointer;
+  font-weight: 600;
+}
+.basis-tabs {
+  display: flex;
+  gap: 4px;
+  margin-top: 8px;
+  flex-wrap: wrap;
+}
+.basis-tabs button {
+  border: 1px solid var(--border);
+  background: var(--surface);
+  color: inherit;
+  padding: 3px 10px;
+  border-radius: 6px;
+  cursor: pointer;
+}
+.basis-tabs button[aria-selected="true"] {
+  background: var(--accent-soft);
+  border-color: var(--accent);
+  color: var(--accent);
+}
+details.basis h4 {
+  margin: 10px 0 0;
+  font-size: 13px;
+}
+pre.basis-body {
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+  max-height: 420px;
+  overflow: auto;
+  background: var(--surface-2);
+  padding: 10px;
+  border-radius: 6px;
+  margin: 8px 0 0;
+  font:
+    13px/1.5 ui-monospace,
+    SFMono-Regular,
+    Menlo,
+    Consolas,
+    monospace;
+}
+dialog.modal ul {
+  margin: 0 0 8px;
+  padding-left: 20px;
+}
+dialog.modal .errors {
+  color: var(--danger);
+  background: var(--danger-soft);
+  border-radius: 6px;
+  padding: 8px 12px 8px 28px;
+}
+dialog.modal .check {
+  display: flex;
+  gap: 6px;
+  align-items: flex-start;
+  cursor: pointer;
+  margin-bottom: 8px;
+}
+dialog.modal .field {
+  margin-bottom: 8px;
+}
+.header-error {
+  color: var(--danger);
+  font-size: 13px;
+}

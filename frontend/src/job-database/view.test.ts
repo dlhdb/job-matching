@@ -66,3 +66,35 @@ describe("resetView", () => {
     expect(resetView(CUSTOM, true)).toEqual({ ...DEFAULT_VIEW, filters: CUSTOM.filters });
   });
 });
+
+describe("ViewConfig", () => {
+  const config = {
+    known: new Set(["職缺名稱", "分數"]),
+    defaults: {
+      columns: ["職缺名稱", "分數"],
+      sort: { key: "分數", dir: "desc" as const },
+      filters: { keyword: "", area: "", status: "all" },
+    },
+  };
+
+  it("沒有記錄時用擴充的預設", () => {
+    expect(parseView(null, config)).toEqual(config.defaults);
+  });
+
+  it("擴充的欄位與篩選都還原；不認得的篩選鍵丟掉", () => {
+    const raw = {
+      columns: ["分數", "職缺代碼"],
+      sort: { key: "分數", dir: "asc" },
+      filters: { keyword: "Python", area: "", status: "kept", other: "x" },
+    };
+    expect(parseView(raw, config)).toEqual({
+      columns: ["分數"],
+      sort: { key: "分數", dir: "asc" },
+      filters: { keyword: "Python", area: "", status: "kept" },
+    });
+  });
+
+  it("還原預設檢視回到擴充的預設", () => {
+    expect(resetView(CUSTOM, false, config)).toEqual(config.defaults);
+  });
+});

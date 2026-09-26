@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 
-import { JOB_COLUMNS } from "./columns";
+import type { Job } from "../api/client";
+import { JOB_COLUMNS, type Column } from "./columns";
 import { nextSort, sortRows } from "./sort";
 import { makeJob } from "./testing";
 
@@ -71,5 +72,32 @@ describe("nextSort", () => {
       key: "薪資下限",
       dir: expected,
     });
+  });
+});
+
+describe("tieBreak", () => {
+  // 依「分數」排序，分數相同或都沒有分數時，再依最後出現時間由新到舊，最後才是職缺代碼
+  const column: Column<Job> = {
+    key: "分數",
+    numeric: true,
+    value: (job) => job.薪資下限,
+    tieBreak: (a, b) =>
+      a.最後出現時間 < b.最後出現時間 ? 1 : a.最後出現時間 > b.最後出現時間 ? -1 : 0,
+  };
+  const rows = [
+    makeJob({ 職缺代碼: "a", 薪資下限: 70, 最後出現時間: "2026-09-01T10:00:00" }),
+    makeJob({ 職缺代碼: "b", 薪資下限: 70, 最後出現時間: "2026-09-03T10:00:00" }),
+    makeJob({ 職缺代碼: "c", 薪資下限: null, 最後出現時間: "2026-09-01T10:00:00" }),
+    makeJob({ 職缺代碼: "d", 薪資下限: null, 最後出現時間: "2026-09-02T10:00:00" }),
+    makeJob({ 職缺代碼: "e", 薪資下限: 90, 最後出現時間: "2026-09-01T10:00:00" }),
+    makeJob({ 職缺代碼: "f", 薪資下限: null, 最後出現時間: "2026-09-02T10:00:00" }),
+  ];
+
+  it.each([
+    { dir: "desc" as const, expected: ["e", "b", "a", "d", "f", "c"] },
+    // 反向時 tieBreak 不跟著反向
+    { dir: "asc" as const, expected: ["b", "a", "e", "d", "f", "c"] },
+  ])("$dir → $expected", ({ dir, expected }) => {
+    expect(codes(sortRows(rows, [column], { key: "分數", dir }))).toEqual(expected);
   });
 });

@@ -25,20 +25,21 @@ const byCode = (a: Identified, b: Identified) =>
  * 產生依某一欄排序的比較函式。
  *
  * 沒有值（null 或空字串）的列一律排在最後，不論升冪或降冪；
- * 值相同時以職缺代碼由小到大排，同樣的資料每次排出來的順序才一致。
+ * 值相同時先比欄位的 tieBreak，再以職缺代碼由小到大排，同樣的資料每次排出來的順序才一致。
  */
 export function makeCompare<Row extends Identified>(column: Column<Row>, dir: SortDir) {
+  const tie = (a: Row, b: Row) => column.tieBreak?.(a, b) || byCode(a, b);
   return (a: Row, b: Row): number => {
     const va = column.value(a);
     const vb = column.value(b);
-    if (isEmpty(va)) return isEmpty(vb) ? byCode(a, b) : 1;
+    if (isEmpty(va)) return isEmpty(vb) ? tie(a, b) : 1;
     if (isEmpty(vb)) return -1;
     let result =
       typeof va === "number" && typeof vb === "number"
         ? va - vb
         : String(va).localeCompare(String(vb), "zh-Hant");
     if (dir === "desc") result = -result;
-    return result || byCode(a, b);
+    return result || tie(a, b);
   };
 }
 

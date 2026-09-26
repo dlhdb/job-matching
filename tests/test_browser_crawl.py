@@ -11,7 +11,8 @@ import fetch_104_jobs
 from job_db import list_jobs, list_runs, open_db, save_run
 
 PREVIEW_HEADERS = ["職缺名稱", "公司名稱", "地區", "薪資待遇", "更新日期"]
-JOB_TABLE_HEADERS = ["職缺名稱", "公司名稱", "地區", "薪資待遇", "最後出現時間"]
+# 職缺表的預設欄位，含疊加的評分欄位
+JOB_TABLE_HEADERS = ["職缺名稱", "公司名稱", "地區", "薪資待遇", "總分", "淘汰", "評語", "最後出現時間"]
 T = datetime(2026, 9, 20, 9, 30, 0)
 EARLIER = datetime(2026, 9, 1, 10, 0, 0)
 

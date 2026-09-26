@@ -9,7 +9,8 @@ from playwright.sync_api import TimeoutError as PlaywrightTimeoutError
 
 from job_db import open_db, save_run
 
-DEFAULT_HEADERS = ["職缺名稱", "公司名稱", "地區", "薪資待遇", "最後出現時間"]
+# 職缺表疊加了評分：預設欄位與排序依 job-auto-scoring 的評分的欄位（依總分排序，沒有總分時依最後出現時間）
+DEFAULT_HEADERS = ["職缺名稱", "公司名稱", "地區", "薪資待遇", "總分", "淘汰", "評語", "最後出現時間"]
 BASE_TIME = datetime(2026, 9, 1, 10, 0, 0)
 
 
@@ -51,8 +52,8 @@ def assert_rows(page: Page, expected: list[str]) -> None:
 
 
 def headers(page: Page) -> list[str]:
-    """表格目前的欄位標題（不含排序箭頭）"""
-    return page.locator("thead th").evaluate_all(
+    """表格目前的欄位標題（不含排序箭頭與勾選欄）"""
+    return page.locator("thead th:not(.sel)").evaluate_all(
         "ths => ths.map(th => th.firstChild ? th.firstChild.textContent : '')")
 
 
@@ -102,20 +103,20 @@ def test_job_table_columns(page, live_server, seed):
     seed({"職缺代碼": "a"})
     open_table(page, live_server)
 
-    # (a) 預設欄位；可以選的欄位是職缺欄位契約的全部欄位與兩個出現時間
+    # (a) 預設欄位；可以選的欄位是職缺欄位契約的全部欄位與兩個出現時間，加上評分的 10 個欄位
     assert headers(page) == DEFAULT_HEADERS
     page.get_by_role("button", name="選擇欄位").click()
     options = page.get_by_role("group", name="選擇欄位").get_by_role("checkbox")
-    expect(options).to_have_count(18)
+    expect(options).to_have_count(28)
     page.get_by_role("button", name="選擇欄位").click()
 
     # (b) 勾選首次出現時間、取消薪資待遇
     pick_column(page, "首次出現時間", True)
     pick_column(page, "薪資待遇", False)
-    assert headers(page) == ["職缺名稱", "公司名稱", "地區", "首次出現時間", "最後出現時間"]
+    assert headers(page) == ["職缺名稱", "公司名稱", "地區", "首次出現時間", "總分", "淘汰", "評語", "最後出現時間"]
 
     # (c) 取消到只剩一欄，最後一欄取消不掉
-    for name in ["職缺名稱", "公司名稱", "地區", "首次出現時間"]:
+    for name in ["職缺名稱", "公司名稱", "地區", "首次出現時間", "總分", "淘汰", "評語"]:
         pick_column(page, name, False)
     assert headers(page) == ["最後出現時間"]
     page.get_by_role("button", name="選擇欄位").click()
@@ -228,8 +229,7 @@ def assert_default(page: Page) -> None:
     assert headers(page) == DEFAULT_HEADERS
     expect(page.get_by_label("關鍵字")).to_have_value("")
     expect(page.get_by_label("地區")).to_have_value("")
-    expect(page.locator("thead th", has_text="最後出現時間")).to_have_attribute(
-        "aria-sort", "descending")
+    expect(page.locator("thead th", has_text="總分")).to_have_attribute("aria-sort", "descending")
 
 
 def test_job_table_remembers_view(page, live_server, seed):

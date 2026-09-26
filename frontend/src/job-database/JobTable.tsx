@@ -22,8 +22,12 @@ interface JobTableProps<Row extends Identified> {
   tools?: ReactNode;
   /** 展開一列時顯示的內容 */
   renderDetail: (row: Row) => ReactNode;
-  /** 每列最前面的標記，例如「新」；沒有時不顯示這一欄 */
+  /** 每列最前面的標記，例如「新」 */
   rowBadge?: (row: Row) => ReactNode;
+  /** 每列最前面的勾選框；沒有時不能勾選 */
+  selection?: { selected: ReadonlySet<string>; onChange: (selected: Set<string>) => void };
+  /** rows 已經依顯示的順序排好，表格不再排序 */
+  presorted?: boolean;
 }
 
 const isEmpty = (value: string | number | null) => value === null || value === "";
@@ -31,6 +35,7 @@ const isEmpty = (value: string | number | null) => value === null || value === "
 function Cell<Row>({ column, row }: { column: Column<Row>; row: Row }) {
   const value = column.value(row);
   if (value === null || isEmpty(value)) return <span className="null">—</span>;
+  if (column.render) return <>{column.render(value)}</>;
   if (column.format) return <>{column.format(value)}</>;
   return <>{typeof value === "number" ? value.toLocaleString("en-US") : value}</>;
 }
@@ -38,7 +43,7 @@ function Cell<Row>({ column, row }: { column: Column<Row>; row: Row }) {
 /**
  * 職缺的表格：點標題排序、點一列展開、選擇欄位。
  *
- * 不綁定哪一份資料，職缺表、抓取的預覽都用它，資料與欄位由呼叫端傳入。
+ * 不綁定哪一份資料，職缺表、抓取的預覽都用它，資料、欄位、勾選與每列的標記由呼叫端傳入。
  */
 export function JobTable<Row extends Identified>({
   rows,
@@ -52,14 +57,25 @@ export function JobTable<Row extends Identified>({
   tools,
   renderDetail,
   rowBadge,
+  selection,
+  presorted = false,
 }: JobTableProps<Row>) {
   const [openCode, setOpenCode] = useState<string | null>(null);
 
   const shown = visible
     .map((key) => columns.find((c) => c.key === key))
     .filter((c): c is Column<Row> => c !== undefined);
-  const sorted = sortRows(rows, columns, sort);
-  const colSpan = shown.length + (rowBadge ? 1 : 0);
+  const sorted = presorted ? rows : sortRows(rows, columns, sort);
+  const lead = rowBadge !== undefined || selection !== undefined;
+  const colSpan = shown.length + (lead ? 1 : 0);
+
+  const toggleSelected = (code: string, checked: boolean) => {
+    if (!selection) return;
+    const next = new Set(selection.selected);
+    if (checked) next.add(code);
+    else next.delete(code);
+    selection.onChange(next);
+  };
 
   const toggleRow = (code: string) => setOpenCode((current) => (current === code ? null : code));
   const onEnterOrSpace = (action: () => void) => (event: KeyboardEvent) => {
@@ -87,7 +103,7 @@ export function JobTable<Row extends Identified>({
         <table>
           <thead>
             <tr>
-              {rowBadge && <th className="sel" />}
+              {lead && <th className="sel" />}
               {shown.map((column) => {
                 const active = sort.key === column.key;
                 const ariaSort = active
@@ -131,9 +147,26 @@ export function JobTable<Row extends Identified>({
                     tabIndex={0}
                     aria-expanded={open}
                     onClick={() => toggleRow(code)}
-                    onKeyDown={onEnterOrSpace(() => toggleRow(code))}
+                    onKeyDown={(event) => {
+                      // 勾選框上按空白鍵是勾選，不是展開
+                      if (event.target === event.currentTarget)
+                        onEnterOrSpace(() => toggleRow(code))(event);
+                    }}
                   >
-                    {rowBadge && <td className="sel">{rowBadge(row)}</td>}
+                    {lead && (
+                      // 勾選與標記不展開這一列
+                      <td className="sel" onClick={(event) => event.stopPropagation()}>
+                        {selection && (
+                          <input
+                            type="checkbox"
+                            aria-label={`選取 ${code}`}
+                            checked={selection.selected.has(code)}
+                            onChange={(event) => toggleSelected(code, event.target.checked)}
+                          />
+                        )}{" "}
+                        {rowBadge?.(row)}
+                      </td>
+                    )}
                     {shown.map((column) => {
                       const value = column.value(row);
                       const className = [column.numeric ? "num" : "", column.className ?? ""]

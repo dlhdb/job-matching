@@ -1,6 +1,8 @@
 /**
  * 職缺表的欄位：可以選的欄位、預設顯示的欄位，以及勾選欄位的規則。
  */
+import type { ReactNode } from "react";
+
 import type { Job, JobFields } from "../api/client";
 
 /** 表格的一個欄位，key 同時是標題 */
@@ -14,6 +16,10 @@ export interface Column<Row> {
   value: (row: Row) => string | number | null;
   /** 顯示用的格式；沒有時數字加千分位，文字照原樣 */
   format?: (value: string | number) => string;
+  /** 顯示成標籤等元素時用，優先於 format */
+  render?: (value: string | number) => ReactNode;
+  /** 依這一欄排序、值相同或都沒有值時，在職缺代碼之前再比的條件；不隨升降冪反向 */
+  tieBreak?: (a: Row, b: Row) => number;
 }
 
 /** ISO 8601 的時間改用空白分開日期與時間，比較好讀 */
@@ -67,7 +73,8 @@ export const DEFAULT_COLUMNS = ["職缺名稱", "公司名稱", "地區", "薪�
 /**
  * 勾選或取消勾選一個欄位，回傳新的顯示欄位。
  *
- * 勾選時依可選欄位的順序插入；取消的是最後一欄時不變，表格至少留一欄。
+ * 勾選時不動已顯示欄位的順序，插在第一個排在它之後的已顯示欄位前面（依可選欄位的順序）；
+ * 取消的是最後一欄時不變，表格至少留一欄。
  */
 export function toggleColumn(
   order: string[],
@@ -76,7 +83,10 @@ export function toggleColumn(
   checked: boolean,
 ): string[] {
   if (checked) {
-    return order.filter((k) => k === key || visible.includes(k));
+    if (visible.includes(key)) return visible;
+    const rank = order.indexOf(key);
+    const at = visible.findIndex((k) => order.indexOf(k) > rank);
+    return at === -1 ? [...visible, key] : [...visible.slice(0, at), key, ...visible.slice(at)];
   }
   if (visible.length === 1 && visible[0] === key) {
     return visible;

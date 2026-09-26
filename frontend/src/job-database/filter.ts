@@ -3,10 +3,11 @@
  */
 import type { Job } from "../api/client";
 
-export interface Filters {
+// 用 type 而不是 interface：才能和擴充的篩選合成 Record<string, string>
+export type Filters = {
   keyword: string;
   area: string;
-}
+};
 
 /** 不篩選 */
 export const EMPTY_FILTERS: Filters = { keyword: "", area: "" };
