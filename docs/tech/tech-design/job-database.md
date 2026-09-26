@@ -14,8 +14,11 @@ flowchart LR
     api --> queries["job_db/queries.py"]
     src["來源功能的進入點"] --> store["job_db/store.py"]
     src --> schema["job_db/schema.py"]
+    app["app.py"] --> upgrade["job_db/upgrade.py"]
+    upgrade --> schema
     store --> db[("data/jobs.db")]
     schema --> db
+    upgrade --> db
     queries --> db
     queries --> sql["job_db/_sql.py"]
 ```
@@ -25,10 +28,11 @@ flowchart LR
 - `job_db/schema.py`：所有資料表的建表語法，以及開啟資料庫並建立缺少的表。其他功能的表也在這裡建立，見各功能的技術設計。
 - `job_db/store.py`：寫入一批職缺與該次的執行紀錄。
 - `job_db/queries.py`：查出職缺與執行紀錄。
+- `job_db/upgrade.py`：把舊版結構的資料庫改成最新版，web app 啟動前由 `app.py` 呼叫（見 [3.4](#34-資料庫改版)）。
 - `job_db/_sql.py`：查詢共用的 SQL 組裝（欄名轉 dict、`LIMIT`／`OFFSET`），與哪一張表無關，其他功能放在 `job_db` 的查詢模組也可以共用。
 - `web/job_table.py`：職缺表的 API，一次回傳全部職缺。
 - `frontend/src/job-database/`：職缺表的頁面，篩選、排序、選欄位、展開、記住檢視與只看剛存入的職缺都在這裡處理。
-- `job_db` 的呼叫者是各來源功能的進入點與職缺表的 API，見 [architecture.md 的模組依賴](../architecture.md#模組依賴)。
+- 呼叫 `job_db` 的有來源功能、職缺表的 API、啟動網頁的 `app.py`，以及疊加在上面的功能，見 [architecture.md 的模組依賴](../architecture.md#模組依賴)。
 
 依賴限制：
 
@@ -104,7 +108,9 @@ flowchart LR
 
 - 預設路徑 `DEFAULT_DB_PATH` 以模組位置推算專案根目錄的 `data/jobs.db`，`data/` 已列入 `.gitignore`。
 - `open_db` 自動建立上層目錄，並以 `CREATE TABLE IF NOT EXISTS` 建立所有表。
-  - 在既有的資料庫上執行時，只補上缺少的表，不影響原有資料。
+  - 剛建立的資料庫直接是最新版，同時記下版本號（見 [3.4](#34-資料庫改版)）。
+  - 已是最新版時只補上缺少的表，不影響原有資料，也不寫入版本號：寫入會讓每條連線都要搶寫入鎖，其他連線正在寫入時就開不起來。
+  - 舊版或比程式新的版本拒絕開啟並說明原因：`CREATE TABLE IF NOT EXISTS` 會略過舊版的表，不擋下的話要到查詢或寫入時才因欄位不存在而失敗。
 - `PRAGMA foreign_keys = ON` 在 transaction 中設定不會生效，所以先以 autocommit 模式開啟連線、設定好之後，才切換成手動 transaction。
 
 ### 3.2 資料表
@@ -149,7 +155,7 @@ flowchart LR
 `queries.py` 提供職缺與執行紀錄的查詢。職缺與執行紀錄回傳以中文欄名為鍵的 `dict`，鍵就是[職缺欄位契約](../../product/features/job-database.md#821-職缺欄位契約)的欄名，呼叫端不必做欄名對照：
 
 - `list_jobs`：列出全部職缺，職缺表的 API 用它（見 [2.2](#22-職缺表的前後端分工)）。
-- `get_job`：以職缺代碼取單筆，查不到時回傳 `None`，不回傳空 `dict`。評分 CLI 用它取出指定的職缺。
+- `get_job`：以職缺代碼取單筆，查不到時回傳 `None`，不回傳空 `dict`。
 - `existing_job_codes`：從一批職缺代碼中找出資料庫已有的，抓取的預覽用它標出新職缺。
   - 代碼以一個 JSON 陣列帶入，不受 SQLite 單一語句參數個數的上限影響。
 - `list_runs`：列出執行紀錄。目前沒有使用者需求用到它，留給之後的趨勢分析。
@@ -160,6 +166,26 @@ flowchart LR
 
 - 終端機：`sqlite3 data/jobs.db`（開發容器已安裝，見 [devcontainer.md](../ai-coding-setup/devcontainer.md#容器內的工具)）
 - 程式或 notebook：`pandas.read_sql`，中文欄名讀出來就與職缺欄位契約一致
+
+### 3.4 資料庫改版
+
+實現 NFR-migration。
+
+- 資料庫結構的版本記在 `PRAGMA user_version`。開始記版本之前的各種舊版都是 0。
+- 改版在 web app 啟動前做（`src/app.py` 呼叫 `upgrade_db`），不在 `open_db` 裡做：
+  - 改版要告知結果（搬了幾筆、略過幾筆、備份在哪裡），只有啟動的進入點能把它印給使用者看。
+  - 每個請求都會開一次資料庫，不應該每次都檢查要不要改版。
+- 改版的步驟：
+  1. 用 SQLite 的 backup API 備份到同一個目錄，檔名是 `<檔名>.v<舊版本>-<時間>.bak`，已存在時加上流水號。
+     - 備份失敗時刪掉不完整的備份檔，不改版。
+     - 改版成功後備份留著，由使用者確認資料沒問題後自己刪。
+  2. 以 `BEGIN IMMEDIATE` 開始 transaction，拿到寫入鎖後重讀一次版本：同時啟動的另一個程式可能已經改好了，改好就不再改一次。
+  3. 在同一個 transaction 裡跑改版的步驟，接著以 `PRAGMA foreign_key_check` 確認沒有違反外鍵，再寫入新的版本號並 commit。
+  4. 任何一步失敗時 rollback，再用備份蓋回原檔，回報原因與備份的路徑。
+     - 還原本身也失敗時，請使用者關掉其他開著資料庫的程式，手動把備份複製回去。
+- SQLite 的 DDL 也在 transaction 裡，rollback 就能回到改版前；再用備份蓋回，是為了連 rollback 顧不到的情況也不會遺失資料。
+- `jobs`、`scrape_runs`、`run_jobs` 目前還沒有改過結構，改版時不動；其他功能的表怎麼搬見各功能的技術設計。
+- 改版失敗時 web app 印出 `[-]` 與原因，以結束碼 1 結束，不啟動。
 
 ## 4. 驗收對照
 
@@ -175,7 +201,7 @@ flowchart LR
 一次跑完所有離線驗收：
 
 ```bash
-uv run pytest tests/test_job_db.py tests/test_web_job_table.py tests/test_browser_job_table.py
+uv run pytest tests/test_job_db.py tests/test_job_db_upgrade.py tests/test_app.py tests/test_web_job_table.py tests/test_browser_job_table.py
 npm test --prefix frontend
 ```
 
@@ -211,3 +237,9 @@ npm test --prefix frontend
 
 - [AC-db](../../product/features/job-database.md#ac-db自動建立資料庫)：`uv run pytest tests/test_job_db.py -k open_db`，以及 `git check-ignore data/jobs.db`
   - 通過條件：pytest 全部 passed，`git check-ignore` 印出路徑
+
+### 非功能需求
+
+- [AC-nfr-migration](../../product/features/job-database.md#ac-nfr-migration改版時保留資料)：`uv run pytest tests/test_job_db_upgrade.py tests/test_app.py`
+  - 以 SQL 建出各種舊版的資料庫，比對改版前後三張表的全部內容。
+  - 中途失敗以替換改版步驟模擬，比對資料庫的完整 dump。

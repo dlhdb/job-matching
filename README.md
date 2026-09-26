@@ -61,34 +61,26 @@ scripts/setup-dev-env.sh
 
 ### 我想讓 AI 幫我評估職缺適不適合
 
-1. 複製範本，填入自己的偏好與經歷，並在 `.env` 填入 [Gemini API key](https://aistudio.google.com/apikey)：
+1. 在網頁的「設定」填入自己的偏好與經歷：
+   - 偏好（YAML）：想做的方向、偏好的產業、期望與底線月薪、直接淘汰的公司與職稱關鍵字、各維度的權重。
+   - 經歷（自由格式）：工作經歷與技能，全文會放進送給 AI 的提示詞。
+   - 一開始是專案附的預設範例。
+   - 改好後按「儲存並套用」，填名稱存成一個版本。
+   - 之後可以隨時套用任何一版。
+   - 提示詞模板也可以在這裡改。
+2. 在 `.env` 填入 [Gemini API key](https://aistudio.google.com/apikey)：
 
    ```bash
-   cp profile/preferences.example.yaml profile/preferences.yaml
-   cp profile/experience.example.md profile/experience.md
    cp .env.example .env
    ```
 
-2. 先在抓取頁把職缺存進 `data/jobs.db`，再評所有還沒評分的職缺：
-
-   ```bash
-   uv run src/score_job.py
-   ```
-
-   - 最近出現的職缺先評，已經有評分（自動或手動）的職缺不會再評。
-   - 結果寫進同一個資料庫，終端機只顯示進度與摘要；個別職缺評分失敗時會跳過並列在摘要中，下次執行會再評。
-
-3. 只想評某幾筆，或換了偏好、經歷之後要重評時，加上 `--job-no`，已經評過的也會重評：
-
-   ```bash
-   uv run src/score_job.py --job-no <職缺代碼> [<職缺代碼> ...]
-   ```
-
-- 結果包含各維度分數、理由與 0–100 總分，每次評分都新增一筆紀錄，以最新的一筆為準。
-- 評分結果以 `pandas.read_sql` 或任何 SQLite 工具讀取 `job_scores` 表，各維度的分數與理由在 `評分明細` 欄（JSON）。
-- 薪資太低、公司或職稱在排除清單中的職缺會直接淘汰，不呼叫 AI。
-- 想換一份偏好、經歷或模型比較結果時，加上 `--dry-run` 試跑（必須搭配 `--job-no`）：照常呼叫 AI 評分，結果寫到 `output/scores/dryrun_<開始時間>.json` 與 `.csv`，不寫入資料庫。
+- 在職缺表勾選職缺送去評分的介面還在製作中，目前還不能開始評分。
+- 評分會依職涯方向、技能、產業公司、薪資四個維度給出 0–100 總分與理由。
+- 薪資太低、公司或職稱在排除清單中的職缺直接淘汰，不呼叫 AI。
 - 評分方式見 [job-auto-scoring 自動評分並看懂每個分數](docs/product/features/job-auto-scoring.md#4-自動評分並看懂每個分數score)。
+- 從舊版升級時：
+  - 啟動網頁會自動把資料庫改成新版，並把改版前的備份留在 `data/`。
+  - 以前放在 `profile/` 的偏好與經歷不會自動讀進來，要自己貼進設定頁。
 
 ## 在隔離環境中讓 Coding Agent 自主執行
 
@@ -123,15 +115,14 @@ scripts/setup-dev-env.sh
 ## 專案結構
 
 ```
-src/            程式碼：爬蟲、職缺資料庫、評分 CLI 與評分邏輯、網頁的後端
+src/            程式碼：爬蟲、職缺資料庫、評分邏輯、網頁的後端
 frontend/       網頁的前端（React + TypeScript + Vite）
 tests/          測試
 notebooks/      分析資料的 Jupyter notebook
 scripts/        工具腳本
 prototypes/     介面原型（假資料，確認介面用）
-profile/        使用者的求職偏好與工作經歷（真實資料不進版控）
 output/         應用程式輸出結果（不進版控）
-data/           職缺資料庫 jobs.db（不進版控）
+data/           職缺資料庫 jobs.db 與改版前的備份（不進版控）
 backlog/        待辦與想法：TODO.md 是索引，tasks/、ideas/ 放長的細節
 docs/           文件：product/（產品）、tech/（技術）、conventions/（慣例）、decisions/（決策紀錄）
 .devcontainer/  開發環境隔離容器設定
@@ -149,10 +140,9 @@ docs/           文件：product/（產品）、tech/（技術）、conventions/
   - [docs/product/features/job-database.md](docs/product/features/job-database.md)：職缺資料庫（職缺表、職缺欄位契約、寫入規則、保存的資訊、驗收標準）
 - 技術（怎麼做）：
   - [docs/tech/architecture.md](docs/tech/architecture.md)：系統架構（模組依賴、資料存放、技術選型）
-  - [docs/tech/tech-design/job-auto-scoring.md](docs/tech/tech-design/job-auto-scoring.md)：模組分工、`job_scores` 的自動評分欄位、LLM 抽象層、驗收對照
-  - [docs/tech/tech-design/job-score-database.md](docs/tech/tech-design/job-score-database.md)：`job_scores` 資料表、評分查詢、驗收對照
+  - [docs/tech/tech-design/job-auto-scoring.md](docs/tech/tech-design/job-auto-scoring.md)：模組分工、提示詞模板、設定頁、`job_scores` 與設定的資料表、舊版評分的改版、LLM 抽象層、驗收對照
   - [docs/tech/tech-design/104-job-scraper.md](docs/tech/tech-design/104-job-scraper.md)：模組分工、抓取作業與預覽的流程、欄位來源、104 API 的限制與請求標頭、驗收對照
-  - [docs/tech/tech-design/job-database.md](docs/tech/tech-design/job-database.md)：模組依賴、職缺表的前後端分工、資料表 schema、查詢方式、驗收對照
+  - [docs/tech/tech-design/job-database.md](docs/tech/tech-design/job-database.md)：模組依賴、職缺表的前後端分工、資料表 schema、查詢方式、資料庫改版、驗收對照
   - [docs/tech/ai-coding-setup/devcontainer.md](docs/tech/ai-coding-setup/devcontainer.md)：隔離容器與防火牆白名單（所有 AI coding 工具共用）、Remote Control 要的網域與環境變數
   - [docs/tech/ai-coding-setup/claude-code.md](docs/tech/ai-coding-setup/claude-code.md)：Claude Code 專屬的權限規則（deny/ask）
 - 慣例：

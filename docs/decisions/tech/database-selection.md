@@ -22,4 +22,4 @@ job-database 要把每次抓到的職缺累積到同一個地方（見 [job-data
 - 影響的文件：
   - [architecture.md 的資料存放](../../tech/architecture.md#資料存放)
   - [job-database 技術設計](../../tech/tech-design/job-database.md#3-資料與儲存)：模組依賴與資料表
-  - [job-score-database 技術設計](../../tech/tech-design/job-score-database.md#21-job_scores-資料表)：`job_scores` 表
+  - [job-auto-scoring 技術設計](../../tech/tech-design/job-auto-scoring.md#32-job_scores)：`job_scores` 表
