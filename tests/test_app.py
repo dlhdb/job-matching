@@ -1,5 +1,6 @@
 """網頁進入點的測試：啟動前把舊版資料庫改成最新版，並印出改版結果或失敗原因。uvicorn 以假的函式取代，不真的啟動。"""
 
+import os
 import sqlite3
 from contextlib import closing
 
@@ -74,3 +75,19 @@ def test_main_upgrade_failure(tmp_path, make_job, started, monkeypatch, capsys):
     err = capsys.readouterr().err
     assert "[-] 資料庫改版失敗，資料庫維持改版前的內容：模擬的改版失敗" in err
     assert started == []
+
+
+@pytest.mark.parametrize("shell_key, expected", [("shell 的 key", "shell 的 key"), (None, ".env 的 key")],
+                         ids=["shell_first", "dotenv_when_unset"])
+def test_main_env_does_not_override_shell(tmp_path, started, monkeypatch, shell_key, expected):
+    # AC-llm：shell 已經設定的 GEMINI_API_KEY 優先，.env 不會覆寫
+    (tmp_path / ".env").write_text("GEMINI_API_KEY=.env 的 key\n", encoding="utf-8")
+    monkeypatch.setattr(app, "PROJECT_ROOT", tmp_path)
+    # 先 setenv 再 delenv：測試結束時才會還原成原本的狀態，.env 載入的值不會留給其他測試
+    monkeypatch.setenv("GEMINI_API_KEY", shell_key or "")
+    if shell_key is None:
+        monkeypatch.delenv("GEMINI_API_KEY")
+
+    assert app.main(tmp_path / "jobs.db") == 0
+
+    assert os.environ["GEMINI_API_KEY"] == expected
