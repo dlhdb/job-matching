@@ -3,7 +3,7 @@
 """
 
 from collections.abc import AsyncIterator
-from contextlib import asynccontextmanager
+from contextlib import asynccontextmanager, closing
 from pathlib import Path
 
 from fastapi import FastAPI, HTTPException
@@ -11,7 +11,8 @@ from fastapi.responses import FileResponse
 from fastapi.staticfiles import StaticFiles
 
 from job_db import open_db
-from web import crawl, job_table
+from job_scoring.settings import ensure_defaults
+from web import crawl, job_table, settings
 from web.jobs import JobRunner
 
 
@@ -26,8 +27,9 @@ def create_app(db_path: str | Path, frontend_dir: Path | None = None) -> FastAPI
 
     @asynccontextmanager
     async def lifespan(_: FastAPI) -> AsyncIterator[None]:
-        # 啟動時先開一次，資料庫的錯誤在啟動時就出現，不等到第一個請求
-        open_db(db_path).close()
+        # 啟動時先開一次，資料庫的錯誤在啟動時就出現，不等到第一個請求；順便替還沒有設定的資料庫寫入第 1 版
+        with closing(open_db(db_path)) as conn:
+            ensure_defaults(conn)
         yield
 
     app = FastAPI(title="求職雷達", lifespan=lifespan)
@@ -37,6 +39,7 @@ def create_app(db_path: str | Path, frontend_dir: Path | None = None) -> FastAPI
     app.state.crawl = crawl.CrawlSession()
     app.include_router(job_table.router)
     app.include_router(crawl.router)
+    app.include_router(settings.router)
 
     if frontend_dir is not None:
         _serve_frontend(app, frontend_dir)

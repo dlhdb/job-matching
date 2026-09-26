@@ -139,10 +139,241 @@
           }
         }
       }
+    },
+    "/api/settings": {
+      "get": {
+        "summary": "取得三份設定",
+        "description": "偏好、經歷、提示詞模板各自的版本紀錄（由新到舊）、目前設定是哪一版，以及預設內容。",
+        "operationId": "get_settings_api_settings_get",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SettingsState"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/settings/check": {
+      "post": {
+        "summary": "檢查設定的內容",
+        "description": "編輯時即時檢查：偏好依欄位字典驗證；提示詞模板檢查標記與變數，沒用到的變數只提醒；經歷不檢查。",
+        "operationId": "check_content_api_settings_check_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CheckRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CheckResult"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/settings/{kind}/versions": {
+      "post": {
+        "summary": "儲存並套用新版本",
+        "description": "把內容存成新版本並改成目前設定；只要送來就新增，即使內容和其他版本相同。名稱空白或內容檢查有錯時回 422，什麼都不存。",
+        "operationId": "save_version_api_settings__kind__versions_post",
+        "parameters": [
+          {
+            "name": "kind",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "enum": [
+                "preferences",
+                "experience",
+                "template"
+              ],
+              "type": "string",
+              "title": "Kind"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/NewVersion"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SavedVersion"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/settings/{kind}/current": {
+      "put": {
+        "summary": "套用某一版",
+        "description": "把某一版改成目前設定，不新增版本。沒有這一版時回 404；內容檢查有錯時回 422。",
+        "operationId": "apply_api_settings__kind__current_put",
+        "parameters": [
+          {
+            "name": "kind",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "enum": [
+                "preferences",
+                "experience",
+                "template"
+              ],
+              "type": "string",
+              "title": "Kind"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ApplyVersion"
+              }
+            }
+          }
+        },
+        "responses": {
+          "204": {
+            "description": "Successful Response"
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/settings/{kind}/versions/{version}": {
+      "patch": {
+        "summary": "修改版本的名稱與描述",
+        "description": "只改名稱與描述，內容不能改。名稱空白時回 422；沒有這一版時回 404。",
+        "operationId": "update_meta_api_settings__kind__versions__version__patch",
+        "parameters": [
+          {
+            "name": "kind",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "enum": [
+                "preferences",
+                "experience",
+                "template"
+              ],
+              "type": "string",
+              "title": "Kind"
+            }
+          },
+          {
+            "name": "version",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "title": "Version"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/VersionMeta"
+              }
+            }
+          }
+        },
+        "responses": {
+          "204": {
+            "description": "Successful Response"
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
     }
   },
   "components": {
     "schemas": {
+      "ApplyVersion": {
+        "properties": {
+          "version": {
+            "type": "integer",
+            "title": "Version"
+          }
+        },
+        "type": "object",
+        "required": [
+          "version"
+        ],
+        "title": "ApplyVersion"
+      },
       "AreaList": {
         "properties": {
           "areas": {
@@ -158,6 +389,55 @@
           "areas"
         ],
         "title": "AreaList"
+      },
+      "CheckRequest": {
+        "properties": {
+          "kind": {
+            "type": "string",
+            "enum": [
+              "preferences",
+              "experience",
+              "template"
+            ],
+            "title": "Kind"
+          },
+          "content": {
+            "type": "string",
+            "title": "Content"
+          }
+        },
+        "type": "object",
+        "required": [
+          "kind",
+          "content"
+        ],
+        "title": "CheckRequest"
+      },
+      "CheckResult": {
+        "properties": {
+          "errors": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "title": "Errors",
+            "description": "有錯誤時不能儲存或套用"
+          },
+          "warnings": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "title": "Warnings",
+            "description": "提醒，不擋儲存"
+          }
+        },
+        "type": "object",
+        "required": [
+          "errors",
+          "warnings"
+        ],
+        "title": "CheckResult"
       },
       "CrawlRequest": {
         "properties": {
@@ -703,6 +983,66 @@
         ],
         "title": "JobList"
       },
+      "KindState": {
+        "properties": {
+          "current": {
+            "type": "integer",
+            "title": "Current",
+            "description": "目前設定是第幾版"
+          },
+          "is_default": {
+            "type": "boolean",
+            "title": "Is Default",
+            "description": "目前設定的內容是否和專案附的預設內容相同"
+          },
+          "default_content": {
+            "type": "string",
+            "title": "Default Content",
+            "description": "專案附的預設內容，「還原預設」用"
+          },
+          "versions": {
+            "items": {
+              "$ref": "#/components/schemas/Version"
+            },
+            "type": "array",
+            "title": "Versions",
+            "description": "由新到舊"
+          }
+        },
+        "type": "object",
+        "required": [
+          "current",
+          "is_default",
+          "default_content",
+          "versions"
+        ],
+        "title": "KindState"
+      },
+      "NewVersion": {
+        "properties": {
+          "name": {
+            "type": "string",
+            "title": "Name",
+            "description": "必填，頭尾的空白會去掉"
+          },
+          "description": {
+            "type": "string",
+            "title": "Description",
+            "description": "可以空白",
+            "default": ""
+          },
+          "content": {
+            "type": "string",
+            "title": "Content"
+          }
+        },
+        "type": "object",
+        "required": [
+          "name",
+          "content"
+        ],
+        "title": "NewVersion"
+      },
       "PreviewOut": {
         "properties": {
           "jobs": {
@@ -784,6 +1124,20 @@
         ],
         "title": "SavedCodes"
       },
+      "SavedVersion": {
+        "properties": {
+          "version": {
+            "type": "integer",
+            "title": "Version",
+            "description": "新版本的編號，已經改成目前設定"
+          }
+        },
+        "type": "object",
+        "required": [
+          "version"
+        ],
+        "title": "SavedVersion"
+      },
       "SearchProgressOut": {
         "properties": {
           "stage": {
@@ -817,6 +1171,26 @@
           "found"
         ],
         "title": "SearchProgressOut"
+      },
+      "SettingsState": {
+        "properties": {
+          "preferences": {
+            "$ref": "#/components/schemas/KindState"
+          },
+          "experience": {
+            "$ref": "#/components/schemas/KindState"
+          },
+          "template": {
+            "$ref": "#/components/schemas/KindState"
+          }
+        },
+        "type": "object",
+        "required": [
+          "preferences",
+          "experience",
+          "template"
+        ],
+        "title": "SettingsState"
       },
       "ValidationError": {
         "properties": {
@@ -857,6 +1231,61 @@
           "type"
         ],
         "title": "ValidationError"
+      },
+      "Version": {
+        "properties": {
+          "version": {
+            "type": "integer",
+            "title": "Version"
+          },
+          "name": {
+            "type": "string",
+            "title": "Name"
+          },
+          "description": {
+            "type": "string",
+            "title": "Description",
+            "description": "沒有填時是空字串"
+          },
+          "saved_at": {
+            "type": "string",
+            "title": "Saved At",
+            "description": "儲存時間，本地時間 ISO 8601，精確到秒"
+          },
+          "content": {
+            "type": "string",
+            "title": "Content"
+          }
+        },
+        "type": "object",
+        "required": [
+          "version",
+          "name",
+          "description",
+          "saved_at",
+          "content"
+        ],
+        "title": "Version"
+      },
+      "VersionMeta": {
+        "properties": {
+          "name": {
+            "type": "string",
+            "title": "Name",
+            "description": "必填，頭尾的空白會去掉"
+          },
+          "description": {
+            "type": "string",
+            "title": "Description",
+            "description": "可以空白",
+            "default": ""
+          }
+        },
+        "type": "object",
+        "required": [
+          "name"
+        ],
+        "title": "VersionMeta"
       }
     }
   }

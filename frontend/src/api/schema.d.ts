@@ -128,14 +128,142 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/settings": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * 取得三份設定
+         * @description 偏好、經歷、提示詞模板各自的版本紀錄（由新到舊）、目前設定是哪一版，以及預設內容。
+         */
+        get: operations["get_settings_api_settings_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/settings/check": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * 檢查設定的內容
+         * @description 編輯時即時檢查：偏好依欄位字典驗證；提示詞模板檢查標記與變數，沒用到的變數只提醒；經歷不檢查。
+         */
+        post: operations["check_content_api_settings_check_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/settings/{kind}/versions": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * 儲存並套用新版本
+         * @description 把內容存成新版本並改成目前設定；只要送來就新增，即使內容和其他版本相同。名稱空白或內容檢查有錯時回 422，什麼都不存。
+         */
+        post: operations["save_version_api_settings__kind__versions_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/settings/{kind}/current": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        /**
+         * 套用某一版
+         * @description 把某一版改成目前設定，不新增版本。沒有這一版時回 404；內容檢查有錯時回 422。
+         */
+        put: operations["apply_api_settings__kind__current_put"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/settings/{kind}/versions/{version}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        /**
+         * 修改版本的名稱與描述
+         * @description 只改名稱與描述，內容不能改。名稱空白時回 422；沒有這一版時回 404。
+         */
+        patch: operations["update_meta_api_settings__kind__versions__version__patch"];
+        trace?: never;
+    };
 }
 export type webhooks = Record<string, never>;
 export interface components {
     schemas: {
+        /** ApplyVersion */
+        ApplyVersion: {
+            /** Version */
+            version: number;
+        };
         /** AreaList */
         AreaList: {
             /** Areas */
             areas: string[];
+        };
+        /** CheckRequest */
+        CheckRequest: {
+            /**
+             * Kind
+             * @enum {string}
+             */
+            kind: "preferences" | "experience" | "template";
+            /** Content */
+            content: string;
+        };
+        /** CheckResult */
+        CheckResult: {
+            /**
+             * Errors
+             * @description 有錯誤時不能儲存或套用
+             */
+            errors: string[];
+            /**
+             * Warnings
+             * @description 提醒，不擋儲存
+             */
+            warnings: string[];
         };
         /** CrawlRequest */
         CrawlRequest: {
@@ -276,6 +404,45 @@ export interface components {
             /** Jobs */
             jobs: components["schemas"]["Job"][];
         };
+        /** KindState */
+        KindState: {
+            /**
+             * Current
+             * @description 目前設定是第幾版
+             */
+            current: number;
+            /**
+             * Is Default
+             * @description 目前設定的內容是否和專案附的預設內容相同
+             */
+            is_default: boolean;
+            /**
+             * Default Content
+             * @description 專案附的預設內容，「還原預設」用
+             */
+            default_content: string;
+            /**
+             * Versions
+             * @description 由新到舊
+             */
+            versions: components["schemas"]["Version"][];
+        };
+        /** NewVersion */
+        NewVersion: {
+            /**
+             * Name
+             * @description 必填，頭尾的空白會去掉
+             */
+            name: string;
+            /**
+             * Description
+             * @description 可以空白
+             * @default
+             */
+            description: string;
+            /** Content */
+            content: string;
+        };
         /** PreviewOut */
         PreviewOut: {
             /** Jobs */
@@ -308,6 +475,14 @@ export interface components {
              */
             codes: string[];
         };
+        /** SavedVersion */
+        SavedVersion: {
+            /**
+             * Version
+             * @description 新版本的編號，已經改成目前設定
+             */
+            version: number;
+        };
         /** SearchProgressOut */
         SearchProgressOut: {
             /**
@@ -325,6 +500,12 @@ export interface components {
             /** Found */
             found: number;
         };
+        /** SettingsState */
+        SettingsState: {
+            preferences: components["schemas"]["KindState"];
+            experience: components["schemas"]["KindState"];
+            template: components["schemas"]["KindState"];
+        };
         /** ValidationError */
         ValidationError: {
             /** Location */
@@ -337,6 +518,39 @@ export interface components {
             input?: unknown;
             /** Context */
             ctx?: Record<string, never>;
+        };
+        /** Version */
+        Version: {
+            /** Version */
+            version: number;
+            /** Name */
+            name: string;
+            /**
+             * Description
+             * @description 沒有填時是空字串
+             */
+            description: string;
+            /**
+             * Saved At
+             * @description 儲存時間，本地時間 ISO 8601，精確到秒
+             */
+            saved_at: string;
+            /** Content */
+            content: string;
+        };
+        /** VersionMeta */
+        VersionMeta: {
+            /**
+             * Name
+             * @description 必填，頭尾的空白會去掉
+             */
+            name: string;
+            /**
+             * Description
+             * @description 可以空白
+             * @default
+             */
+            description: string;
         };
     };
     responses: never;
@@ -493,6 +707,161 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content?: never;
+            };
+        };
+    };
+    get_settings_api_settings_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SettingsState"];
+                };
+            };
+        };
+    };
+    check_content_api_settings_check_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["CheckRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CheckResult"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    save_version_api_settings__kind__versions_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                kind: "preferences" | "experience" | "template";
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["NewVersion"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SavedVersion"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    apply_api_settings__kind__current_put: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                kind: "preferences" | "experience" | "template";
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ApplyVersion"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    update_meta_api_settings__kind__versions__version__patch: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                kind: "preferences" | "experience" | "template";
+                version: number;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["VersionMeta"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
             };
         };
     };
