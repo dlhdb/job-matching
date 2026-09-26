@@ -11,14 +11,15 @@ from fastapi.responses import FileResponse
 from fastapi.staticfiles import StaticFiles
 
 from job_db import open_db
-from web import job_table
+from web import crawl, job_table
+from web.jobs import JobRunner
 
 
 def create_app(db_path: str | Path, frontend_dir: Path | None = None) -> FastAPI:
     """
     建立 FastAPI app。
 
-    :param db_path: str or Path, 職缺資料庫的路徑；每個請求各自開一條連線
+    :param db_path: str or Path, 職缺資料庫的路徑；每個請求與背景作業各自開自己的連線
     :param frontend_dir: Path or None, build 好的前端目錄（含 index.html 與 assets/）；None 時只提供 API
     :return: FastAPI
     """
@@ -31,7 +32,11 @@ def create_app(db_path: str | Path, frontend_dir: Path | None = None) -> FastAPI
 
     app = FastAPI(title="求職雷達", lifespan=lifespan)
     app.state.db_path = Path(db_path)
+    # 同一時間只跑一個作業，各功能共用同一個執行器
+    app.state.runner = JobRunner()
+    app.state.crawl = crawl.CrawlSession()
     app.include_router(job_table.router)
+    app.include_router(crawl.router)
 
     if frontend_dir is not None:
         _serve_frontend(app, frontend_dir)

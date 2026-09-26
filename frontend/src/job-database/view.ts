@@ -22,8 +22,31 @@ export const DEFAULT_VIEW: View = {
 
 const KNOWN_COLUMNS = new Set(JOB_COLUMNS.map((c) => c.key));
 
-const isRecord = (value: unknown): value is Record<string, unknown> =>
+export const isRecord = (value: unknown): value is Record<string, unknown> =>
   typeof value === "object" && value !== null && !Array.isArray(value);
+
+/**
+ * 從記住的內容還原顯示的欄位：去掉重複與不認得的欄位；一欄都不剩時用 fallback。
+ */
+export function parseColumns(raw: unknown, known: Set<string>, fallback: string[]): string[] {
+  const columns = Array.isArray(raw)
+    ? [...new Set(raw)].filter((k): k is string => typeof k === "string" && known.has(k))
+    : [];
+  return columns.length > 0 ? columns : fallback;
+}
+
+/** 從記住的內容還原排序：欄位不認得或方向不對時用 fallback */
+export function parseSort(raw: unknown, known: Set<string>, fallback: Sort): Sort {
+  if (
+    isRecord(raw) &&
+    typeof raw.key === "string" &&
+    known.has(raw.key) &&
+    (raw.dir === "asc" || raw.dir === "desc")
+  ) {
+    return { key: raw.key, dir: raw.dir };
+  }
+  return fallback;
+}
 
 /**
  * 從記住的內容還原檢視：逐項檢查，不合法的項目退回預設，其他項目照用。
@@ -32,19 +55,6 @@ const isRecord = (value: unknown): value is Record<string, unknown> =>
  */
 export function parseView(raw: unknown): View {
   if (!isRecord(raw)) return DEFAULT_VIEW;
-
-  const columns = Array.isArray(raw.columns)
-    ? [...new Set(raw.columns)].filter(
-        (k): k is string => typeof k === "string" && KNOWN_COLUMNS.has(k),
-      )
-    : [];
-
-  const sort = raw.sort;
-  const validSort =
-    isRecord(sort) &&
-    typeof sort.key === "string" &&
-    KNOWN_COLUMNS.has(sort.key) &&
-    (sort.dir === "asc" || sort.dir === "desc");
 
   const filters = { ...EMPTY_FILTERS };
   if (isRecord(raw.filters)) {
@@ -55,8 +65,8 @@ export function parseView(raw: unknown): View {
   }
 
   return {
-    columns: columns.length > 0 ? columns : DEFAULT_VIEW.columns,
-    sort: validSort ? { key: sort.key as string, dir: sort.dir as Sort["dir"] } : DEFAULT_VIEW.sort,
+    columns: parseColumns(raw.columns, KNOWN_COLUMNS, DEFAULT_VIEW.columns),
+    sort: parseSort(raw.sort, KNOWN_COLUMNS, DEFAULT_VIEW.sort),
     filters,
   };
 }

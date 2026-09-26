@@ -24,10 +24,179 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/crawl/areas": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * 列出可以選的縣市
+         * @description 104 的 22 個縣市，依縣市選單的順序；不選代表全台灣。
+         */
+        get: operations["get_areas_api_crawl_areas_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/crawl": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * 取得抓取的狀態
+         * @description 抓取中的進度、沒存入的抓取結果，或最近一次抓取沒有結果的原因。
+         */
+        get: operations["get_state_api_crawl_get"];
+        put?: never;
+        /**
+         * 開始抓取
+         * @description 在背景開始抓取，進度以 GET /api/crawl 取得。已有作業在跑，或有沒存入的抓取結果但沒有確認捨棄時回 409；開始時才捨棄舊的結果。
+         */
+        post: operations["start_crawl_api_crawl_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/crawl/stop": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * 停止抓取
+         * @description 不再發出新的請求，已送出的請求照常完成；取完內容的職缺進入預覽。
+         */
+        post: operations["stop_crawl_api_crawl_stop_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/crawl/save": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * 存入抓取結果
+         * @description 把預覽的職缺整批寫入職缺資料庫，執行時間是抓完或停止的時間。成功時清掉預覽；寫入失敗時回 500，資料庫與預覽都不變。
+         */
+        post: operations["save_preview_api_crawl_save_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/crawl/preview": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        /**
+         * 捨棄抓取結果
+         * @description 清掉沒存入的抓取結果，職缺資料庫不變。
+         */
+        delete: operations["discard_preview_api_crawl_preview_delete"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
 }
 export type webhooks = Record<string, never>;
 export interface components {
     schemas: {
+        /** AreaList */
+        AreaList: {
+            /** Areas */
+            areas: string[];
+        };
+        /** CrawlRequest */
+        CrawlRequest: {
+            /**
+             * Keyword
+             * @description 多個關鍵字以半形或全形逗號分隔
+             */
+            keyword: string;
+            /**
+             * Area
+             * @description 縣市名稱；null 代表全台灣
+             */
+            area?: string | null;
+            /**
+             * Pages
+             * @description 每個關鍵字抓幾頁，每頁 30 筆
+             */
+            pages: number;
+            /**
+             * Job Type
+             * @description 職缺性質：0 全部、1 全職、2 兼職／工讀
+             * @enum {integer}
+             */
+            job_type: 0 | 1 | 2;
+            /**
+             * Discard Preview
+             * @description 有沒存入的抓取結果時，確認捨棄它
+             * @default false
+             */
+            discard_preview: boolean;
+        };
+        /** CrawlState */
+        CrawlState: {
+            /** @description 沒在抓取時為 null */
+            running: components["schemas"]["Running"] | null;
+            /** @description 沒有沒存入的抓取結果時為 null */
+            preview: components["schemas"]["PreviewOut"] | null;
+            /**
+             * Outcome
+             * @description 沒有預覽時，最近一次抓取的結果訊息
+             */
+            outcome: string | null;
+        };
+        /** DetailProgressOut */
+        DetailProgressOut: {
+            /**
+             * Stage
+             * @default detail
+             * @constant
+             */
+            stage: "detail";
+            /** Index */
+            index: number;
+            /** Total */
+            total: number;
+        };
+        /** HTTPValidationError */
+        HTTPValidationError: {
+            /** Detail */
+            detail?: components["schemas"]["ValidationError"][];
+        };
         /** Job */
         Job: {
             /** 職缺代碼 */
@@ -67,10 +236,107 @@ export interface components {
             /** 最後出現時間 */
             "\u6700\u5F8C\u51FA\u73FE\u6642\u9593": string;
         };
+        /** JobFields */
+        JobFields: {
+            /** 職缺代碼 */
+            "\u8077\u7F3A\u4EE3\u78BC": string;
+            /** 職缺名稱 */
+            "\u8077\u7F3A\u540D\u7A31": string | null;
+            /** 公司名稱 */
+            "\u516C\u53F8\u540D\u7A31": string | null;
+            /** 產業類別 */
+            "\u7522\u696D\u985E\u5225": string | null;
+            /** 地區 */
+            "\u5730\u5340": string | null;
+            /** 薪資待遇 */
+            "\u85AA\u8CC7\u5F85\u9047": string | null;
+            /** 薪資下限 */
+            "\u85AA\u8CC7\u4E0B\u9650": number | null;
+            /** 薪資上限 */
+            "\u85AA\u8CC7\u4E0A\u9650": number | null;
+            /** 更新日期 */
+            "\u66F4\u65B0\u65E5\u671F": string | null;
+            /** 應徵人數 */
+            "\u61C9\u5FB5\u4EBA\u6578": number | null;
+            /** 工作內容 */
+            "\u5DE5\u4F5C\u5167\u5BB9": string | null;
+            /** 電腦專長 */
+            "\u96FB\u8166\u5C08\u9577": string | null;
+            /** 科系要求 */
+            "\u79D1\u7CFB\u8981\u6C42": string | null;
+            /** 特色標籤 */
+            "\u7279\u8272\u6A19\u7C64": string | null;
+            /** 職缺連結 */
+            "\u8077\u7F3A\u9023\u7D50": string | null;
+            /** 公司連結 */
+            "\u516C\u53F8\u9023\u7D50": string | null;
+        };
         /** JobList */
         JobList: {
             /** Jobs */
             jobs: components["schemas"]["Job"][];
+        };
+        /** PreviewOut */
+        PreviewOut: {
+            /** Jobs */
+            jobs: components["schemas"]["JobFields"][];
+            /**
+             * New Codes
+             * @description 職缺資料庫裡還沒有的職缺代碼
+             */
+            new_codes: string[];
+            /** Found */
+            found: number;
+            /** Stopped */
+            stopped: boolean;
+        };
+        /** Running */
+        Running: {
+            /**
+             * Progress
+             * @description 還沒送出第一個請求時為 null
+             */
+            progress: components["schemas"]["SearchProgressOut"] | components["schemas"]["DetailProgressOut"] | null;
+            /** Stopping */
+            stopping: boolean;
+        };
+        /** SavedCodes */
+        SavedCodes: {
+            /**
+             * Codes
+             * @description 這次存入的職缺代碼，順序同預覽
+             */
+            codes: string[];
+        };
+        /** SearchProgressOut */
+        SearchProgressOut: {
+            /**
+             * Stage
+             * @default search
+             * @constant
+             */
+            stage: "search";
+            /** Keyword */
+            keyword: string;
+            /** Page */
+            page: number;
+            /** Pages */
+            pages: number;
+            /** Found */
+            found: number;
+        };
+        /** ValidationError */
+        ValidationError: {
+            /** Location */
+            loc: (string | number)[];
+            /** Message */
+            msg: string;
+            /** Error Type */
+            type: string;
+            /** Input */
+            input?: unknown;
+            /** Context */
+            ctx?: Record<string, never>;
         };
     };
     responses: never;
@@ -98,6 +364,135 @@ export interface operations {
                 content: {
                     "application/json": components["schemas"]["JobList"];
                 };
+            };
+        };
+    };
+    get_areas_api_crawl_areas_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AreaList"];
+                };
+            };
+        };
+    };
+    get_state_api_crawl_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CrawlState"];
+                };
+            };
+        };
+    };
+    start_crawl_api_crawl_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["CrawlRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            202: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": unknown;
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    stop_crawl_api_crawl_stop_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    save_preview_api_crawl_save_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SavedCodes"];
+                };
+            };
+        };
+    };
+    discard_preview_api_crawl_preview_delete: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
             };
         };
     };

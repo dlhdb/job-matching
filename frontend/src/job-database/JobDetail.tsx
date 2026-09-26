@@ -1,6 +1,6 @@
 import { Fragment, type ReactNode } from "react";
 
-import type { Job } from "../api/client";
+import type { Job, JobFields } from "../api/client";
 import { showTime } from "./columns";
 
 const NULL = <span className="null">—</span>;
@@ -20,11 +20,19 @@ function link(href: string | null, label: string): ReactNode {
   );
 }
 
-interface JobDetailProps {
-  job: Job;
+function times(job: Partial<Pick<Job, "首次出現時間" | "最後出現時間">>): [string, ReactNode][] {
+  const pairs: [string, ReactNode][] = [];
+  if (job.首次出現時間) pairs.push(["首次出現時間", showTime(job.首次出現時間)]);
+  if (job.最後出現時間) pairs.push(["最後出現時間", showTime(job.最後出現時間)]);
+  return pairs;
 }
 
-/** 展開一列時顯示的職缺完整內容 */
+interface JobDetailProps {
+  /** 抓取的預覽還沒存入，沒有出現時間 */
+  job: JobFields & Partial<Pick<Job, "首次出現時間" | "最後出現時間">>;
+}
+
+/** 展開一列時顯示的職缺完整內容；出現時間有值才顯示 */
 export function JobDetail({ job }: JobDetailProps) {
   const pairs: [string, ReactNode][] = [
     ["職缺代碼", text(job.職缺代碼)],
@@ -44,8 +52,7 @@ export function JobDetail({ job }: JobDetailProps) {
     ["電腦專長", text(job.電腦專長)],
     ["科系要求", text(job.科系要求)],
     ["特色標籤", text(job.特色標籤)],
-    ["首次出現時間", showTime(job.首次出現時間)],
-    ["最後出現時間", showTime(job.最後出現時間)],
+    ...times(job),
     [
       "連結",
       <>

@@ -1,7 +1,7 @@
 /**
  * 職缺表的欄位：可以選的欄位、預設顯示的欄位，以及勾選欄位的規則。
  */
-import type { Job } from "../api/client";
+import type { Job, JobFields } from "../api/client";
 
 /** 表格的一個欄位，key 同時是標題 */
 export interface Column<Row> {
@@ -19,35 +19,46 @@ export interface Column<Row> {
 /** ISO 8601 的時間改用空白分開日期與時間，比較好讀 */
 export const showTime = (value: string | number) => String(value).replace("T", " ");
 
-type JobKey = keyof Job & string;
+type ColumnOptions = Pick<Column<unknown>, "numeric" | "className" | "format">;
 
-function jobColumn(
-  key: JobKey,
-  options: Pick<Column<Job>, "numeric" | "className" | "format"> = {},
-) {
-  return { key, value: (job: Job) => job[key], ...options } satisfies Column<Job>;
+function fieldColumn(key: keyof JobFields & string, options: ColumnOptions = {}) {
+  return { key, value: (job: JobFields) => job[key], ...options } satisfies Column<JobFields>;
 }
 
-/** 可以選的欄位：職缺欄位契約的全部欄位，接著是首次、最後出現時間 */
+/** 職缺欄位契約的全部欄位，依契約的順序；抓取的預覽只能選這些 */
+export const CONTRACT_COLUMNS: Column<JobFields>[] = [
+  fieldColumn("職缺代碼", { className: "nowrap" }),
+  fieldColumn("職缺名稱", { className: "clip" }),
+  fieldColumn("公司名稱", { className: "clip" }),
+  fieldColumn("產業類別", { className: "nowrap" }),
+  fieldColumn("地區", { className: "clip" }),
+  fieldColumn("薪資待遇", { className: "nowrap" }),
+  fieldColumn("薪資下限", { numeric: true }),
+  fieldColumn("薪資上限", { numeric: true }),
+  fieldColumn("更新日期", { className: "nowrap" }),
+  fieldColumn("應徵人數", { numeric: true }),
+  fieldColumn("工作內容", { className: "clip" }),
+  fieldColumn("電腦專長", { className: "clip" }),
+  fieldColumn("科系要求", { className: "clip" }),
+  fieldColumn("特色標籤", { className: "clip" }),
+  fieldColumn("職缺連結", { className: "clip" }),
+  fieldColumn("公司連結", { className: "clip" }),
+];
+
+function timeColumn(key: "首次出現時間" | "最後出現時間") {
+  return {
+    key,
+    value: (job: Job) => job[key],
+    className: "nowrap",
+    format: showTime,
+  } satisfies Column<Job>;
+}
+
+/** 職缺表可以選的欄位：職缺欄位契約的全部欄位，接著是首次、最後出現時間 */
 export const JOB_COLUMNS: Column<Job>[] = [
-  jobColumn("職缺代碼", { className: "nowrap" }),
-  jobColumn("職缺名稱", { className: "clip" }),
-  jobColumn("公司名稱", { className: "clip" }),
-  jobColumn("產業類別", { className: "nowrap" }),
-  jobColumn("地區", { className: "clip" }),
-  jobColumn("薪資待遇", { className: "nowrap" }),
-  jobColumn("薪資下限", { numeric: true }),
-  jobColumn("薪資上限", { numeric: true }),
-  jobColumn("更新日期", { className: "nowrap" }),
-  jobColumn("應徵人數", { numeric: true }),
-  jobColumn("工作內容", { className: "clip" }),
-  jobColumn("電腦專長", { className: "clip" }),
-  jobColumn("科系要求", { className: "clip" }),
-  jobColumn("特色標籤", { className: "clip" }),
-  jobColumn("職缺連結", { className: "clip" }),
-  jobColumn("公司連結", { className: "clip" }),
-  jobColumn("首次出現時間", { className: "nowrap", format: showTime }),
-  jobColumn("最後出現時間", { className: "nowrap", format: showTime }),
+  ...CONTRACT_COLUMNS,
+  timeColumn("首次出現時間"),
+  timeColumn("最後出現時間"),
 ];
 
 /** 第一次打開職缺表時顯示的欄位 */

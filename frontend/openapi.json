@@ -23,10 +23,274 @@
           }
         }
       }
+    },
+    "/api/crawl/areas": {
+      "get": {
+        "summary": "列出可以選的縣市",
+        "description": "104 的 22 個縣市，依縣市選單的順序；不選代表全台灣。",
+        "operationId": "get_areas_api_crawl_areas_get",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AreaList"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/crawl": {
+      "get": {
+        "summary": "取得抓取的狀態",
+        "description": "抓取中的進度、沒存入的抓取結果，或最近一次抓取沒有結果的原因。",
+        "operationId": "get_state_api_crawl_get",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CrawlState"
+                }
+              }
+            }
+          }
+        }
+      },
+      "post": {
+        "summary": "開始抓取",
+        "description": "在背景開始抓取，進度以 GET /api/crawl 取得。已有作業在跑，或有沒存入的抓取結果但沒有確認捨棄時回 409；開始時才捨棄舊的結果。",
+        "operationId": "start_crawl_api_crawl_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CrawlRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "202": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/crawl/stop": {
+      "post": {
+        "summary": "停止抓取",
+        "description": "不再發出新的請求，已送出的請求照常完成；取完內容的職缺進入預覽。",
+        "operationId": "stop_crawl_api_crawl_stop_post",
+        "responses": {
+          "204": {
+            "description": "Successful Response"
+          }
+        }
+      }
+    },
+    "/api/crawl/save": {
+      "post": {
+        "summary": "存入抓取結果",
+        "description": "把預覽的職缺整批寫入職缺資料庫，執行時間是抓完或停止的時間。成功時清掉預覽；寫入失敗時回 500，資料庫與預覽都不變。",
+        "operationId": "save_preview_api_crawl_save_post",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SavedCodes"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/crawl/preview": {
+      "delete": {
+        "summary": "捨棄抓取結果",
+        "description": "清掉沒存入的抓取結果，職缺資料庫不變。",
+        "operationId": "discard_preview_api_crawl_preview_delete",
+        "responses": {
+          "204": {
+            "description": "Successful Response"
+          }
+        }
+      }
     }
   },
   "components": {
     "schemas": {
+      "AreaList": {
+        "properties": {
+          "areas": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "title": "Areas"
+          }
+        },
+        "type": "object",
+        "required": [
+          "areas"
+        ],
+        "title": "AreaList"
+      },
+      "CrawlRequest": {
+        "properties": {
+          "keyword": {
+            "type": "string",
+            "title": "Keyword",
+            "description": "多個關鍵字以半形或全形逗號分隔"
+          },
+          "area": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Area",
+            "description": "縣市名稱；null 代表全台灣"
+          },
+          "pages": {
+            "type": "integer",
+            "minimum": 1.0,
+            "title": "Pages",
+            "description": "每個關鍵字抓幾頁，每頁 30 筆"
+          },
+          "job_type": {
+            "type": "integer",
+            "enum": [
+              0,
+              1,
+              2
+            ],
+            "title": "Job Type",
+            "description": "職缺性質：0 全部、1 全職、2 兼職／工讀"
+          },
+          "discard_preview": {
+            "type": "boolean",
+            "title": "Discard Preview",
+            "description": "有沒存入的抓取結果時，確認捨棄它",
+            "default": false
+          }
+        },
+        "type": "object",
+        "required": [
+          "keyword",
+          "pages",
+          "job_type"
+        ],
+        "title": "CrawlRequest"
+      },
+      "CrawlState": {
+        "properties": {
+          "running": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/Running"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "沒在抓取時為 null"
+          },
+          "preview": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/PreviewOut"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "沒有沒存入的抓取結果時為 null"
+          },
+          "outcome": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Outcome",
+            "description": "沒有預覽時，最近一次抓取的結果訊息"
+          }
+        },
+        "type": "object",
+        "required": [
+          "running",
+          "preview",
+          "outcome"
+        ],
+        "title": "CrawlState"
+      },
+      "DetailProgressOut": {
+        "properties": {
+          "stage": {
+            "type": "string",
+            "const": "detail",
+            "title": "Stage",
+            "default": "detail"
+          },
+          "index": {
+            "type": "integer",
+            "title": "Index"
+          },
+          "total": {
+            "type": "integer",
+            "title": "Total"
+          }
+        },
+        "type": "object",
+        "required": [
+          "index",
+          "total"
+        ],
+        "title": "DetailProgressOut"
+      },
+      "HTTPValidationError": {
+        "properties": {
+          "detail": {
+            "items": {
+              "$ref": "#/components/schemas/ValidationError"
+            },
+            "type": "array",
+            "title": "Detail"
+          }
+        },
+        "type": "object",
+        "title": "HTTPValidationError"
+      },
       "Job": {
         "properties": {
           "職缺代碼": {
@@ -230,6 +494,199 @@
         ],
         "title": "Job"
       },
+      "JobFields": {
+        "properties": {
+          "職缺代碼": {
+            "type": "string",
+            "title": "職缺代碼"
+          },
+          "職缺名稱": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "職缺名稱"
+          },
+          "公司名稱": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "公司名稱"
+          },
+          "產業類別": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "產業類別"
+          },
+          "地區": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "地區"
+          },
+          "薪資待遇": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "薪資待遇"
+          },
+          "薪資下限": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "薪資下限"
+          },
+          "薪資上限": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "薪資上限"
+          },
+          "更新日期": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "更新日期"
+          },
+          "應徵人數": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "應徵人數"
+          },
+          "工作內容": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "工作內容"
+          },
+          "電腦專長": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "電腦專長"
+          },
+          "科系要求": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "科系要求"
+          },
+          "特色標籤": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "特色標籤"
+          },
+          "職缺連結": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "職缺連結"
+          },
+          "公司連結": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "公司連結"
+          }
+        },
+        "type": "object",
+        "required": [
+          "職缺代碼",
+          "職缺名稱",
+          "公司名稱",
+          "產業類別",
+          "地區",
+          "薪資待遇",
+          "薪資下限",
+          "薪資上限",
+          "更新日期",
+          "應徵人數",
+          "工作內容",
+          "電腦專長",
+          "科系要求",
+          "特色標籤",
+          "職缺連結",
+          "公司連結"
+        ],
+        "title": "JobFields"
+      },
       "JobList": {
         "properties": {
           "jobs": {
@@ -245,6 +702,161 @@
           "jobs"
         ],
         "title": "JobList"
+      },
+      "PreviewOut": {
+        "properties": {
+          "jobs": {
+            "items": {
+              "$ref": "#/components/schemas/JobFields"
+            },
+            "type": "array",
+            "title": "Jobs"
+          },
+          "new_codes": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "title": "New Codes",
+            "description": "職缺資料庫裡還沒有的職缺代碼"
+          },
+          "found": {
+            "type": "integer",
+            "title": "Found"
+          },
+          "stopped": {
+            "type": "boolean",
+            "title": "Stopped"
+          }
+        },
+        "type": "object",
+        "required": [
+          "jobs",
+          "new_codes",
+          "found",
+          "stopped"
+        ],
+        "title": "PreviewOut"
+      },
+      "Running": {
+        "properties": {
+          "progress": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/SearchProgressOut"
+              },
+              {
+                "$ref": "#/components/schemas/DetailProgressOut"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Progress",
+            "description": "還沒送出第一個請求時為 null"
+          },
+          "stopping": {
+            "type": "boolean",
+            "title": "Stopping"
+          }
+        },
+        "type": "object",
+        "required": [
+          "progress",
+          "stopping"
+        ],
+        "title": "Running"
+      },
+      "SavedCodes": {
+        "properties": {
+          "codes": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "title": "Codes",
+            "description": "這次存入的職缺代碼，順序同預覽"
+          }
+        },
+        "type": "object",
+        "required": [
+          "codes"
+        ],
+        "title": "SavedCodes"
+      },
+      "SearchProgressOut": {
+        "properties": {
+          "stage": {
+            "type": "string",
+            "const": "search",
+            "title": "Stage",
+            "default": "search"
+          },
+          "keyword": {
+            "type": "string",
+            "title": "Keyword"
+          },
+          "page": {
+            "type": "integer",
+            "title": "Page"
+          },
+          "pages": {
+            "type": "integer",
+            "title": "Pages"
+          },
+          "found": {
+            "type": "integer",
+            "title": "Found"
+          }
+        },
+        "type": "object",
+        "required": [
+          "keyword",
+          "page",
+          "pages",
+          "found"
+        ],
+        "title": "SearchProgressOut"
+      },
+      "ValidationError": {
+        "properties": {
+          "loc": {
+            "items": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "integer"
+                }
+              ]
+            },
+            "type": "array",
+            "title": "Location"
+          },
+          "msg": {
+            "type": "string",
+            "title": "Message"
+          },
+          "type": {
+            "type": "string",
+            "title": "Error Type"
+          },
+          "input": {
+            "title": "Input"
+          },
+          "ctx": {
+            "type": "object",
+            "title": "Context"
+          }
+        },
+        "type": "object",
+        "required": [
+          "loc",
+          "msg",
+          "type"
+        ],
+        "title": "ValidationError"
       }
     }
   }

@@ -71,16 +71,26 @@ def frontend_dist():
 
 
 @pytest.fixture
-def live_server(isolate_db, frontend_dist):
+def web_app(isolate_db, frontend_dist):
+    """
+    live_server 提供的 app，測試可以直接操作它的狀態，例如在作業執行器放一個假作業
+
+    :return: FastAPI
+    """
+    return create_app(isolate_db, frontend_dist)
+
+
+@pytest.fixture
+def live_server(web_app):
     """
     在測試行程的執行緒中起網頁伺服器（隨機 port），提供剛 build 好的前端，資料庫是 isolate_db
 
     資料在打開頁面前寫進 isolate_db 即可：每個請求各自開連線，讀得到最新的內容。
+    伺服器和測試在同一個行程，monkeypatch 換掉的外部服務（例如 fake_104）也對它有效。
 
     :return: str, 伺服器的網址，例如 http://127.0.0.1:54321
     """
-    config = uvicorn.Config(create_app(isolate_db, frontend_dist), host="127.0.0.1", port=0,
-                            log_level="warning")
+    config = uvicorn.Config(web_app, host="127.0.0.1", port=0, log_level="warning")
     server = uvicorn.Server(config)
     thread = threading.Thread(target=server.run, daemon=True)
     thread.start()
@@ -110,13 +120,148 @@ def browser_type_launch_args(browser_type_launch_args):
 @pytest.fixture
 def no_sleep(monkeypatch):
     """
-    以不等待的假函式取代 time.sleep，並記錄每次呼叫的秒數，供驗證延遲範圍
+    以不等待的假函式取代爬蟲請求之間的延遲，並記錄每次的秒數，供驗證延遲範圍
 
     :return: list[float], 依呼叫順序記錄的延遲秒數
     """
     calls = []
-    monkeypatch.setattr(fetch_104_jobs.time, "sleep", calls.append)
+    monkeypatch.setattr(fetch_104_jobs, "_sleep", lambda seconds, stop: calls.append(seconds))
     return calls
+
+
+class FakeResponse:
+    """模擬 requests.Response，只提供爬蟲會用到的屬性"""
+
+    def __init__(self, status_code, payload=None):
+        self.status_code = status_code
+        self._payload = payload
+
+    def json(self):
+        return self._payload
+
+
+class Hold:
+    """讓假的 104 停在某個請求：reached 在請求進來時設定，release() 之後才回應"""
+
+    def __init__(self):
+        self.reached = threading.Event()
+        self.released = threading.Event()
+
+    def release(self):
+        self.released.set()
+
+
+class Fake104:
+    """
+    假的 104：依設定回應搜尋與取職缺頁面的請求，並記錄收到的請求
+
+    沒設定的搜尋頁回傳空頁；取職缺頁面一律成功，除非代碼列在 failed_details。
+    """
+
+    SEARCH_URL = "https://www.104.com.tw/jobs/search/api/jobs"
+    DETAIL_URL = "https://www.104.com.tw/job/ajax/content/"
+
+    def __init__(self):
+        self.results = {}
+        self.failed_details = set()
+        self.searches = []
+        self.details = []
+        self._holds = {}
+        self._lock = threading.Lock()
+
+    def add(self, keyword, page, jobs, last_page):
+        """
+        設定某個關鍵字某一頁的搜尋結果
+
+        :param jobs: list, 職缺代碼（產生預設內容）或完整的原始職缺 dict
+        :param last_page: int, 回應中的最後一頁
+        """
+        self.results[(keyword, page)] = ([self.raw_job(j) if isinstance(j, str) else j for j in jobs], last_page)
+
+    @staticmethod
+    def raw_job(code, **overrides):
+        """
+        以職缺代碼產生搜尋 API 的原始職缺，職缺連結含這個代碼，取職缺頁面時對得回來
+
+        :return: dict
+        """
+        job = {
+            "jobNo": code,
+            "jobName": f"職缺{code}",
+            "custName": f"公司{code}",
+            "coIndustryDesc": "軟體及網路相關業",
+            "jobAddrNoDesc": "台北市大安區",
+            "jobAddress": "",
+            "salaryLow": 50000,
+            "salaryHigh": 70000,
+            "appearDate": "20260920",
+            "applyCnt": 1,
+            "pcSkills": [],
+            "major": [],
+            "tags": {},
+            "link": {"job": f"//www.104.com.tw/job/{code}", "cust": f"//www.104.com.tw/company/c{code}"},
+        }
+        job.update(overrides)
+        return job
+
+    @staticmethod
+    def description(code):
+        """取職缺頁面成功時的工作內容"""
+        return f"{code} 的完整工作內容"
+
+    def hold(self, kind, n):
+        """
+        讓第 n 個搜尋（kind="search"）或取職缺頁面（kind="detail"）的請求停住，n 從 1 開始
+
+        :return: Hold
+        """
+        gate = Hold()
+        self._holds[(kind, n)] = gate
+        return gate
+
+    def release_all(self):
+        for gate in self._holds.values():
+            gate.release()
+
+    def get(self, url, params=None, headers=None, timeout=None):
+        with self._lock:
+            if url.startswith(self.DETAIL_URL):
+                kind, code = "detail", url[len(self.DETAIL_URL):]
+                self.details.append(code)
+                n = len(self.details)
+            else:
+                assert url == self.SEARCH_URL
+                kind = "search"
+                self.searches.append((params.get("keyword"), params["page"], params.get("area"), params["ro"]))
+                n = len(self.searches)
+        gate = self._holds.get((kind, n))
+        if gate is not None:
+            gate.reached.set()
+            gate.released.wait(timeout=30)
+        if kind == "detail":
+            if code in self.failed_details:
+                return FakeResponse(500)
+            return FakeResponse(200, {"data": {"jobDetail": {
+                "jobDescription": self.description(code), "salary": "月薪50,000~70,000元",
+            }}})
+        keyword, page = params.get("keyword"), params["page"]
+        if (keyword, page) not in self.results:
+            return FakeResponse(200, {"data": [], "metadata": {}})
+        jobs, last_page = self.results[(keyword, page)]
+        return FakeResponse(200, {"data": jobs, "metadata": {"pagination": {"lastPage": last_page}}})
+
+
+@pytest.fixture
+def fake_104(monkeypatch, no_sleep):
+    """
+    以假的 104 取代爬蟲的 requests.get，請求之間不等待；結束時放行所有停住的請求
+
+    :return: Fake104
+    """
+    fake = Fake104()
+    monkeypatch.setattr(fetch_104_jobs.requests, "get", fake.get)
+    yield fake
+    fake.release_all()
 
 
 @pytest.fixture

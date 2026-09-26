@@ -1,45 +1,21 @@
-#!/usr/bin/env python3
-# -*- coding: utf-8 -*-
 """
-104人力銀行職缺撈取工具 (104 Job Bank Scraper)
----------------------------------------------
-此腳本可從 104 人力銀行的搜尋 API (https://www.104.com.tw/jobs/search/api/jobs)
-安全、穩定且快速地撈取指定關鍵字的職缺，並將結果儲存為 CSV 與 JSON 檔案。
+向 104 人力銀行抓取職缺：依關鍵字與縣市搜尋、以職缺代碼去重，再逐筆取職缺頁面的完整內容，
+整理成職缺欄位契約的中文欄位。
 
-功能特色：
-1. 支援「多個關鍵字批量撈取」：可同時輸入多個獨立關鍵字，腳本會自動輪詢、合併並自動進行「資料去重」(Deduplication)，避免重複的職缺重複寫入。
-2. 支援命令列參數 (CLI Args) 與親切的互動式引導模式。
-3. 內建熱門縣市名稱自動對應 104 地區代碼 (Area Code)。
-4. 自動進行請求頻率限制 (Rate Limiting) 與隨機延遲，避免對 104 伺服器造成負擔。
-5. 提供美觀的終端機表格預覽，並使用 Emojis 提升視覺體驗。
-6. 匯出 CSV 採用帶有 BOM 的 UTF-8 編碼 (utf-8-sig)，確保 Microsoft Excel 開啟時中文不會亂碼。
-7. 提供豐富的欄位提取，包含職缺名稱、公司名稱、薪資區間、地區、工作描述、電腦專長、科系要求、更新日期及直接應徵連結等。
-
-使用說明：
-- 互動模式：直接執行 `uv run src/fetch_104_jobs.py`
-- 命令列模式：`uv run src/fetch_104_jobs.py --keyword "Python,React,AI" --pages 3 --area "台北市"`
-- 結果預設也寫入職缺資料庫：`--db` 指定資料庫路徑，`--no-db` 只輸出 CSV／JSON（互動模式一律寫入預設的資料庫）
+抓取中可以停止，並以回呼回報進度；抓到的職缺只回傳給呼叫端，不寫檔也不寫入資料庫。
 """
 
-import sys
-import os
-import time
 import random
-import json
-import csv
-import argparse
-import sqlite3
+import threading
+from collections.abc import Callable
+from dataclasses import dataclass
 from datetime import datetime
-from pathlib import Path
+from typing import Any
+
 import requests
 
-from job_db import DEFAULT_DB_PATH, open_db, save_run
-
-# 輸出目錄以專案根目錄為基準，不受執行時的工作目錄影響（已列入 .gitignore）
-OUTPUT_DIR = Path(__file__).resolve().parents[1] / "output" / "104"
-
-# 104 熱門縣市代碼對應表
-POPULAR_AREAS = {
+# 104 的 22 個縣市與地區代碼；抓取頁的縣市選單依這裡的順序列出
+AREAS = {
     "台北市": "6001001000",
     "新北市": "6001002000",
     "桃園市": "6001008000",
@@ -71,13 +47,6 @@ DEFAULT_HEADERS = {
     'Accept': 'application/json, text/plain, */*',
     'Accept-Language': 'zh-TW,zh;q=0.9,en-US;q=0.8,en;q=0.7',
 }
-
-# CSV 欄位名稱常數，確保表頭完整且一致。欄名與順序對齊 job_db 的 JOB_COLUMNS，新增欄位時需同步 parse_jobs()
-CSV_FIELDNAMES = [
-    '職缺代碼', '職缺名稱', '公司名稱', '產業類別', '地區',
-    '薪資待遇', '薪資下限', '薪資上限', '更新日期', '應徵人數',
-    '工作內容', '電腦專長', '科系要求', '特色標籤', '職缺連結', '公司連結',
-]
 
 # ---------------------------------------------------------------------------
 # 通用工具函式
@@ -122,48 +91,13 @@ def _extract_skill_descriptions(pc_skills):
         return []
     return [s.get('description', '') for s in pc_skills if isinstance(s, dict) and s.get('description')]
 
-def truncate_display(text, max_width):
-    """依照終端顯示寬度截斷字串（CJK 字元計 2 寬度）"""
-    if text is None:
-        return "null"
-    width = 0
-    chars = []
-    for ch in text:
-        w = 2 if ord(ch) > 127 else 1
-        if width + w > max_width:
-            chars.append("..")
-            break
-        chars.append(ch)
-        width += w
-    return "".join(chars)
-
-def resolve_area(area_input):
-    """
-    將使用者輸入的地區名稱解析為 (area_code, area_label)。
-    支援精確比對與模糊比對，若無法辨識或未輸入則返回 (None, "全台灣")。
-    
-    :param area_input: str or None, 使用者輸入的地區名稱
-    :return: tuple (str or None, str), (地區代碼, 顯示用地區名稱)
-    """
-    if not area_input:
-        return None, "全台灣"
-    if area_input in POPULAR_AREAS:
-        return POPULAR_AREAS[area_input], area_input
-    # 模糊比對
-    for city, code in POPULAR_AREAS.items():
-        if area_input in city or city in area_input:
-            return code, city
-    return None, "全台灣"
-
 def parse_keywords(raw_input):
     """
     拆分關鍵字輸入，支援半形與全形逗號，並移除重複的關鍵字（保留首次出現的順序）
     
     :param raw_input: str, 使用者輸入的關鍵字原始字串
-    :return: list, 清理且不重複的關鍵字列表
+    :return: list, 清理且不重複的關鍵字列表；只有空白與逗號時為空清單
     """
-    if raw_input == "":
-        return [""]
     keywords = [k.strip() for k in raw_input.replace('，', ',').split(',') if k.strip()]
     return list(dict.fromkeys(keywords))
 
@@ -240,369 +174,175 @@ def fetch_job_detail(job_id):
     return None
 
 # ---------------------------------------------------------------------------
-# 資料解析與持久化
+# 資料解析
 # ---------------------------------------------------------------------------
 
-def parse_jobs(raw_jobs):
-    """
-    解析、清洗並結構化原始的 104 JSON 職缺列表資料，轉換為便於儲存與分析的字典格式
-    
-    :param raw_jobs: list, 包含原始 JSON 格式職缺資料的列表
-    :return: list, 清洗整理後、鍵值中文化的職缺字典列表 (可直接寫入 CSV/JSON)
-    """
-    parsed_list = []
-    if raw_jobs:
-        print(f"\n📥 正在向 104 發送請求以獲取共 {len(raw_jobs)} 筆職缺的完整工作內容...")
-        
-    for idx, item in enumerate(raw_jobs, 1):
-        if idx % 10 == 0 or idx == len(raw_jobs):
-            print(f"   ⏳ 已處理 {idx}/{len(raw_jobs)} 筆職缺詳細內容...")
-            
-        # 處理連結
-        links = item.get('link', {})
-        job_url = _normalize_url(links.get('job', ''))
-        company_url = _normalize_url(links.get('cust', ''))
+def _job_url(item):
+    """取出原始職缺的完整職缺連結"""
+    return _normalize_url(item.get('link', {}).get('job', ''))
 
-        job_id = _extract_job_id(job_url)
-        detail_data = None
-        if job_id:
-            # 逐筆發送詳情請求，加入延遲以控制請求頻率；不加延遲會被 104 拒絕請求
-            time.sleep(random.uniform(0.1, 0.3))
-            detail_data = fetch_job_detail(job_id)
+def parse_job(item, detail):
+    """
+    把一筆 104 搜尋結果與它的職缺頁面內容整理成職缺欄位契約的欄位
 
-        # 詳情請求失敗時，「薪資待遇」與「工作內容」保持 None，不可用搜尋 API 的 description 回填：
-        # 那只是關鍵字高亮的截斷摘要，回填會讓下游 AI 收到看似完整、實則殘缺的資料
-        majors = item.get('major', [])
-        job_data = {
-            '職缺代碼': item.get('jobNo', ''),
-            '職缺名稱': item.get('jobName', ''),
-            '公司名稱': item.get('custName', ''),
-            '產業類別': item.get('coIndustryDesc', ''),
-            '地區': (item.get('jobAddrNoDesc', '') + " " + item.get('jobAddress', '')).strip(),
-            '薪資待遇': detail_data.get('salary') if detail_data else None,
-            '薪資下限': item.get('salaryLow'),
-            '薪資上限': item.get('salaryHigh'),
-            '更新日期': format_date(item.get('appearDate', '')),
-            '應徵人數': item.get('applyCnt', 0),
-            '工作內容': detail_data.get('jobDescription') if detail_data else None,
-            '電腦專長': ', '.join(_extract_skill_descriptions(item.get('pcSkills', []))),
-            '科系要求': ', '.join(majors) if isinstance(majors, list) else str(majors),
-            '特色標籤': ', '.join(_extract_tag_descriptions(item.get('tags', {}))),
-            '職缺連結': job_url,
-            '公司連結': company_url,
-        }
-        parsed_list.append(job_data)
-    return parsed_list
-
-def save_to_csv(jobs_data, filename):
+    :param item: dict, 搜尋 API 回傳的單筆原始職缺
+    :param detail: dict or None, fetch_job_detail 的結果；取不到時為 None
+    :return: dict, 鍵依職缺欄位契約的順序
     """
-    將解析後的職缺字典列表寫入 CSV 檔案，使用 utf-8-sig 編碼以防 Excel 開啟中文亂碼
-    
-    :param jobs_data: list, 包含結構化職缺字典的列表
-    :param filename: str, 要寫入的目標 CSV 檔案路徑與名稱
-    :return: None
-    """
-    if not jobs_data:
-        print("[-] 沒有職缺資料可儲存為 CSV")
-        return
-    
-    try:
-        # 使用 utf-8-sig 在檔案開頭寫入 BOM (Byte Order Mark) 解決 Excel 亂碼
-        with open(filename, 'w', newline='', encoding='utf-8-sig') as f:
-            writer = csv.DictWriter(f, fieldnames=CSV_FIELDNAMES)
-            writer.writeheader()
-            writer.writerows(jobs_data)
-        print(f"[+] 成功儲存至 CSV 檔案: {os.path.abspath(filename)}")
-    except IOError as e:
-        print(f"[-] 儲存 CSV 檔案時出錯: {e}")
-
-def save_to_json(jobs_data, filename):
-    """
-    將解析後的職缺字典列表寫入標準 JSON 檔案，以 UTF-8 編碼儲存
-    
-    :param jobs_data: list, 包含結構化職缺字典的列表
-    :param filename: str, 要寫入的目標 JSON 檔案路徑與名稱
-    :return: None
-    """
-    if not jobs_data:
-        print("[-] 沒有職缺資料可儲存為 JSON")
-        return
-        
-    try:
-        with open(filename, 'w', encoding='utf-8') as f:
-            json.dump(jobs_data, f, ensure_ascii=False, indent=4)
-        print(f"[+] 成功儲存至 JSON 檔案: {os.path.abspath(filename)}")
-    except IOError as e:
-        print(f"[-] 儲存 JSON 檔案時出錯: {e}")
-
-def save_to_db(jobs_data, db_path, run_time, keywords, area_label, ro, pages):
-    """
-    將解析後的職缺與本次抓取條件寫入職缺資料庫；失敗時只印出錯誤，不中斷程式（CSV/JSON 已寫出）
-
-    :param jobs_data: list, 包含結構化職缺字典的列表
-    :param db_path: Path, 資料庫路徑
-    :param run_time: datetime, 本次執行時間，與輸出檔名的時間戳相同
-    :param keywords: list, 去重後的關鍵字列表
-    :param area_label: str, 地區名稱 (例如 "台北市" 或 "全台灣")
-    :param ro: int, 職缺性質 (0/1/2)
-    :param pages: int, 每個關鍵字抓取的頁數
-    :return: None
-    """
-    try:
-        conn = open_db(db_path)
-        try:
-            save_run(conn, jobs_data, run_time, "爬蟲",
-                     keywords=", ".join(keywords), area=area_label, job_type=ro, pages=pages)
-        finally:
-            conn.close()
-    except (sqlite3.Error, OSError) as e:
-        print(f"[-] 寫入資料庫時出錯: {e}", file=sys.stderr)
+    links = item.get('link', {})
+    # 取不到職缺頁面內容時，「薪資待遇」與「工作內容」保持 None，不可用搜尋 API 的 description 回填：
+    # 那只是關鍵字高亮的截斷摘要，回填會讓下游 AI 收到看似完整、實則殘缺的資料
+    majors = item.get('major', [])
+    return {
+        '職缺代碼': item.get('jobNo', ''),
+        '職缺名稱': item.get('jobName', ''),
+        '公司名稱': item.get('custName', ''),
+        '產業類別': item.get('coIndustryDesc', ''),
+        '地區': (item.get('jobAddrNoDesc', '') + " " + item.get('jobAddress', '')).strip(),
+        '薪資待遇': detail.get('salary') if detail else None,
+        '薪資下限': item.get('salaryLow'),
+        '薪資上限': item.get('salaryHigh'),
+        '更新日期': format_date(item.get('appearDate', '')),
+        '應徵人數': item.get('applyCnt', 0),
+        '工作內容': detail.get('jobDescription') if detail else None,
+        '電腦專長': ', '.join(_extract_skill_descriptions(item.get('pcSkills', []))),
+        '科系要求': ', '.join(majors) if isinstance(majors, list) else str(majors),
+        '特色標籤': ', '.join(_extract_tag_descriptions(item.get('tags', {}))),
+        '職缺連結': _job_url(item),
+        '公司連結': _normalize_url(links.get('cust', '')),
+    }
 
 # ---------------------------------------------------------------------------
-# 終端機顯示
+# 抓取
 # ---------------------------------------------------------------------------
 
-def display_summary_table(jobs, limit=10):
+@dataclass(frozen=True)
+class SearchProgress:
+    """正要搜尋某個關鍵字的第幾頁"""
+
+    keyword: str
+    page: int
+    pages: int
+    found: int  # 目前已找到幾筆不重複的職缺
+
+
+@dataclass(frozen=True)
+class DetailProgress:
+    """正要取第幾筆職缺的頁面內容，index 從 1 開始"""
+
+    index: int
+    total: int
+
+
+Progress = SearchProgress | DetailProgress
+
+
+@dataclass
+class ScrapeResult:
+    """一次抓取的結果"""
+
+    jobs: list[dict[str, Any]]  # 取完頁面內容的職缺，依職缺欄位契約
+    found: int  # 搜尋到幾筆不重複的職缺，包含停止時還沒取內容的
+    stopped: bool
+    finished_at: datetime  # 抓完或停止的時間，精確到秒
+
+
+def _sleep(seconds: float, stop: threading.Event) -> None:
+    """請求之間的延遲；要求停止時立刻結束等待"""
+    stop.wait(seconds)
+
+
+def _search(
+    keywords: list[str],
+    pages: int,
+    area_code: str | None,
+    job_type: int,
+    stop: threading.Event,
+    on_progress: Callable[[Progress], None],
+) -> list[dict[str, Any]]:
     """
-    在終端機輸出排版美觀的職缺摘要表格，並支援長欄位繁體中文的寬度截斷防溢出
-    
-    :param jobs: list, 包含結構化職缺字典的列表
-    :param limit: int, 可選參數，要在終端機預覽的最大職缺筆數，預設為 10
-    :return: None
+    逐一關鍵字、逐頁搜尋，以職缺代碼去重後累積成原始職缺清單
+
+    :return: list[dict], 不重複的原始職缺，保留第一次出現的那筆
     """
-    if not jobs:
-        print("[-] 無可供顯示的職缺")
-        return
-        
-    display_jobs = jobs[:limit]
-    print("\n" + "=" * 100)
-    print(f" 🚀 撈取結果精選預覽 (顯示前 {len(display_jobs)} 筆 / 合併去重共 {len(jobs)} 筆職缺)")
-    print("=" * 100)
-    
-    # 定義表格排版格式
-    header_fmt = "{:<3} | {:<25} | {:<20} | {:<12} | {:<12} | {:<10}"
-    row_fmt = "{:<3} | {:<25} | {:<20} | {:<12} | {:<12} | {:<10}"
-    
-    print(header_fmt.format("編號", "職缺名稱", "公司名稱", "地區", "薪資待遇", "更新日期"))
-    print("-" * 100)
-    
-    for i, job in enumerate(display_jobs, 1):
-        title = truncate_display(job['職缺名稱'], 24)
-        company = truncate_display(job['公司名稱'], 18)
-        area = truncate_display(job['地區'].split(' ')[0], 12)  # 只取行政區
-        salary = truncate_display(job['薪資待遇'], 12)
-        date = job['更新日期']
-        
-        print(row_fmt.format(i, title, company, area, salary, date))
-        
-    print("=" * 100 + "\n")
-
-# ---------------------------------------------------------------------------
-# 互動模式與核心撈取邏輯
-# ---------------------------------------------------------------------------
-
-def run_interactive():
-    """
-    啟動互動引導求職配置介面，讓使用者以問答方式設定關鍵字、地區、頁數與性質
-    
-    :return: None
-    """
-    print("""
-===================================================
-   🌟 歡迎使用 104 人力銀行職缺撈取工具 🌟
-===================================================
-    """)
-    
-    # 1. 取得關鍵字
-    keyword_input = ""
-    while not keyword_input.strip():
-        keyword_input = input("👉 請輸入關鍵字 (若有多個關鍵字請用逗號分隔，例如: Python, React, AI): ").strip()
-    
-    keywords = parse_keywords(keyword_input)
-        
-    # 2. 選擇地區
-    print("\n📍 常見地區選項:")
-    print("   " + ", ".join(list(POPULAR_AREAS.keys())[:10]))
-    print("   " + ", ".join(list(POPULAR_AREAS.keys())[10:]))
-    area_input = input("\n👉 請輸入要求職的縣市名稱 (直接按 Enter 代表全台灣地區): ").strip()
-    
-    area_code, area_label = resolve_area(area_input)
-    if area_input and area_code:
-        print(f"[+] 已自動對應地區「{area_label}」代碼: {area_code}")
-    elif area_input:
-        print(f"[!] 無法識別「{area_input}」，將使用預設的【全台灣地區】進行搜尋。")
-
-    # 3. 取得要抓取的頁數
-    pages_input = input("\n👉 請輸入每個關鍵字撈取的頁數 (預設 3 頁，每頁約 30 筆職缺): ").strip()
-    try:
-        pages = int(pages_input) if pages_input else 3
-        if pages <= 0:
-            pages = 3
-    except ValueError:
-        print("[!] 輸入無效，將使用預設值 3 頁")
-        pages = 3
-
-    # 4. 取得職缺類型
-    print("\n💼 職缺性質:")
-    print("   [0] 全部職缺 (預設)")
-    print("   [1] 全職工作")
-    print("   [2] 兼職/工讀")
-    ro_input = input("👉 請輸入性質代碼 (0/1/2): ").strip()
-    try:
-        ro = int(ro_input) if ro_input in ['0', '1', '2'] else 0
-    except ValueError:
-        ro = 0
-
-    # 執行撈取任務
-    execute_scraping(keywords, pages, area_code, area_label, ro, DEFAULT_DB_PATH)
-
-def execute_scraping(keywords, pages, area_code, area_label, ro, db_path=None):
-    """
-    執行主要的 API 撈取核心邏輯，包含多關鍵字輪詢、分頁迭代、安全延遲防護、資料去重與持久化寫入
-    
-    :param keywords: list/str, 目標搜尋關鍵字列表 (例如 ["Python", "Django"])，若傳入單一字串將自動轉為列表
-    :param pages: int, 每個關鍵字需要抓取的頁數 (每頁 30 筆)
-    :param area_code: str, 104 地區專屬編碼 (若為 None 則代表搜尋全台灣)
-    :param area_label: str, 用於日誌顯示的地區人類可讀標記 (例如 "台北市" 或 "全台灣")
-    :param ro: int, 職缺性質過濾器，0 代表全部，1 代表全職，2 代表兼職/工讀
-    :param db_path: Path or None, 可選參數，寫入的職缺資料庫路徑，None 代表不寫入資料庫
-    :return: None
-    """
-    if isinstance(keywords, str):
-        keywords = [keywords]
-        
-    all_raw_jobs = []
-    seen_job_nos = set()
-    
-    print("\n 開始搜尋職缺:")
-    print(f"   🔹 關鍵字列表: {', '.join(keywords)}")
-    print(f"   🔹 地區: {area_label}")
-    print(f"   🔹 每個關鍵字撈取: {pages} 頁")
-    print(f"   🔹 職缺性質: {'全部' if ro == 0 else '全職' if ro == 1 else '兼職/工讀'}")
-    print("-" * 50)
-
-    for keyword in keywords:
-        print(f"\n🔑 正在撈取關鍵字【{keyword}】的職缺...")
-        keyword_jobs_count = 0
-        keyword_added_count = 0
-        
-        for p in range(1, pages + 1):
-            print(f"   ⏳ 正在撈取第 {p}/{pages} 頁...")
-            
-            # 呼叫 API 撈取資料
-            jobs_list, pagination = fetch_jobs(keyword, page=p, area_code=area_code, ro=ro)
-            
+    found: list[dict[str, Any]] = []
+    seen: set[Any] = set()
+    for k, keyword in enumerate(keywords):
+        if k > 0:
+            # 切換關鍵字時延遲較久
+            _sleep(random.uniform(2.0, 3.5), stop)
+        for page in range(1, pages + 1):
+            if page > 1:
+                _sleep(random.uniform(1.0, 2.0), stop)
+            if stop.is_set():
+                return found
+            on_progress(SearchProgress(keyword, page, pages, len(found)))
+            jobs_list, pagination = fetch_jobs(keyword, page=page, area_code=area_code, ro=job_type)
+            # 空頁（含請求失敗）代表這個關鍵字沒有更多結果
             if not jobs_list:
-                print(f"   [!] 第 {p} 頁沒有回傳職缺，可能已達該關鍵字搜尋上限。")
                 break
-                
-            # 去重合併資料
-            added_this_page = 0
             for job in jobs_list:
                 job_no = job.get('jobNo', '')
-                if job_no not in seen_job_nos:
-                    seen_job_nos.add(job_no)
-                    all_raw_jobs.append(job)
-                    added_this_page += 1
-            
-            keyword_jobs_count += len(jobs_list)
-            keyword_added_count += added_this_page
-            
-            # 獲取總分頁狀態
-            last_page = pagination.get('lastPage', p)
-            
-            print(f"   [✓] 成功取得第 {p} 頁，本頁職缺: {len(jobs_list)} 筆 (新增去重職缺: {added_this_page} 筆)")
-            
-            if p >= last_page:
-                print(f"   [i] 已到達此關鍵字最後一頁 (共 {last_page} 頁)，停止此關鍵字撈取。")
+                if job_no not in seen:
+                    seen.add(job_no)
+                    found.append(job)
+            if page >= pagination.get('lastPage', page):
                 break
-                
-            # 分頁間隨機延遲 1 ~ 2 秒，控制請求頻率
-            if p < pages:
-                delay = round(random.uniform(1.0, 2.0), 2)
-                time.sleep(delay)
-                
-        print(f"📝 關鍵字【{keyword}】共掃描 {keyword_jobs_count} 筆職缺 (已成功收錄 {keyword_added_count} 筆非重複職缺)")
-        
-        # 多關鍵字切換時進行較長的安全延遲 2 ~ 3.5 秒
-        if len(keywords) > 1 and keyword != keywords[-1]:
-            delay = round(random.uniform(2.0, 3.5), 2)
-            print(f"💤 切換下一個關鍵字，隨機安全延遲 {delay} 秒...")
-            time.sleep(delay)
+    return found
 
-    print("-" * 50)
-    print(f"🎉 所有關鍵字撈取完畢！合併去重後共成功取得 {len(all_raw_jobs)} 筆職缺資料。")
 
-    if not all_raw_jobs:
-        print("[-] 未撈取到任何職缺，程式結束。")
-        return
-
-    # 執行資料整理與中文化清洗
-    print("⚙️ 正在整理與清洗職缺欄位...")
-    parsed_jobs = parse_jobs(all_raw_jobs)
-
-    # 動態產生包含時間戳記的持久化儲存檔名
-    # 同一個時間同時用於檔名與資料庫的執行時間，兩者才能對應
-    run_time = datetime.now().replace(microsecond=0)
-    timestamp = run_time.strftime("%Y%m%d_%H%M%S")
-    combined_kw = "_".join(keywords)
-    if len(combined_kw) > 30:
-        combined_kw = combined_kw[:30] + "_etc"
-    clean_keyword = "".join(x for x in combined_kw if x.isalnum() or x in ('-', '_')).strip()
-    if not clean_keyword:
-        clean_keyword = "all"
-    
-    OUTPUT_DIR.mkdir(parents=True, exist_ok=True)
-    csv_filename = OUTPUT_DIR / f"jobs_104_{clean_keyword}_{timestamp}.csv"
-    json_filename = OUTPUT_DIR / f"jobs_104_{clean_keyword}_{timestamp}.json"
-
-    # 持久化寫入硬碟
-    save_to_csv(parsed_jobs, csv_filename)
-    save_to_json(parsed_jobs, json_filename)
-    if db_path is not None:
-        save_to_db(parsed_jobs, db_path, run_time, keywords, area_label, ro, pages)
-
-    # 印出預覽表格
-    display_summary_table(parsed_jobs, limit=10)
-    
-    print("💡 提示:")
-    print(f"   1. 您可以使用 Microsoft Excel 開啟「{csv_filename}」，內建 UTF-8 BOM 編碼確保繁體中文正常顯示。")
-    print(f"   2. JSON 格式檔案「{json_filename}」適合用於進一步的資料庫匯入或網頁開發。")
-    print("=" * 60)
-
-# ---------------------------------------------------------------------------
-# 程式入口
-# ---------------------------------------------------------------------------
-
-def main(argv=None):
+def _fetch_details(
+    raw_jobs: list[dict[str, Any]], stop: threading.Event, on_progress: Callable[[Progress], None]
+) -> list[dict[str, Any]]:
     """
-    程式入口函式，負責初始化命令列參數解析器，判斷執行模式 (CLI / 互動引導模式) 
-    
-    :param argv: list[str] or None, 可選參數，命令列參數；None 時使用 sys.argv
-    :return: None
-    """
-    parser = argparse.ArgumentParser(description="104 人力銀行職缺撈取工具")
-    parser.add_argument("-k", "--keyword", type=str, help="搜尋關鍵字 (例如: Python、AI工程師，多個關鍵字請用逗號分隔)")
-    parser.add_argument("-p", "--pages", type=int, default=3, help="每個關鍵字要撈取的頁數 (預設: 3)")
-    parser.add_argument("-a", "--area", type=str, help="縣市名稱 (例如: 台北市、新竹市)")
-    parser.add_argument("-t", "--type", type=int, choices=[0, 1, 2], default=0, help="職缺性質 (0: 全部, 1: 全職, 2: 兼職/工讀)")
-    parser.add_argument("--db", type=Path, default=DEFAULT_DB_PATH, help="職缺資料庫路徑 (預設: 專案根目錄下的 data/jobs.db)")
-    parser.add_argument("--no-db", action="store_true", help="只輸出 CSV/JSON，不寫入職缺資料庫")
-    
-    args = parser.parse_args(argv)
-    
-    # 若有帶關鍵字參數，則直接以 CLI 模式執行，否則進入互動引導模式
-    if args.keyword is not None:
-        keywords = parse_keywords(args.keyword)
-        area_code, area_label = resolve_area(args.area)
-        db_path = None if args.no_db else args.db
-        execute_scraping(keywords, args.pages, area_code, area_label, args.type, db_path)
-    else:
-        run_interactive()
+    逐筆取職缺頁面的內容並整理欄位；要求停止後不再發出請求，只回傳已取完的職缺
 
-if __name__ == '__main__':
-    try:
-        main()
-    except KeyboardInterrupt:
-        print("\n\n[-] 使用者取消操作，程式終止。")
-        sys.exit(0)
+    :return: list[dict], 依職缺欄位契約整理好的職缺
+    """
+    jobs = []
+    for index, item in enumerate(raw_jobs, 1):
+        if stop.is_set():
+            break
+        on_progress(DetailProgress(index, len(raw_jobs)))
+        detail = None
+        job_id = _extract_job_id(_job_url(item))
+        if job_id:
+            # 取職缺頁面前不加延遲會被 104 拒絕
+            _sleep(random.uniform(0.1, 0.3), stop)
+            if stop.is_set():
+                break
+            detail = fetch_job_detail(job_id)
+        jobs.append(parse_job(item, detail))
+    return jobs
+
+
+def scrape(
+    keywords: list[str],
+    pages: int,
+    area_code: str | None,
+    job_type: int,
+    *,
+    stop: threading.Event,
+    on_progress: Callable[[Progress], None],
+) -> ScrapeResult:
+    """
+    抓取 104 職缺：所有關鍵字都搜完、去重之後，才逐筆取職缺頁面的內容
+
+    stop 被設定後不再發出新的請求，已送出的請求照常完成；還沒取內容的職缺不列入結果。
+
+    :param keywords: list[str], 去重後的關鍵字
+    :param pages: int, 每個關鍵字最多抓幾頁
+    :param area_code: str or None, 104 的地區代碼；None 代表全台灣
+    :param job_type: int, 職缺性質：0 全部、1 全職、2 兼職／工讀
+    :param stop: threading.Event, 要求停止的旗標
+    :param on_progress: callable, 每個請求送出前以 SearchProgress 或 DetailProgress 回報進度
+    :return: ScrapeResult
+    """
+    raw_jobs = _search(keywords, pages, area_code, job_type, stop, on_progress)
+    jobs = [] if stop.is_set() else _fetch_details(raw_jobs, stop, on_progress)
+    return ScrapeResult(
+        jobs=jobs,
+        found=len(raw_jobs),
+        stopped=stop.is_set(),
+        finished_at=datetime.now().replace(microsecond=0),
+    )

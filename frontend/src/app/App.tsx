@@ -1,5 +1,6 @@
 import { NavLink, Route, Routes } from "react-router-dom";
 
+import { CrawlPage } from "../crawl/CrawlPage";
 import { JobTablePage } from "../job-database/JobTablePage";
 import { Placeholder } from "./Placeholder";
 
@@ -20,7 +21,7 @@ export function App() {
       <main>
         <Routes>
           <Route path="/" element={<JobTablePage />} />
-          <Route path="/crawl" element={<Placeholder title="抓取" />} />
+          <Route path="/crawl" element={<CrawlPage />} />
           <Route path="/settings" element={<Placeholder title="設定" />} />
           <Route
             path="*"
