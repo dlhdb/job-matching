@@ -22,15 +22,13 @@ from job_scoring.models import BatchResult
 from job_scoring.prompt import build_prompt
 from job_scoring.rules import check_hard_filters
 from job_scoring.settings import (
-    EXPERIENCE, PREFERENCES, TEMPLATE, ScoringSettings, SettingsError, is_default, load_current,
+    EXPERIENCE, KIND_NAMES, PREFERENCES, TEMPLATE, ScoringSettings, SettingsError, is_default, load_current,
     parse_preferences,
 )
 from web.db import connect
 from web.jobs import Job, JobBusy, JobRunner
 
 KIND = "評分"
-
-_KIND_NAMES = {PREFERENCES: "偏好", EXPERIENCE: "經歷", TEMPLATE: "提示詞模板"}
 
 
 @dataclass
@@ -233,7 +231,7 @@ def _check(conn: sqlite3.Connection, codes: list[str], rescore: bool) -> _Checke
         settings: ScoringSettings | None = load_current(conn)
     except SettingsError as e:
         settings = None
-        errors.extend(f"目前設定有錯，先到設定頁修正：{message}" for message in e.messages)
+        errors.extend(f"目前設定有錯，先到設定頁修正。{message}" for message in e.messages)
 
     eliminated = None
     if settings is not None:
@@ -246,7 +244,7 @@ def _check(conn: sqlite3.Connection, codes: list[str], rescore: bool) -> _Checke
     for kind in (PREFERENCES, EXPERIENCE):
         if kind in current and is_default(kind, current[kind]["內容"]):
             errors.append(
-                f"目前設定的{_KIND_NAMES[kind]}還是預設範例：先到設定頁改成自己的{_KIND_NAMES[kind]}，用範例評出的分數沒有意義"
+                f"目前設定的{KIND_NAMES[kind]}還是預設範例：先到設定頁改成自己的{KIND_NAMES[kind]}，用範例評出的分數沒有意義"
             )
     # 偏好有錯、算不出淘汰筆數時，當作每一筆都要呼叫 AI
     needs_ai = len(jobs) - (eliminated or 0)

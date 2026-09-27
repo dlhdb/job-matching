@@ -482,7 +482,7 @@ def make_batch_client():
 
 class FakeScoringLLM:
     """
-    網頁評分用的假 LLM：換掉 web.scoring.get_client，依 user 提示詞中的職缺名稱決定行為
+    網頁評分與試跑用的假 LLM：換掉 web.scoring 與 web.dry_run 的 get_client，依 user 提示詞中的職缺名稱決定行為
 
     behaviors 的值同 BatchFakeLLMClient：dict（make_assessment 的參數）、"llm_error" 或 "invalid"；
     hold(name) 之後，評到職缺名稱含 name 的職缺時停住，直到 release(name)，用來觀察評分中的狀態。
@@ -530,12 +530,13 @@ class FakeScoringLLM:
 @pytest.fixture
 def fake_llm(monkeypatch):
     """
-    換掉網頁評分用的 LLM，並設定假的 GEMINI_API_KEY；結束時放行所有暫停的職缺，背景的評分才會結束
+    換掉網頁評分與試跑用的 LLM，並設定假的 GEMINI_API_KEY；結束時放行所有暫停的職缺，背景的作業才會結束
 
     :return: FakeScoringLLM
     """
     fake = FakeScoringLLM()
     monkeypatch.setattr("web.scoring.get_client", fake.get_client)
+    monkeypatch.setattr("web.dry_run.get_client", fake.get_client)
     monkeypatch.setenv("GEMINI_API_KEY", "測試用的 key")
     yield fake
     fake.release_all()

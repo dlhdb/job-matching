@@ -523,6 +523,113 @@
           }
         }
       }
+    },
+    "/api/dry-run/plan": {
+      "post": {
+        "summary": "試跑前的確認",
+        "description": "確認視窗用：將試跑幾筆、其中幾筆淘汰、用編輯區的什麼內容，以及開始前的錯誤。",
+        "operationId": "plan_dry_run_api_dry_run_plan_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/DryRunPlanRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DryRunPlan"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/dry-run": {
+      "get": {
+        "summary": "取得試跑的狀態",
+        "description": "試跑中的進度與每筆的結果、最近一次結束的試跑，以及正在跑的其他作業。",
+        "operationId": "get_dry_run_state_api_dry_run_get",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DryRunState"
+                }
+              }
+            }
+          }
+        }
+      },
+      "post": {
+        "summary": "開始試跑",
+        "description": "重做開始前的檢查，有錯時回 422（detail 是錯誤清單）；已有作業在跑時回 409。通過後在背景照 codes 的順序逐筆評，不寫入評分紀錄；進度與結果以 GET /api/dry-run 取得。",
+        "operationId": "start_dry_run_api_dry_run_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/DryRunStartRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "202": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DryRunStarted"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/dry-run/stop": {
+      "post": {
+        "summary": "停止試跑",
+        "description": "評完目前這一筆就不再評，還在排隊的標成沒試跑。",
+        "operationId": "stop_dry_run_api_dry_run_stop_post",
+        "responses": {
+          "204": {
+            "description": "Successful Response"
+          }
+        }
+      }
     }
   },
   "components": {
@@ -899,6 +1006,389 @@
           "理由"
         ],
         "title": "DimensionOut"
+      },
+      "DraftIn": {
+        "properties": {
+          "base": {
+            "type": "integer",
+            "title": "Base",
+            "description": "編輯區以哪一版為底"
+          },
+          "content": {
+            "type": "string",
+            "title": "Content",
+            "description": "編輯區目前的內容"
+          }
+        },
+        "type": "object",
+        "required": [
+          "base",
+          "content"
+        ],
+        "title": "DraftIn"
+      },
+      "DraftOut": {
+        "properties": {
+          "base": {
+            "type": "integer",
+            "title": "Base"
+          },
+          "name": {
+            "type": "string",
+            "title": "Name",
+            "description": "base 那一版的名稱"
+          },
+          "modified": {
+            "type": "boolean",
+            "title": "Modified",
+            "description": "編輯區的內容和 base 那一版不同"
+          },
+          "content": {
+            "type": "string",
+            "title": "Content",
+            "description": "試跑用的內容；和編輯區比較，就知道試跑後改過沒有"
+          }
+        },
+        "type": "object",
+        "required": [
+          "base",
+          "name",
+          "modified",
+          "content"
+        ],
+        "title": "DraftOut"
+      },
+      "DraftRef": {
+        "properties": {
+          "base": {
+            "type": "integer",
+            "title": "Base"
+          },
+          "name": {
+            "type": "string",
+            "title": "Name",
+            "description": "base 那一版的名稱"
+          },
+          "modified": {
+            "type": "boolean",
+            "title": "Modified",
+            "description": "編輯區的內容和 base 那一版不同"
+          }
+        },
+        "type": "object",
+        "required": [
+          "base",
+          "name",
+          "modified"
+        ],
+        "title": "DraftRef"
+      },
+      "DraftsIn": {
+        "properties": {
+          "preferences": {
+            "$ref": "#/components/schemas/DraftIn"
+          },
+          "experience": {
+            "$ref": "#/components/schemas/DraftIn"
+          },
+          "template": {
+            "$ref": "#/components/schemas/DraftIn"
+          }
+        },
+        "type": "object",
+        "required": [
+          "preferences",
+          "experience",
+          "template"
+        ],
+        "title": "DraftsIn"
+      },
+      "DryRunOut": {
+        "properties": {
+          "id": {
+            "type": "integer",
+            "title": "Id"
+          },
+          "total": {
+            "type": "integer",
+            "title": "Total"
+          },
+          "done": {
+            "type": "integer",
+            "title": "Done",
+            "description": "評完幾筆，含失敗"
+          },
+          "model": {
+            "type": "string",
+            "title": "Model"
+          },
+          "settings": {
+            "additionalProperties": {
+              "$ref": "#/components/schemas/DraftOut"
+            },
+            "type": "object",
+            "title": "Settings",
+            "description": "preferences、experience、template 各用了什麼內容"
+          },
+          "stopping": {
+            "type": "boolean",
+            "title": "Stopping"
+          },
+          "stopped": {
+            "type": "boolean",
+            "title": "Stopped",
+            "description": "按了停止，或因為錯誤而停止"
+          },
+          "error": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Error",
+            "description": "讓試跑停止的錯誤"
+          },
+          "rows": {
+            "items": {
+              "$ref": "#/components/schemas/DryRunRow"
+            },
+            "type": "array",
+            "title": "Rows",
+            "description": "依試跑的順序"
+          }
+        },
+        "type": "object",
+        "required": [
+          "id",
+          "total",
+          "done",
+          "model",
+          "settings",
+          "stopping",
+          "stopped",
+          "error",
+          "rows"
+        ],
+        "title": "DryRunOut"
+      },
+      "DryRunPlan": {
+        "properties": {
+          "count": {
+            "type": "integer",
+            "title": "Count",
+            "description": "將試跑幾筆"
+          },
+          "eliminated": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Eliminated",
+            "description": "其中幾筆符合淘汰條件；偏好有錯時為 null"
+          },
+          "settings": {
+            "additionalProperties": {
+              "$ref": "#/components/schemas/DraftRef"
+            },
+            "type": "object",
+            "title": "Settings",
+            "description": "preferences、experience、template 各用編輯區的什麼內容"
+          },
+          "provider": {
+            "type": "string",
+            "title": "Provider"
+          },
+          "models": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "title": "Models",
+            "description": "可以選的模型，第一個是預設"
+          },
+          "errors": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "title": "Errors",
+            "description": "開始前的錯誤；有錯誤時不能開始"
+          }
+        },
+        "type": "object",
+        "required": [
+          "count",
+          "eliminated",
+          "settings",
+          "provider",
+          "models",
+          "errors"
+        ],
+        "title": "DryRunPlan"
+      },
+      "DryRunPlanRequest": {
+        "properties": {
+          "codes": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "title": "Codes",
+            "description": "試跑清單的職缺代碼，依清單的顯示順序"
+          },
+          "settings": {
+            "$ref": "#/components/schemas/DraftsIn",
+            "description": "三份設定編輯區的內容"
+          }
+        },
+        "type": "object",
+        "required": [
+          "codes",
+          "settings"
+        ],
+        "title": "DryRunPlanRequest"
+      },
+      "DryRunRow": {
+        "properties": {
+          "code": {
+            "type": "string",
+            "title": "Code"
+          },
+          "status": {
+            "type": "string",
+            "enum": [
+              "queued",
+              "scoring",
+              "done",
+              "failed",
+              "skipped"
+            ],
+            "title": "Status"
+          },
+          "reason": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Reason",
+            "description": "試跑失敗的原因"
+          },
+          "result": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/ScoreDetails"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "試跑的評分結果；還沒評完或失敗時為 null"
+          }
+        },
+        "type": "object",
+        "required": [
+          "code",
+          "status",
+          "reason",
+          "result"
+        ],
+        "title": "DryRunRow"
+      },
+      "DryRunStartRequest": {
+        "properties": {
+          "codes": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "title": "Codes",
+            "description": "試跑清單的職缺代碼，依清單的顯示順序"
+          },
+          "settings": {
+            "$ref": "#/components/schemas/DraftsIn",
+            "description": "三份設定編輯區的內容"
+          },
+          "model": {
+            "type": "string",
+            "title": "Model"
+          }
+        },
+        "type": "object",
+        "required": [
+          "codes",
+          "settings",
+          "model"
+        ],
+        "title": "DryRunStartRequest"
+      },
+      "DryRunStarted": {
+        "properties": {
+          "run_id": {
+            "type": "integer",
+            "title": "Run Id"
+          }
+        },
+        "type": "object",
+        "required": [
+          "run_id"
+        ],
+        "title": "DryRunStarted"
+      },
+      "DryRunState": {
+        "properties": {
+          "running": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/DryRunOut"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "沒在試跑時為 null"
+          },
+          "last": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/DryRunOut"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "最近一次結束的試跑；web app 啟動後還沒試跑過時為 null"
+          },
+          "busy": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Busy",
+            "description": "正在跑的其他作業，例如「評分」"
+          }
+        },
+        "type": "object",
+        "required": [
+          "running",
+          "last",
+          "busy"
+        ],
+        "title": "DryRunState"
       },
       "HTTPValidationError": {
         "properties": {

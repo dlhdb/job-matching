@@ -21,6 +21,9 @@ EXPERIENCE = "experience"
 TEMPLATE = "template"
 KINDS = (PREFERENCES, EXPERIENCE, TEMPLATE)
 
+# 給人看的名稱，錯誤訊息用
+KIND_NAMES = {PREFERENCES: "偏好", EXPERIENCE: "經歷", TEMPLATE: "提示詞模板"}
+
 _DEFAULTS_DIR = Path(__file__).parent / "defaults"
 DEFAULTS = {
     PREFERENCES: (_DEFAULTS_DIR / "preferences.yaml").read_text(encoding="utf-8"),
@@ -183,6 +186,30 @@ def ensure_defaults(conn: sqlite3.Connection) -> list[str]:
     return init_defaults(conn, defaults, datetime.now())
 
 
+def from_contents(contents: dict[str, str], versions: dict[str, int]) -> ScoringSettings:
+    """
+    由三份設定的內容組出評分用的設定，並檢查偏好與提示詞模板
+
+    :param contents: dict[str, str], 設定的種類 → 內容，三種都要有
+    :param versions: dict[str, int], 設定的種類 → 版本；試跑時是編輯區以哪一版為底
+    :return: ScoringSettings
+    :raises SettingsError: 偏好或提示詞模板有錯；每則訊息前面標出是哪一份
+    """
+    errors = [
+        f"{KIND_NAMES[kind]}：{message}"
+        for kind in (PREFERENCES, TEMPLATE)
+        for message in check(kind, contents[kind]).errors
+    ]
+    if errors:
+        raise SettingsError(errors)
+    return ScoringSettings(
+        preferences=parse_preferences(contents[PREFERENCES]),
+        experience=contents[EXPERIENCE],
+        template=contents[TEMPLATE],
+        versions={kind: versions[kind] for kind in KINDS},
+    )
+
+
 def load_current(conn: sqlite3.Connection) -> ScoringSettings:
     """
     讀出目前設定，並檢查偏好與提示詞模板
@@ -195,17 +222,7 @@ def load_current(conn: sqlite3.Connection) -> ScoringSettings:
     missing = [kind for kind in KINDS if kind not in current]
     if missing:
         raise SettingsError([f"還沒有目前設定：{'、'.join(missing)}"])
-    errors = [
-        message
-        for kind in (PREFERENCES, TEMPLATE)
-        for message in check(kind, current[kind]["內容"]).errors
-    ]
-    if errors:
-        raise SettingsError(errors)
-    return ScoringSettings(
-        preferences=parse_preferences(current[PREFERENCES]["內容"]),
-        experience=current[EXPERIENCE]["內容"],
-        template=current[TEMPLATE]["內容"],
-        versions={kind: current[kind]["版本"] for kind in KINDS},
+    return from_contents(
+        {kind: current[kind]["內容"] for kind in KINDS},
+        {kind: current[kind]["版本"] for kind in KINDS},
     )
-

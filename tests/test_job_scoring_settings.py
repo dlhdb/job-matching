@@ -1,4 +1,4 @@
-"""評分用設定的測試：偏好與提示詞模板的檢查、預設內容、第 1 版，以及讀出目前設定。"""
+"""評分用設定的測試：偏好與提示詞模板的檢查、預設內容、第 1 版、由內容組出設定，以及讀出目前設定。"""
 
 from datetime import datetime
 
@@ -16,6 +16,7 @@ from job_scoring.settings import (
     SettingsError,
     check,
     ensure_defaults,
+    from_contents,
     is_default,
     load_current,
     parse_preferences,
@@ -180,8 +181,36 @@ def test_load_current_rejects_invalid(db_conn, preferences_data):
     _drop_weights(preferences_data)
     add_version(db_conn, PREFERENCES, name="壞掉的", description="", content=_dump(preferences_data), saved_at=T)
 
-    with pytest.raises(SettingsError, match="權重：缺少這個欄位"):
+    with pytest.raises(SettingsError, match="偏好：權重：缺少這個欄位"):
         load_current(db_conn)
+
+
+def test_from_contents(preferences_data):
+    # 試跑用編輯區的內容組出設定，版本是編輯區以哪一版為底
+    contents = {PREFERENCES: _dump(preferences_data), EXPERIENCE: "編輯中的經歷", TEMPLATE: DEFAULTS[TEMPLATE]}
+
+    settings = from_contents(contents, {PREFERENCES: 2, EXPERIENCE: 3, TEMPLATE: 1})
+
+    assert settings.preferences == parse_preferences(contents[PREFERENCES])
+    assert (settings.experience, settings.template) == ("編輯中的經歷", DEFAULTS[TEMPLATE])
+    assert settings.versions == {PREFERENCES: 2, EXPERIENCE: 3, TEMPLATE: 1}
+
+
+def test_from_contents_rejects_invalid(preferences_data):
+    # 偏好與模板都有錯時一起列出，每則標出是哪一份；經歷不檢查
+    _drop_weights(preferences_data)
+    contents = {
+        PREFERENCES: _dump(preferences_data),
+        EXPERIENCE: "$年資",
+        TEMPLATE: DEFAULTS[TEMPLATE].replace("<!-- USER -->", ""),
+    }
+
+    with pytest.raises(SettingsError) as info:
+        from_contents(contents, {kind: 1 for kind in KINDS})
+
+    assert info.value.messages[0] == "偏好：權重：缺少這個欄位"
+    assert [m for m in info.value.messages if m.startswith("提示詞模板：")]
+    assert not [m for m in info.value.messages if m.startswith("經歷")]
 
 
 def test_load_current_without_settings(db_conn):

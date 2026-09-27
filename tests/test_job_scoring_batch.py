@@ -1,6 +1,5 @@
-"""整批評分（job_scoring.batch）的測試：逐筆評分、單筆失敗不中斷、結果寫入資料庫、評分依據、試跑結果檔、評分歷史與代表的評分。"""
+"""整批評分（job_scoring.batch）的測試：逐筆評分、單筆失敗不中斷、結果寫入資料庫、評分依據、試跑不寫入、評分歷史與代表的評分。"""
 
-import csv
 import json
 import re
 from dataclasses import replace
@@ -11,19 +10,11 @@ import pytest
 import job_db
 import job_db.scores
 from job_db import list_current_scores, list_scores, save_auto_score, save_run
-from job_scoring.batch import score_batch, write_dry_run_results
+from job_scoring.batch import score_batch
 from job_scoring.llm import LLMError
 from job_scoring.models import DIMENSIONS
 
-JSON_KEYS = [
-    "職缺代碼", "職缺名稱", "公司名稱", "薪資待遇", "職缺連結",
-    "淘汰", "淘汰原因", "維度", "總分", "未知維度", "評語", "失敗原因",
-]
-CSV_HEADER = [
-    "職缺代碼", "職缺名稱", "公司名稱", "薪資待遇",
-    "總分", *DIMENSIONS,
-    "未知維度", "淘汰原因", "評語", "失敗原因", "職缺連結",
-]
+RESULT_KEYS = ["職缺代碼", "淘汰", "淘汰原因", "維度", "總分", "未知維度", "評語", "失敗原因"]
 
 
 def _seed(conn, *jobs):
@@ -236,58 +227,33 @@ def test_stored_details_match_result(make_job, scoring_settings, make_batch_clie
     assert (rows["b"]["供應商"], rows["b"]["模型"]) == (None, None)
 
 
-def test_write_dry_run_results_output_files(five_results, tmp_path):
+def test_score_batch_results(five_results):
     results, _ = five_results
-    started_at = datetime(2026, 1, 2, 3, 4, 5)
 
-    # (a) 檔名是試跑開始的時間
-    json_path, csv_path = write_dry_run_results(results, tmp_path / "scores", started_at)
-
-    assert json_path == tmp_path / "scores" / "dryrun_20260102_030405.json"
-    assert csv_path == tmp_path / "scores" / "dryrun_20260102_030405.csv"
-
-    records = json.loads(json_path.read_text(encoding="utf-8"))
-    assert all(list(record) == JSON_KEYS for record in records)
-
-    with open(csv_path, newline="", encoding="utf-8-sig") as f:
-        reader = csv.DictReader(f)
-        rows = list(reader)
-    assert reader.fieldnames == CSV_HEADER
-    assert [row["職缺代碼"] for row in rows] == [record["職缺代碼"] for record in records]
-
-    # 第 5 筆的技能匹配度為 null；第 4 筆評分失敗，所有分數欄都是空的
-    assert rows[4]["技能匹配度"] == ""
-    assert rows[4]["薪資水準"] == "4"
-    assert rows[4]["未知維度"] == "技能匹配度"
-    assert all(rows[3][name] == "" for name in ["總分", *DIMENSIONS])
-    assert rows[3]["失敗原因"]
-    # 被淘汰的那列收集了多條原因，以 ", " 合併
-    assert rows[1]["淘汰原因"] == ", ".join(records[1]["淘汰原因"])
-    assert len(records[1]["淘汰原因"]) == 2
-
-    # (b) 同一個開始時間再寫一次，加上流水號，不覆寫 (a) 的檔案
-    first = json_path.read_bytes(), csv_path.read_bytes()
-    second_json, second_csv = write_dry_run_results(results[:1], tmp_path / "scores", started_at)
-
-    assert second_json == tmp_path / "scores" / "dryrun_20260102_030405_2.json"
-    assert second_csv == tmp_path / "scores" / "dryrun_20260102_030405_2.csv"
-    assert (json_path.read_bytes(), csv_path.read_bytes()) == first
+    assert all(list(result.model_dump(by_alias=True)) == RESULT_KEYS for result in results)
+    # 第 5 筆的技能匹配度為 null，列入未知維度
+    assert results[4].dimensions is not None
+    assert results[4].dimensions["技能匹配度"].score is None
+    assert results[4].dimensions["薪資水準"].score == 4
+    assert results[4].unknown_dimensions == ["技能匹配度"]
+    # 第 4 筆評分失敗：沒有評分結果，只有失敗原因
+    assert (results[3].dimensions, results[3].total, results[3].comment) == (None, None, None)
+    assert results[3].failure
+    # 被淘汰的那筆收集了多條原因
+    assert results[1].eliminated
+    assert len(results[1].elimination_reasons) == 2
 
 
-def test_score_batch_filter_comment(make_job, scoring_settings, db_conn, tmp_path):
+def test_score_batch_filter_comment(make_job, scoring_settings, db_conn):
     # 同時符合公司與職稱兩條淘汰條件
     job = make_job(**{"職缺代碼": "out", "職缺名稱": "業務專員", "公司名稱": "乙公司"})
     _seed(db_conn, job)
 
     [result] = score_batch([job], scoring_settings, lambda: None, **_store(db_conn))
-    json_path, csv_path = write_dry_run_results([result], tmp_path / "scores", datetime(2026, 1, 2, 3, 4, 5))
 
     expected = "淘汰：公司在排除名單：乙公司；職稱含排除關鍵字：業務"
     assert result.comment == expected
     assert result.total is None
-    assert json.loads(json_path.read_text(encoding="utf-8"))[0]["評語"] == expected
-    with open(csv_path, newline="", encoding="utf-8-sig") as f:
-        assert next(csv.DictReader(f))["評語"] == expected
     row = _score_rows(db_conn)["out"]
     assert row["評語"] == json.loads(row["評分明細"])["評語"] == expected
 

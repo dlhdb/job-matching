@@ -332,6 +332,70 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/dry-run/plan": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * 試跑前的確認
+         * @description 確認視窗用：將試跑幾筆、其中幾筆淘汰、用編輯區的什麼內容，以及開始前的錯誤。
+         */
+        post: operations["plan_dry_run_api_dry_run_plan_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/dry-run": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * 取得試跑的狀態
+         * @description 試跑中的進度與每筆的結果、最近一次結束的試跑，以及正在跑的其他作業。
+         */
+        get: operations["get_dry_run_state_api_dry_run_get"];
+        put?: never;
+        /**
+         * 開始試跑
+         * @description 重做開始前的檢查，有錯時回 422（detail 是錯誤清單）；已有作業在跑時回 409。通過後在背景照 codes 的順序逐筆評，不寫入評分紀錄；進度與結果以 GET /api/dry-run 取得。
+         */
+        post: operations["start_dry_run_api_dry_run_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/dry-run/stop": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * 停止試跑
+         * @description 評完目前這一筆就不再評，還在排隊的標成沒試跑。
+         */
+        post: operations["stop_dry_run_api_dry_run_stop_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
 }
 export type webhooks = Record<string, never>;
 export interface components {
@@ -474,6 +538,186 @@ export interface components {
             "\u5206\u6578": number | null;
             /** 理由 */
             "\u7406\u7531": string;
+        };
+        /** DraftIn */
+        DraftIn: {
+            /**
+             * Base
+             * @description 編輯區以哪一版為底
+             */
+            base: number;
+            /**
+             * Content
+             * @description 編輯區目前的內容
+             */
+            content: string;
+        };
+        /** DraftOut */
+        DraftOut: {
+            /** Base */
+            base: number;
+            /**
+             * Name
+             * @description base 那一版的名稱
+             */
+            name: string;
+            /**
+             * Modified
+             * @description 編輯區的內容和 base 那一版不同
+             */
+            modified: boolean;
+            /**
+             * Content
+             * @description 試跑用的內容；和編輯區比較，就知道試跑後改過沒有
+             */
+            content: string;
+        };
+        /** DraftRef */
+        DraftRef: {
+            /** Base */
+            base: number;
+            /**
+             * Name
+             * @description base 那一版的名稱
+             */
+            name: string;
+            /**
+             * Modified
+             * @description 編輯區的內容和 base 那一版不同
+             */
+            modified: boolean;
+        };
+        /** DraftsIn */
+        DraftsIn: {
+            preferences: components["schemas"]["DraftIn"];
+            experience: components["schemas"]["DraftIn"];
+            template: components["schemas"]["DraftIn"];
+        };
+        /** DryRunOut */
+        DryRunOut: {
+            /** Id */
+            id: number;
+            /** Total */
+            total: number;
+            /**
+             * Done
+             * @description 評完幾筆，含失敗
+             */
+            done: number;
+            /** Model */
+            model: string;
+            /**
+             * Settings
+             * @description preferences、experience、template 各用了什麼內容
+             */
+            settings: {
+                [key: string]: components["schemas"]["DraftOut"];
+            };
+            /** Stopping */
+            stopping: boolean;
+            /**
+             * Stopped
+             * @description 按了停止，或因為錯誤而停止
+             */
+            stopped: boolean;
+            /**
+             * Error
+             * @description 讓試跑停止的錯誤
+             */
+            error: string | null;
+            /**
+             * Rows
+             * @description 依試跑的順序
+             */
+            rows: components["schemas"]["DryRunRow"][];
+        };
+        /** DryRunPlan */
+        DryRunPlan: {
+            /**
+             * Count
+             * @description 將試跑幾筆
+             */
+            count: number;
+            /**
+             * Eliminated
+             * @description 其中幾筆符合淘汰條件；偏好有錯時為 null
+             */
+            eliminated: number | null;
+            /**
+             * Settings
+             * @description preferences、experience、template 各用編輯區的什麼內容
+             */
+            settings: {
+                [key: string]: components["schemas"]["DraftRef"];
+            };
+            /** Provider */
+            provider: string;
+            /**
+             * Models
+             * @description 可以選的模型，第一個是預設
+             */
+            models: string[];
+            /**
+             * Errors
+             * @description 開始前的錯誤；有錯誤時不能開始
+             */
+            errors: string[];
+        };
+        /** DryRunPlanRequest */
+        DryRunPlanRequest: {
+            /**
+             * Codes
+             * @description 試跑清單的職缺代碼，依清單的顯示順序
+             */
+            codes: string[];
+            /** @description 三份設定編輯區的內容 */
+            settings: components["schemas"]["DraftsIn"];
+        };
+        /** DryRunRow */
+        DryRunRow: {
+            /** Code */
+            code: string;
+            /**
+             * Status
+             * @enum {string}
+             */
+            status: "queued" | "scoring" | "done" | "failed" | "skipped";
+            /**
+             * Reason
+             * @description 試跑失敗的原因
+             */
+            reason: string | null;
+            /** @description 試跑的評分結果；還沒評完或失敗時為 null */
+            result: components["schemas"]["ScoreDetails"] | null;
+        };
+        /** DryRunStartRequest */
+        DryRunStartRequest: {
+            /**
+             * Codes
+             * @description 試跑清單的職缺代碼，依清單的顯示順序
+             */
+            codes: string[];
+            /** @description 三份設定編輯區的內容 */
+            settings: components["schemas"]["DraftsIn"];
+            /** Model */
+            model: string;
+        };
+        /** DryRunStarted */
+        DryRunStarted: {
+            /** Run Id */
+            run_id: number;
+        };
+        /** DryRunState */
+        DryRunState: {
+            /** @description 沒在試跑時為 null */
+            running: components["schemas"]["DryRunOut"] | null;
+            /** @description 最近一次結束的試跑；web app 啟動後還沒試跑過時為 null */
+            last: components["schemas"]["DryRunOut"] | null;
+            /**
+             * Busy
+             * @description 正在跑的其他作業，例如「評分」
+             */
+            busy: string | null;
         };
         /** HTTPValidationError */
         HTTPValidationError: {
@@ -1384,6 +1628,110 @@ export interface operations {
         };
     };
     stop_scoring_api_scoring_stop_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    plan_dry_run_api_dry_run_plan_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["DryRunPlanRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["DryRunPlan"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    get_dry_run_state_api_dry_run_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["DryRunState"];
+                };
+            };
+        };
+    };
+    start_dry_run_api_dry_run_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["DryRunStartRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            202: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["DryRunStarted"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    stop_dry_run_api_dry_run_stop_post: {
         parameters: {
             query?: never;
             header?: never;
