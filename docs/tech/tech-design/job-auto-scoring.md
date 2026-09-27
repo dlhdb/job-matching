@@ -6,14 +6,29 @@
   - 評分紀錄與設定的讀寫：[src/job_db/scores.py](../../../src/job_db/scores.py)、[src/job_db/settings.py](../../../src/job_db/settings.py)，建表語法在 [src/job_db/schema.py](../../../src/job_db/schema.py)
   - 設定頁：[src/web/settings.py](../../../src/web/settings.py)、[frontend/src/settings/](../../../frontend/src/settings/)
   - 職缺表上的評分與送去評分：[src/web/scoring.py](../../../src/web/scoring.py)、[frontend/src/scoring/](../../../frontend/src/scoring/)
+  - 試跑：[src/web/dry_run.py](../../../src/web/dry_run.py)、[frontend/src/dry-run/](../../../frontend/src/dry-run/)
 
 ## 1. 總覽
 
 ```mermaid
 flowchart LR
     page["frontend/src/settings/"] --> api["web/settings.py"]
+    page --> dry["frontend/src/dry-run/"]
     table["frontend/src/scoring/"] --> ext["frontend/src/job-database/ 的擴充點"]
     table --> sapi["web/scoring.py"]
+    table --> dry
+    dry --> table
+    dry --> page
+    dry --> tablecomp["frontend/src/job-database/ 的表格元件"]
+    dry --> dapi["web/dry_run.py"]
+    dapi --> sapi
+    dapi --> batch
+    dapi --> settings
+    dapi --> runner
+    dapi --> llm
+    dapi --> rules
+    dapi --> dbsettings
+    dapi --> queries
     api --> settings["job_scoring/settings.py"]
     api --> dbsettings["job_db/settings.py"]
     sapi --> batch
@@ -40,21 +55,24 @@ flowchart LR
 
 模組職責，都在 `src/job_scoring/` 下，另有標註的除外：
 
-- `settings.py`：評分用的設定：預設內容、偏好與模板的檢查、替新資料庫寫入第 1 版，以及讀出目前設定（`ScoringSettings`）。
+- `settings.py`：評分用的設定：預設內容、偏好與模板的檢查、替新資料庫寫入第 1 版，以及由三份內容組出評分用的設定（`ScoringSettings`）。
+  - 正式評分用目前設定，試跑用編輯區的內容。
 - `defaults/`：專案附的預設偏好、預設經歷與預設模板，是每份設定的第 1 版。
 - `models.py`：Pydantic 模型，包括偏好、AI 輸出、評分結果與整批的單筆結果。
 - `rules.py`：程式端的規則，包括硬性淘汰、薪資換算與計分，以及共用的進位函式。
 - `prompt.py`：由模板組出 system 與 user 提示詞、模板變數的比對，以及送評時的職缺內容快照。
 - `llm.py`：LLM 供應商抽象層與 Gemini 實作。
 - `scorer.py`：單筆評分流程、總分計算，以及「評分並寫入資料庫」這一步。
-- `batch.py`：逐筆評分，一筆也走這裡；另有寫出試跑結果檔。
+- `batch.py`：逐筆評分，一筆也走這裡；送去評分與試跑共用。
 - `job_db/scores.py`：讀寫 `job_scores`。
 - `job_db/settings.py`：讀寫設定的版本。
 - `web/settings.py`：設定頁的 API。
 - `web/scoring.py`：職缺表上的評分與送去評分的 API。
   - 評分作業交給共用的作業執行器 `web/jobs.py` 在背景跑。
+- `web/dry_run.py`：試跑的 API，試跑作業同樣交給 `web/jobs.py`。
 - `frontend/src/settings/`：設定頁。
-- `frontend/src/scoring/`：疊加在職缺表上的評分（欄位、篩選、勾選、確認視窗、展開列），以及頁首的評分進度。
+- `frontend/src/scoring/`：疊加在職缺表上的評分（欄位、篩選、勾選、確認視窗、展開列、加入試跑清單），以及頁首的評分進度。
+- `frontend/src/dry-run/`：設定頁下方的試跑清單（清單、確認視窗、試跑結果與並排比較），以及頁首的試跑進度。
 
 依賴限制：
 
@@ -106,8 +124,7 @@ flowchart LR
   - 整批都被淘汰時就不需要 API key。
   - 建立失敗（不支援的供應商、缺少 API key）時直接往外拋，這時還沒評任何一筆，所以會被淘汰的職缺也不會寫入。
 - 每筆都經過 `scorer.score_and_save`，哪些錯誤算單筆失敗見 [§5](#5-錯誤處理)。
-- 呼叫端是送去評分的作業（[§2.5](#25-送去評分)）。
-- `batch.write_dry_run_results` 把試跑結果寫成 JSON 與 CSV，目前沒有呼叫端。
+- 呼叫端是送去評分的作業（[§2.5](#25-送去評分)）與試跑的作業（[§2.7](#27-試跑)）。
 
 ### 2.3 提示詞模板
 
@@ -238,6 +255,64 @@ sequenceDiagram
     - 檢視中的舊評分回到目前的評分。
 - 評分依據的提示詞在後端組回：用評分時存下的職缺快照與三份設定的版本，經過評分時同一個組提示詞的函式，規則只寫一份。
   - 那一版的偏好不符合現在的規則、組不回來時，回傳原因代替提示詞。
+
+### 2.7 試跑
+
+實現 FR-dry-run-*、FR-settings-editor 的「編輯區的內容給試跑用」、FR-job 與 FR-llm 的試跑部分。規則見[功能文件的換設定試跑而不影響正式分數](../../product/features/job-auto-scoring.md#9-換設定試跑而不影響正式分數dry-run)。
+
+```mermaid
+sequenceDiagram
+    participant P as 設定頁（frontend/src/dry-run/）
+    participant A as web/dry_run.py
+    participant J as 試跑作業（背景執行緒）
+    P->>A: POST /api/dry-run/plan（清單的職缺、三份編輯區的內容與以哪一版為底）
+    A-->>P: 筆數、淘汰幾筆、各份是哪一版或修改中、模型、開始前的錯誤
+    P->>A: POST /api/dry-run（職缺依清單的顯示順序、編輯區的內容、模型）
+    A->>A: 重做檢查
+    A->>J: 開始作業（編輯區的內容與職缺）
+    loop 試跑中每秒
+        P->>A: GET /api/dry-run
+        A-->>P: 進度、每筆的狀態與結果
+    end
+```
+
+後端：
+
+- 編輯區的內容由前端送來，每份附上以哪一版為底：
+  - 後端拿那一版的內容比對，決定確認視窗與結果標示寫「第 N 版」還是「以第 N 版為底修改中」。
+  - 組出設定時和正式評分用同一個檢查，錯誤訊息標出是哪一份。
+- 開始前的檢查和送去評分同一套寫法，差別是不檢查預設範例（見[功能文件的確認與進行](../../product/features/job-auto-scoring.md#922-確認與進行)）。
+- 作業呼叫 `score_batch` 時傳入的連線是 `None`，整個作業都不開資料庫連線，所以不可能寫入評分紀錄。
+  - 職缺在開始時就讀好。
+- 每筆的狀態與結果（評分結果或失敗原因）只放在記憶體，連同用的內容與模型。
+  - 結束時保留最近一次的試跑，下一次試跑或 web app 關閉時消失。
+  - 回傳用的內容：前端拿它和編輯區比較，判斷試跑後改過沒有。
+
+前端：
+
+- 試跑清單記在 `localStorage` 的 `jobAutoScoring.dryRunList.v1`，內容是職缺代碼，依加入的順序。
+  - 職缺表的評分擴充寫入，設定頁讀出；兩者不會同時打開，打開時讀一次即可。
+  - 格式不對或記不住時是空的清單。
+- 清單的表共用職缺表的表格元件：
+  - 不能選欄位。
+  - 排序可以回到沒有排序，也就是加入的順序。
+  - 移除按鈕放在列前的標記位置。
+- 淘汰在總分欄以一個比所有分數都小的值表示：
+  - 當作最低分排序：
+    - 由大到小時排在所有分數之後。
+    - 由小到大時排在所有分數之前。
+  - 沒有總分的列不論升降冪都排最後。
+  - 顯示成淘汰標籤。
+- 試跑的狀態放在包住整個頁面的 context，頁首的進度與設定頁共用。
+  - 輪詢的寫法同[送去評分](#25-送去評分)。
+- 試跑結果只給「這次打開設定頁後看過它在跑」的試跑：
+  - 設定頁的元件自己記看過哪些試跑，離開或重新整理設定頁就忘掉。
+  - 所以試跑結束後離開、重新整理設定頁，或試跑結束時不在設定頁，結果都不顯示。
+- 過時標示比較兩樣：
+  - 清單：以集合比較試跑的職缺與目前的清單，只改排序不算。
+  - 編輯區：三份內容都要和試跑用的相同。
+- 並排比較的目前的評分在點開時才取 `GET /api/scores/{職缺代碼}`，用第一筆（代表的評分）。
+  - 代表的評分改變時重新取。
 
 ## 3. 資料與儲存
 
@@ -416,7 +491,12 @@ AI 必須輸出以下 JSON（Pydantic 模型 `AIAssessment`）：
   - 作業以錯誤結束，摘要照停止處理。
   - 其他例外在記下錯誤之後照樣往外拋，留下 traceback。
 
-送去評分的 API：
+試跑的作業：
+
+- client 建立失敗：一筆都不評，全部標成沒試跑，作業以錯誤結束。
+- 其他例外：正在試跑的那一筆算失敗，其餘標成沒試跑，記下錯誤之後照樣往外拋。
+
+送去評分與試跑的 API：
 
 - 開始前的檢查有錯時回 422，`detail` 是錯誤清單。
 - 不認得的模型也是 422。
@@ -432,10 +512,9 @@ AI 必須輸出以下 JSON（Pydantic 模型 `AIAssessment`）：
 
 ## 6. 驗收對照
 
-- 只列已實作的 AC；〔規劃中〕的 AC 完成後再補上。
 - 除了〔需網路〕的條目，都離線執行，也不需要 API key：AI 的回應以假的 LLM client 代替。
 - 網頁的 API 以 FastAPI 的 TestClient 測。
-- 設定頁與職缺表上的評分以 Playwright 測，開始前會自動 build 前端（見 [development.md 的瀏覽器測試](../../conventions/development.md#瀏覽器測試)）。
+- 設定頁、職缺表上的評分與試跑以 Playwright 測，開始前會自動 build 前端（見 [development.md 的瀏覽器測試](../../conventions/development.md#瀏覽器測試)）。
 
 共用的測試資料放在 `tests/conftest.py`：
 
@@ -454,8 +533,8 @@ AI 必須輸出以下 JSON（Pydantic 模型 `AIAssessment`）：
 一次跑完所有離線驗收：
 
 ```bash
-uv run pytest tests/test_job_scoring_*.py tests/test_job_db_scores.py tests/test_job_db_settings.py tests/test_job_db_upgrade.py tests/test_app.py tests/test_web_settings.py tests/test_web_scoring.py tests/test_browser_settings.py tests/test_browser_scoring.py
-npm test --prefix frontend -- drafts scoring
+uv run pytest tests/test_job_scoring_*.py tests/test_job_db_scores.py tests/test_job_db_settings.py tests/test_job_db_upgrade.py tests/test_app.py tests/test_web_settings.py tests/test_web_scoring.py tests/test_web_dry_run.py tests/test_browser_settings.py tests/test_browser_scoring.py tests/test_browser_dry_run.py
+npm test --prefix frontend -- drafts scoring dry-run
 ```
 
 其他檢查：
@@ -464,6 +543,7 @@ npm test --prefix frontend -- drafts scoring
 - 前端的 API 型別是否最新：`uv run pytest tests/test_web_openapi.py`。
 - 供應商隔離：`uv run pytest tests/test_job_scoring_llm.py -k provider_sdk_isolated`，通過條件為只有 `llm.py` import `google` 開頭的模組。
 - 評分作業的錯誤處理：`uv run pytest tests/test_web_scoring.py -k "write_failure or unexpected_error or client_error"`
+- 試跑作業的錯誤處理：`uv run pytest tests/test_web_dry_run.py -k "client_error or unexpected_error or rechecks or unknown"`
 - 職缺表上的評分資料讀不到時：`uv run pytest tests/test_browser_scoring.py -k "failure_keeps or retry_after or state_failure or stop_failure"`
 
 ### score
@@ -516,9 +596,16 @@ npm test --prefix frontend -- drafts scoring
 - [AC-settings-editor](../../product/features/job-auto-scoring.md#ac-settings-editor編輯區)：`uv run pytest tests/test_browser_settings.py -k "settings_editor or rename_keeps or typing or reload_failure or retries"`，以及 `npm test --prefix frontend -- drafts`
   - 不允許保存的瀏覽器：以 Playwright 的 init script 讓讀取 `localStorage` 丟出例外。
 - [AC-settings-check](../../product/features/job-auto-scoring.md#ac-settings-check檢查)：`uv run pytest tests/test_job_scoring_settings.py -k check` 與 `uv run pytest tests/test_browser_settings.py -k settings_check`
-  - 不能試跑那一項〔規劃中〕
+  - 不能試跑：`uv run pytest tests/test_browser_dry_run.py -k invalid_editor` 與 `uv run pytest tests/test_web_dry_run.py -k invalid_editor`
 - [AC-settings-default](../../product/features/job-auto-scoring.md#ac-settings-default第一版與預設範例)：`uv run pytest tests/test_browser_settings.py -k settings_default` 與 `uv run pytest tests/test_web_settings.py -k first_versions`
   - 確認視窗擋下預設範例：`uv run pytest tests/test_web_scoring.py -k default` 與 `uv run pytest tests/test_browser_scoring.py -k default_experience`
+
+### dry-run
+
+- [AC-dry-run-list](../../product/features/job-auto-scoring.md#ac-dry-run-list試跑清單)：`uv run pytest tests/test_browser_dry_run.py -k test_dry_run_list`，以及 `npm test --prefix frontend -- dry-run`
+- [AC-dry-run](../../product/features/job-auto-scoring.md#ac-dry-run試跑不影響正式分數)：`uv run pytest tests/test_browser_dry_run.py -k does_not_store` 與 `uv run pytest tests/test_web_dry_run.py -k "does_not_store or uses_editor"`
+- [AC-dry-run-result](../../product/features/job-auto-scoring.md#ac-dry-run-result試跑結果與並排比較)：`uv run pytest tests/test_browser_dry_run.py -k "dry_run_result or finished_elsewhere"`，以及 `npm test --prefix frontend -- dry-run/table`
+  - 試跑中重新整理、切換分頁與停止：`uv run pytest tests/test_browser_dry_run.py -k progress_reload_and_stop` 與 `uv run pytest tests/test_web_dry_run.py -k "running_state_and_stop or failure_does_not_stop"`
 
 ### history
 
@@ -528,7 +615,7 @@ npm test --prefix frontend -- drafts scoring
   - `job_db` 沒有刪除評分紀錄的函式。
 - [AC-history-current](../../product/features/job-auto-scoring.md#ac-history-current代表的評分)：`uv run pytest tests/test_browser_scoring.py -k detail_history_and_basis` 與 `uv run pytest tests/test_web_scoring.py -k scores_current`
   - 依評分狀態「淘汰」篩選時以代表的評分為準：`npm test --prefix frontend -- scoring/filters`
-  - 試跑清單那一項〔規劃中〕
+  - 試跑清單的目前總分：`uv run pytest tests/test_browser_dry_run.py -k list_current_total`
 - [AC-history-all](../../product/features/job-auto-scoring.md#ac-history-all所有評分紀錄與檢視舊評分)：`uv run pytest tests/test_browser_scoring.py -k detail_history_and_basis` 與 `uv run pytest tests/test_web_scoring.py -k history_order`
 
 ### basis
@@ -551,6 +638,6 @@ npm test --prefix frontend -- drafts scoring
 - [AC-job](../../product/features/job-auto-scoring.md#ac-job作業)：`uv run pytest tests/test_browser_scoring.py -k run_progress`
   - (a) 評分中重新整理、(b) 另開一個頁面，都接回進度。
   - 已有其他作業在跑時不能開始：`uv run pytest tests/test_web_scoring.py -k while_other_job_running`
-  - 在設定頁按試跑那一項〔規劃中〕
+  - (c) 評分中在設定頁按試跑：`uv run pytest tests/test_browser_dry_run.py -k one_job_at_a_time` 與 `uv run pytest tests/test_web_dry_run.py -k "one_job_at_a_time or other_job_blocks"`
 - [AC-llm](../../product/features/job-auto-scoring.md#ac-llmai-供應商與-api-key)：`uv run pytest tests/test_app.py -k env` 與 `uv run pytest tests/test_browser_scoring.py -k test_confirm`
   - 真實的 `.env` 不進版控、`.env.example` 有進版控：`uv run pytest tests/test_job_scoring_llm.py -k env_ignored`

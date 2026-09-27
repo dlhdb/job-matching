@@ -9,8 +9,8 @@ import { KIND_LABELS, KINDS, type Kind } from "../settings/api";
 import type { DryRunOut, DryRunRow } from "./api";
 
 /**
- * 總分欄中代表「被淘汰」的值：比所有分數（0–100）都小，依總分排序時排在分數之後、沒有總分之前，
- * 顯示成淘汰標籤
+ * 總分欄中代表「被淘汰」的值：比所有分數（0–100）都小，依總分排序時當作最低分，
+ * 沒有總分的列仍排最後；顯示成淘汰標籤
  */
 export const ELIMINATED = -1;
 

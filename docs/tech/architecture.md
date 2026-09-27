@@ -15,6 +15,7 @@
     - 開發時改用 Vite 的開發伺服器，它把 `/api` 轉給 `app.py`
     - 目前有職缺表（見 [job-database 的職缺表](tech-design/job-database.md#22-職缺表的前後端分工)）、抓取頁（見 [104-job-scraper 的流程](tech-design/104-job-scraper.md#2-流程)）與設定頁（見 [job-auto-scoring 的設定頁](tech-design/job-auto-scoring.md#24-設定頁)）
     - 職缺表上疊加了評分，從職缺表送去評分（見 [job-auto-scoring 的送去評分](tech-design/job-auto-scoring.md#25-送去評分)）
+    - 設定頁下方有試跑清單，用編輯中的設定試跑（見 [job-auto-scoring 的試跑](tech-design/job-auto-scoring.md#27-試跑)）
 
 ## 模組依賴
 
@@ -34,9 +35,9 @@ flowchart LR
 
 - `job_db` 在最底層，不 import 專案內的其他模組。原因見 [job-database 的技術設計總覽](tech-design/job-database.md#1-總覽)。
 - `web`：網頁的後端，組裝各功能的 API（都在 `/api` 下），並提供 build 好的前端。
-  - 各功能的 API 各自一個模組，由擁有該資料的功能負責，例如職缺表的 `web/job_table.py` 屬於 job-database，抓取頁的 `web/crawl.py` 屬於 104-job-scraper，設定頁的 `web/settings.py` 與評分的 `web/scoring.py` 屬於 job-auto-scoring。
+  - 各功能的 API 各自一個模組，由擁有該資料的功能負責，例如職缺表的 `web/job_table.py` 屬於 job-database，抓取頁的 `web/crawl.py` 屬於 104-job-scraper，設定頁的 `web/settings.py`、評分的 `web/scoring.py` 與試跑的 `web/dry_run.py` 屬於 job-auto-scoring。
   - `web/jobs.py` 是各功能共用的作業執行器：
-    - 抓取、評分這類要跑一段時間的工作在背景執行緒跑。
+    - 抓取、評分、試跑這類要跑一段時間的工作在背景執行緒跑。
     - 同一時間只跑一個。
     - 重新整理或關掉頁面都不影響。
   - 每個請求各自開一條資料庫連線，用完就關：同步的端點跑在 threadpool，`sqlite3` 的連線不能跨執行緒使用。
@@ -48,11 +49,12 @@ flowchart LR
   - 抓到的職缺交給 `web/crawl.py` 預覽與存入。
 - `frontend/`：網頁的前端。
   - 各功能的頁面各自一個目錄，例如 `frontend/src/job-database/`、`frontend/src/crawl/`、`frontend/src/settings/`。
+    - 同一個頁面上的大塊內容也可以自成一個目錄，例如設定頁下方的試跑清單在 `frontend/src/dry-run/`。
   - 疊加在別的功能頁面上的內容也各自一個目錄，例如評分的 `frontend/src/scoring/` 經由職缺表的擴充點疊加在職缺表上（見 [job-database 的職缺表](tech-design/job-database.md#22-職缺表的前後端分工)）。
     - 被疊加的一方不 import 疊加的一方，依賴方向同功能之間的依賴。
   - 外殼與導覽在 `frontend/src/app/`：
     - 把各功能的擴充交給被疊加的頁面。
-    - 頁首顯示評分的進度。
+    - 頁首顯示評分與試跑的進度。
 - `job_scoring`：評分與評分用的設定（見 [job-auto-scoring 的技術設計總覽](tech-design/job-auto-scoring.md#1-總覽)）。
   - 經由 `job_db/scores.py` 寫入 `job_scores`，經由 `job_db/settings.py` 讀寫設定的版本。
   - 這兩個模組放在 `job_db` 套件，但屬於 job-auto-scoring。
@@ -69,6 +71,7 @@ flowchart LR
   - `job_scores`：job-auto-scoring（見 [job_scores](tech-design/job-auto-scoring.md#32-job_scores)）
     - 同一筆職缺可以有多列，記下評分依據
     - 寫入：在職缺表送去評分，由背景的評分作業逐筆寫入
+      - 試跑不寫入
   - `settings_versions`、`current_settings`：job-auto-scoring（見 [設定的版本](tech-design/job-auto-scoring.md#31-設定的版本)）
     - 寫入：設定頁
 - 表之間以 `職缺代碼` 關聯，它是 `jobs` 的主鍵。
