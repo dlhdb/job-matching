@@ -309,6 +309,32 @@ def test_client_error_scores_nothing(client, three_listed, monkeypatch):
     assert (run["done"], run["stopped"]) == (0, True)
 
 
+def test_unexpected_error_fails_current(client, five_listed, monkeypatch):
+    # 其他錯誤讓試跑停止：正在試跑的那一筆算失敗，之後的標成沒試跑
+    import job_scoring.batch as batch
+    real_score = batch.score_and_save
+
+    def broken_score(job, *args):
+        if job["職缺代碼"] == "j3":
+            raise KeyError("壞掉的欄位")
+        return real_score(job, *args)
+
+    monkeypatch.setattr(batch, "score_and_save", broken_score)
+    # 背景執行緒的例外往外拋時，pytest 會提醒；這裡是預期中的
+    monkeypatch.setattr("threading.excepthook", lambda args: None)
+
+    run = _run(client, five_listed, _drafts(client.app.state.db_path))
+    # 例外在結果交出之後才送到 excepthook：等執行緒結束，換掉的 excepthook 才確定收得到
+    for thread in threading.enumerate():
+        if thread.name == "job-試跑":
+            thread.join(timeout=10)
+
+    assert run["error"].startswith("試跑中發生錯誤，已停止：")
+    assert [row["status"] for row in run["rows"]] == ["done", "done", "failed", "skipped", "skipped"]
+    assert run["rows"][2]["reason"].startswith("試跑中發生錯誤：")
+    assert (run["done"], run["stopped"]) == (3, True)
+
+
 def test_next_run_replaces_last(client, three_listed):
     drafts = _drafts(client.app.state.db_path)
     first = _run(client, ["a"], drafts)
