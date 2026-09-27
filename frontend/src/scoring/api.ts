@@ -7,6 +7,8 @@ import type { components } from "../api/schema";
 /** 一筆職缺代表的評分：職缺表的評分欄位、排序與篩選都用它 */
 export type CurrentScore = components["schemas"]["CurrentScore"];
 export type ScoreRecord = components["schemas"]["ScoreRecord"];
+/** 評分結果：各維度的分數與理由、淘汰原因；評分紀錄的評分明細與試跑的結果都是它 */
+export type ScoreDetails = components["schemas"]["ScoreDetails"];
 export type Basis = components["schemas"]["Basis"];
 export type Plan = components["schemas"]["Plan"];
 export type ScoringState = components["schemas"]["ScoringState"];

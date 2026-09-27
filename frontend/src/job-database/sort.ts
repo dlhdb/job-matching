@@ -54,10 +54,13 @@ export function sortRows<Row extends Identified>(
 }
 
 /**
- * 點一個欄位標題後的排序：再點同一欄反向；換一欄時，數字欄由大到小，其他欄由小到大。
+ * 點一個欄位標題後的排序：再點同一欄反向；換一欄或原本沒有排序時，數字欄由大到小，其他欄由小到大。
  */
-export function nextSort(current: Sort, column: Pick<Column<never>, "key" | "numeric">): Sort {
-  if (current.key === column.key) {
+export function nextSort(
+  current: Sort | null,
+  column: Pick<Column<never>, "key" | "numeric">,
+): Sort {
+  if (current !== null && current.key === column.key) {
     return { key: column.key, dir: current.dir === "asc" ? "desc" : "asc" };
   }
   return { key: column.key, dir: column.numeric ? "desc" : "asc" };

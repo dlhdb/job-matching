@@ -791,3 +791,27 @@ dialog.modal .field {
   color: var(--danger);
   font-size: 13px;
 }
+
+/* 設定頁的試跑清單 */
+.card.dry-run {
+  margin-top: 12px;
+}
+.card.dry-run .toolbar {
+  margin-top: 0;
+}
+.run-info {
+  color: var(--muted);
+  font-size: 12px;
+  margin: 4px 0;
+}
+.compare {
+  display: grid;
+  gap: 12px;
+  grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+}
+.diff-up {
+  color: var(--ok);
+}
+.diff-down {
+  color: var(--danger);
+}

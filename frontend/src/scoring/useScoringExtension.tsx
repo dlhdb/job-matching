@@ -1,6 +1,8 @@
 import { useState } from "react";
 
+import { addToList, LIST_STORAGE_KEY, parseList } from "../dry-run/list";
 import type { JobTableExtension, TableContext } from "../job-database/extension";
+import { readStore, writeStore } from "../lib/storage";
 import { useScoring } from "./context";
 import { scoreColumns, SCORE_DEFAULT_COLUMNS, SCORE_DEFAULT_SORT } from "./columns";
 import { matchesScoreFilters, SCORE_FILTER_DEFAULTS, SCORE_STATUS_LABELS } from "./filters";
@@ -14,13 +16,14 @@ const NO_SCORES = new Map();
 
 /**
  * 在職缺表上疊加評分：評分的欄位、預設依總分排序、總分範圍與評分狀態的篩選、勾選與送去評分、
- * 評分中列上的狀態，以及展開列的評分。
+ * 加入試跑清單、評分中列上的狀態，以及展開列的評分。
  */
 export function useScoringExtension(): JobTableExtension {
   const scoring = useScoring();
   const [selected, setSelected] = useState<ReadonlySet<string>>(() => new Set());
   // 打開確認視窗時的職缺與檢視：開始評分時以它們固定列的順序
   const [dialog, setDialog] = useState<{ codes: string[]; context: TableContext } | null>(null);
+  const [listNotice, setListNotice] = useState<string | null>(null);
 
   const scores = scoring.scores ?? NO_SCORES;
   const running = scoring.state?.running ?? null;
@@ -41,6 +44,14 @@ export function useScoringExtension(): JobTableExtension {
     setSelected(new Set());
     setDialog(null);
     void scoring.started(runId);
+  };
+
+  // 勾選不清掉：勾選的職缺可能還要送去評分
+  const addToDryRun = (codes: string[]) => {
+    const { list, added, existing } = addToList(parseList(readStore(LIST_STORAGE_KEY)), codes);
+    writeStore(LIST_STORAGE_KEY, list);
+    const already = existing > 0 ? `（${existing} 筆原本就在清單裡）` : "";
+    setListNotice(`已加入試跑清單 ${added} 筆${already}；清單共 ${list.length} 筆，到設定頁試跑`);
   };
 
   const renderTools = (context: TableContext) => {
@@ -74,6 +85,14 @@ export function useScoringExtension(): JobTableExtension {
         >
           送去評分
         </button>
+        <button
+          className="btn"
+          type="button"
+          disabled={picked.length === 0}
+          onClick={() => addToDryRun(picked)}
+        >
+          加入試跑清單
+        </button>
         {dialog !== null && (
           <ScoreDialog
             codes={dialog.codes}
@@ -87,6 +106,19 @@ export function useScoringExtension(): JobTableExtension {
 
   const renderBanner = () => (
     <>
+      {listNotice !== null && (
+        <div className="notice" role="status">
+          <span>{listNotice}</span>
+          <button
+            type="button"
+            className="close"
+            aria-label="關閉加入試跑清單的訊息"
+            onClick={() => setListNotice(null)}
+          >
+            ×
+          </button>
+        </div>
+      )}
       {scoring.pollError !== null && <p className="notice error">{scoring.pollError}</p>}
       {scoring.scores !== null && scoring.scoresError !== null && (
         <p className="notice error">{scoring.scoresError}</p>

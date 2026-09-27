@@ -1,7 +1,13 @@
 import { Fragment, useEffect, useState, type ReactNode } from "react";
 
 import { showTime } from "../job-database/columns";
-import { fetchScoreHistory, type Basis, type RowStatus, type ScoreRecord } from "./api";
+import {
+  fetchScoreHistory,
+  type Basis,
+  type RowStatus,
+  type ScoreDetails,
+  type ScoreRecord,
+} from "./api";
 import { DIMENSIONS } from "./columns";
 import { EliminatedTag } from "./ScoreTags";
 
@@ -33,9 +39,14 @@ function Pairs({ pairs }: { pairs: [string, ReactNode][] }) {
   );
 }
 
+interface DimensionsProps {
+  details: ScoreDetails;
+  /** 產生 AI 維度的供應商與模型；沒有傳入時不列出 */
+  source?: { provider: string | null; model: string | null };
+}
+
 /** 評分明細：四個維度的分數與理由；被淘汰時改列淘汰原因 */
-function Dimensions({ record }: { record: ScoreRecord }) {
-  const details = record.評分明細;
+export function Dimensions({ details, source }: DimensionsProps) {
   if (details.淘汰 || details.維度 === null) {
     return (
       <>
@@ -69,12 +80,14 @@ function Dimensions({ record }: { record: ScoreRecord }) {
       {details.未知維度.length > 0 && (
         <p>未知維度：{details.未知維度.join("、")}（總分以 3 分代入）</p>
       )}
-      <Pairs
-        pairs={[
-          ["供應商", record.供應商 ?? NULL],
-          ["模型", record.模型 ?? NULL],
-        ]}
-      />
+      {source && (
+        <Pairs
+          pairs={[
+            ["供應商", source.provider ?? NULL],
+            ["模型", source.model ?? NULL],
+          ]}
+        />
+      )}
     </>
   );
 }
@@ -220,7 +233,14 @@ export function ScoreDetail({ code, currentKey, status }: ScoreDetailProps) {
       </section>
       <section className="panel" aria-label="評分明細">
         <h3>評分明細</h3>
-        {shown ? <Dimensions record={shown} /> : <p className="null">還沒有評分</p>}
+        {shown ? (
+          <Dimensions
+            details={shown.評分明細}
+            source={{ provider: shown.供應商, model: shown.模型 }}
+          />
+        ) : (
+          <p className="null">還沒有評分</p>
+        )}
       </section>
       <section className="panel" aria-label="所有評分紀錄">
         <h3>所有評分紀錄（{records.length} 筆）</h3>

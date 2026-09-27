@@ -11,8 +11,10 @@ interface JobTableProps<Row extends Identified> {
   columns: Column<Row>[];
   /** 目前顯示的欄位 */
   visible: string[];
-  sort: Sort;
-  onToggleColumn: (key: string, checked: boolean) => void;
+  /** 目前的排序；null 時照 rows 的順序，標題不標箭頭 */
+  sort: Sort | null;
+  /** 勾選或取消勾選欄位；沒有時不能選欄位 */
+  onToggleColumn?: (key: string, checked: boolean) => void;
   onSortChange: (sort: Sort) => void;
   /** 工具列左邊的計數文字，例如「符合 3 筆／共 5 筆」 */
   countText: string;
@@ -65,7 +67,7 @@ export function JobTable<Row extends Identified>({
   const shown = visible
     .map((key) => columns.find((c) => c.key === key))
     .filter((c): c is Column<Row> => c !== undefined);
-  const sorted = presorted ? rows : sortRows(rows, columns, sort);
+  const sorted = presorted || sort === null ? rows : sortRows(rows, columns, sort);
   const lead = rowBadge !== undefined || selection !== undefined;
   const colSpan = shown.length + (lead ? 1 : 0);
 
@@ -93,11 +95,13 @@ export function JobTable<Row extends Identified>({
         </span>
         <span className="spacer" />
         {tools}
-        <ColumnPicker
-          options={columns.map((c) => c.key)}
-          visible={visible}
-          onToggle={onToggleColumn}
-        />
+        {onToggleColumn && (
+          <ColumnPicker
+            options={columns.map((c) => c.key)}
+            visible={visible}
+            onToggle={onToggleColumn}
+          />
+        )}
       </div>
       <div className="table-wrap">
         <table>
@@ -105,9 +109,9 @@ export function JobTable<Row extends Identified>({
             <tr>
               {lead && <th className="sel" />}
               {shown.map((column) => {
-                const active = sort.key === column.key;
+                const active = sort !== null && sort.key === column.key;
                 const ariaSort = active
-                  ? sort.dir === "asc"
+                  ? sort?.dir === "asc"
                     ? "ascending"
                     : "descending"
                   : "none";
@@ -122,7 +126,7 @@ export function JobTable<Row extends Identified>({
                     onKeyDown={onEnterOrSpace(changeSort)}
                   >
                     {column.key}
-                    {active && <span className="arrow">{sort.dir === "asc" ? "▲" : "▼"}</span>}
+                    {active && <span className="arrow">{sort?.dir === "asc" ? "▲" : "▼"}</span>}
                   </th>
                 );
               })}

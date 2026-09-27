@@ -1,6 +1,8 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 
 import { ConfirmDialog } from "../app/ConfirmDialog";
+import type { DraftsIn } from "../dry-run/api";
+import { DryRunPanel } from "../dry-run/DryRunPanel";
 import { readStore, writeStore } from "../lib/storage";
 import {
   applyVersion,
@@ -50,7 +52,8 @@ interface Checked {
 type Dialog = { mode: "save" } | { mode: "meta"; version: Version };
 
 /**
- * 設定頁：編輯偏好、經歷與提示詞模板，每次儲存留下一個有名稱的版本，可以套用任何一版。
+ * 設定頁：編輯偏好、經歷與提示詞模板，每次儲存留下一個有名稱的版本，可以套用任何一版；
+ * 下方的試跑清單用三份編輯區的內容試跑。
  *
  * 編輯區的內容只記在瀏覽器，儲存或套用前不動目前設定；儲存或套用都不會重評。
  */
@@ -267,150 +270,160 @@ export function SettingsPage() {
         : "已是目前設定";
   const primaryDisabled = action.type === "none" || result === null || hasErrors || busy;
   const nextVersion = Math.max(...kindState.versions.map((v) => v.version)) + 1;
+  // 試跑用三份編輯區的內容，不只是目前這一份
+  const editors = Object.fromEntries(
+    KINDS.map((k) => {
+      const e = editorState(settings[k], drafts[k]);
+      return [k, { base: e.base.version, content: e.text }];
+    }),
+  ) as DraftsIn;
 
   return (
-    <section className="card" aria-label="設定">
-      <div className="kind-tabs" role="tablist" aria-label="設定的種類">
-        {KINDS.map((k) => (
-          <button
-            key={k}
-            type="button"
-            role="tab"
-            aria-selected={k === kind}
-            onClick={() => {
-              clearMessages();
-              setKind(k);
-            }}
-          >
-            {KIND_LABELS[k]}
-          </button>
-        ))}
-      </div>
-      <div className="settings-grid">
-        <div>
-          <div className="set-status" role="status">
-            <span>目前設定：{versionName(current)}</span>
-            {kind !== "template" && kindState.is_default && (
-              <span className="tag default">預設範例</span>
-            )}
-            {editor.base.version !== kindState.current && (
-              <span className="tag draft">編輯區載入{versionName(editor.base)}</span>
-            )}
-            {editor.modified && <span className="tag draft">有修改，還沒儲存</span>}
-          </div>
-          <textarea
-            className="editor"
-            aria-label={`${label}的編輯區`}
-            spellCheck={false}
-            value={editor.text}
-            onChange={(event) => {
-              clearMessages();
-              setDraft({ base: editor.base.version, text: event.target.value });
-            }}
-          />
-          {checkError !== null && <p className="notice warn">{checkError}</p>}
-          {result !== null && result.errors.length + result.warnings.length > 0 && (
-            <ul className="msgs" aria-label="檢查結果">
-              {result.errors.map((e) => (
-                <li key={e} className="error">
-                  {e}
-                </li>
-              ))}
-              {result.warnings.map((w) => (
-                <li key={w} className="warning">
-                  提醒：{w}
-                </li>
-              ))}
-            </ul>
-          )}
-          <div className="set-actions">
+    <>
+      <section className="card" aria-label="設定">
+        <div className="kind-tabs" role="tablist" aria-label="設定的種類">
+          {KINDS.map((k) => (
             <button
-              className="btn"
+              key={k}
               type="button"
-              disabled={editor.text === kindState.default_content || busy}
+              role="tab"
+              aria-selected={k === kind}
               onClick={() => {
                 clearMessages();
-                setDraft({ base: editor.base.version, text: kindState.default_content });
+                setKind(k);
               }}
             >
-              還原預設
+              {KIND_LABELS[k]}
             </button>
-            <button
-              className="btn"
-              type="button"
-              disabled={drafts[kind] === undefined || busy}
-              onClick={() => {
-                clearMessages();
-                setDraft(undefined);
-              }}
-            >
-              捨棄修改
-            </button>
-            <button
-              className="btn primary"
-              type="button"
-              disabled={primaryDisabled}
-              title={hasErrors ? "先修正上面的錯誤" : undefined}
-              onClick={onPrimary}
-            >
-              {primaryLabel}
-            </button>
-          </div>
-          {notice !== null && <p className="notice">{notice}</p>}
-          {actionError !== null && <p className="notice error">{actionError}</p>}
+          ))}
         </div>
-        <aside className="panel">
-          <h3>版本紀錄</h3>
-          <p className="hint">點一版載入編輯區，可以直接套用，或改過後儲存成新版本。</p>
-          <VersionList
-            versions={kindState.versions}
-            current={kindState.current}
-            loaded={editor.base.version}
-            onLoad={requestLoad}
-            onEditMeta={(version) => {
-              clearMessages();
-              setDialogError(null);
-              setDialog({ mode: "meta", version });
-            }}
-          />
-        </aside>
-      </div>
-      <ConfirmDialog
-        open={confirmLoad !== null}
-        message={
-          confirmLoad === null
-            ? ""
-            : `編輯區的修改還沒儲存，載入第 ${confirmLoad.version} 版會蓋掉修改。`
-        }
-        confirmLabel={confirmLoad === null ? "" : `載入第 ${confirmLoad.version} 版`}
-        onConfirm={() => {
-          if (confirmLoad !== null) load(confirmLoad);
-          setConfirmLoad(null);
-        }}
-        onCancel={() => setConfirmLoad(null)}
-      />
-      {dialog !== null && (
-        <VersionDialog
-          key={dialog.mode === "save" ? `save-${kind}` : `meta-${kind}-${dialog.version.version}`}
-          title={
-            dialog.mode === "save"
-              ? `儲存並套用${label}`
-              : `編輯${label}第 ${dialog.version.version} 版的名稱與描述`
+        <div className="settings-grid">
+          <div>
+            <div className="set-status" role="status">
+              <span>目前設定：{versionName(current)}</span>
+              {kind !== "template" && kindState.is_default && (
+                <span className="tag default">預設範例</span>
+              )}
+              {editor.base.version !== kindState.current && (
+                <span className="tag draft">編輯區載入{versionName(editor.base)}</span>
+              )}
+              {editor.modified && <span className="tag draft">有修改，還沒儲存</span>}
+            </div>
+            <textarea
+              className="editor"
+              aria-label={`${label}的編輯區`}
+              spellCheck={false}
+              value={editor.text}
+              onChange={(event) => {
+                clearMessages();
+                setDraft({ base: editor.base.version, text: event.target.value });
+              }}
+            />
+            {checkError !== null && <p className="notice warn">{checkError}</p>}
+            {result !== null && result.errors.length + result.warnings.length > 0 && (
+              <ul className="msgs" aria-label="檢查結果">
+                {result.errors.map((e) => (
+                  <li key={e} className="error">
+                    {e}
+                  </li>
+                ))}
+                {result.warnings.map((w) => (
+                  <li key={w} className="warning">
+                    提醒：{w}
+                  </li>
+                ))}
+              </ul>
+            )}
+            <div className="set-actions">
+              <button
+                className="btn"
+                type="button"
+                disabled={editor.text === kindState.default_content || busy}
+                onClick={() => {
+                  clearMessages();
+                  setDraft({ base: editor.base.version, text: kindState.default_content });
+                }}
+              >
+                還原預設
+              </button>
+              <button
+                className="btn"
+                type="button"
+                disabled={drafts[kind] === undefined || busy}
+                onClick={() => {
+                  clearMessages();
+                  setDraft(undefined);
+                }}
+              >
+                捨棄修改
+              </button>
+              <button
+                className="btn primary"
+                type="button"
+                disabled={primaryDisabled}
+                title={hasErrors ? "先修正上面的錯誤" : undefined}
+                onClick={onPrimary}
+              >
+                {primaryLabel}
+              </button>
+            </div>
+            {notice !== null && <p className="notice">{notice}</p>}
+            {actionError !== null && <p className="notice error">{actionError}</p>}
+          </div>
+          <aside className="panel">
+            <h3>版本紀錄</h3>
+            <p className="hint">點一版載入編輯區，可以直接套用，或改過後儲存成新版本。</p>
+            <VersionList
+              versions={kindState.versions}
+              current={kindState.current}
+              loaded={editor.base.version}
+              onLoad={requestLoad}
+              onEditMeta={(version) => {
+                clearMessages();
+                setDialogError(null);
+                setDialog({ mode: "meta", version });
+              }}
+            />
+          </aside>
+        </div>
+        <ConfirmDialog
+          open={confirmLoad !== null}
+          message={
+            confirmLoad === null
+              ? ""
+              : `編輯區的修改還沒儲存，載入第 ${confirmLoad.version} 版會蓋掉修改。`
           }
-          note={
-            dialog.mode === "save"
-              ? `存成第 ${nextVersion} 版（以第 ${editor.base.version} 版為底修改），並改用這一版；${NO_RESCORE}`
-              : "只改名稱與描述，這一版的內容不變。"
-          }
-          confirmLabel={dialog.mode === "save" ? "儲存並套用" : "儲存"}
-          initialName={dialog.mode === "save" ? "" : dialog.version.name}
-          initialDescription={dialog.mode === "save" ? "" : dialog.version.description}
-          busy={busy}
-          error={dialogError}
-          onConfirm={(name, description) => void confirmDialog(name, description)}
-          onCancel={() => setDialog(null)}
+          confirmLabel={confirmLoad === null ? "" : `載入第 ${confirmLoad.version} 版`}
+          onConfirm={() => {
+            if (confirmLoad !== null) load(confirmLoad);
+            setConfirmLoad(null);
+          }}
+          onCancel={() => setConfirmLoad(null)}
         />
-      )}
-    </section>
+        {dialog !== null && (
+          <VersionDialog
+            key={dialog.mode === "save" ? `save-${kind}` : `meta-${kind}-${dialog.version.version}`}
+            title={
+              dialog.mode === "save"
+                ? `儲存並套用${label}`
+                : `編輯${label}第 ${dialog.version.version} 版的名稱與描述`
+            }
+            note={
+              dialog.mode === "save"
+                ? `存成第 ${nextVersion} 版（以第 ${editor.base.version} 版為底修改），並改用這一版；${NO_RESCORE}`
+                : "只改名稱與描述，這一版的內容不變。"
+            }
+            confirmLabel={dialog.mode === "save" ? "儲存並套用" : "儲存"}
+            initialName={dialog.mode === "save" ? "" : dialog.version.name}
+            initialDescription={dialog.mode === "save" ? "" : dialog.version.description}
+            busy={busy}
+            error={dialogError}
+            onConfirm={(name, description) => void confirmDialog(name, description)}
+            onCancel={() => setDialog(null)}
+          />
+        )}
+      </section>
+      <DryRunPanel drafts={editors} />
+    </>
   );
 }
