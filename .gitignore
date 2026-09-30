@@ -37,3 +37,5 @@ to-be-confirm/
 *.DS_Store
 
 plans/
+
+**/node_modules/
