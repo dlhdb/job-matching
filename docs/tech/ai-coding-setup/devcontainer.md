@@ -73,8 +73,15 @@
 
 這個防火牆**只**限制容器自己發出的連線：
 
-- Claude Code 的 `WebSearch` / `WebFetch` 這類工具，由 Anthropic 伺服器端執行實際查詢，不受此白名單限制。
-- 其他 AI coding 工具若有類似「伺服器端代為查詢」的功能，同樣不受影響。
+- Claude Code 的 `WebSearch` 由 Anthropic 伺服器端執行實際查詢，不受此白名單限制。
+- Claude Code 的 `WebFetch` 是容器內的 Claude Code 自己發出請求，**會**被擋下：
+  - 要抓的網域不在白名單時，請求直接失敗。
+  - 要讀某個網頁時，有兩種做法：
+    - 改用 `WebSearch` 查。
+    - 把網域加進 `ALLOWED_DOMAINS`。加進去後，容器內所有程式都能連到那個網域。
+- 其他 AI coding 工具的連網功能，看請求從哪裡發出：
+  - 伺服器端代為查詢的，和 `WebSearch` 一樣不受影響。
+  - 由容器內發出的，和 `WebFetch` 一樣會被擋下。
 
 ## Remote Control 與遙測
 
