@@ -240,3 +240,19 @@ P0～P2 的項目在標題下依序寫：
 - 做法：刪除 `prototypes/job-table/`
 
 ## 待評估：還沒決定要不要做
+
+### 改用 Pydantic AI 驗證 AI 回應
+
+- 想解決什麼：
+  - 想用像 Pydantic 驗證資料 schema 那樣可靠、有彈性的方式驗證 AI 回應，需要時就加一條檢查規則
+  - 現在用 structured output 加 `AIAssessment` 驗證 AI 回應，只擋得住格式不符、空白，擋不住內容不能用，例如理由沒引用職缺內容、分數和理由矛盾
+  - 現在重打只是把同樣的提示詞再送一次，AI 不知道上一次錯在哪
+  - 呼叫 structured output 與解析回應都寫在各供應商的 client 裡，接新的供應商時要各自寫
+    - 重打在評分流程共用，不必各自寫
+  - [Pydantic AI](https://pydantic.dev/docs/ai/overview/) 內建輸出驗證、驗證不過時把錯誤回給模型重試，也支援多家供應商
+- 影響的功能：job-auto-scoring
+- 怎麼決定：試用 Pydantic AI 接 Gemini，看：
+  - 內容層級的檢查寫不寫得出來，例如理由要引用職缺內容、分數和理由不矛盾
+  - 驗證不過時把錯誤回給 AI 重打，次數控制得住，能維持[決策紀錄：AI 回應不能用時重打一次](../docs/decisions/product/retry-unusable-ai-response.md)的最多 1 次
+  - 能不能保留現有設定，例如 `store=False`
+  - 改寫 `llm.py`、`scorer.py` 的改動量
