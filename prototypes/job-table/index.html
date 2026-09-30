@@ -22,6 +22,7 @@
   --owner-scraper: #1d7a46;
   --owner-db: #2458c6;
   --owner-auto: #6b3fa0;
+  --owner-marks: #a3550b;
   --row-hover: #f3f6fb;
   --row-open: #eaf0fb;
   --overlay: rgba(20, 24, 31, .45);
@@ -44,6 +45,7 @@
     --owner-scraper: #6fd39a;
     --owner-db: #7ea6ff;
     --owner-auto: #c3a1f0;
+  --owner-marks: #f0b070;
     --row-hover: #20252d;
     --row-open: #1f2a3d;
     --overlay: rgba(0, 0, 0, .6);
@@ -66,6 +68,7 @@
   --owner-scraper: #6fd39a;
   --owner-db: #7ea6ff;
   --owner-auto: #c3a1f0;
+  --owner-marks: #f0b070;
   --row-hover: #20252d;
   --row-open: #1f2a3d;
   --overlay: rgba(0, 0, 0, .6);
@@ -292,6 +295,26 @@ body.show-owner .owner { display: inline-block; }
 .owner.scraper { color: var(--owner-scraper); }
 .owner.db { color: var(--owner-db); }
 .owner.auto { color: var(--owner-auto); }
+.owner.marks { color: var(--owner-marks); }
+
+tbody tr.row.unread > td:not(.sel) { font-weight: 600; }
+tbody tr.row.skipped > td:not(.sel) { opacity: .5; }
+.unread-dot { display: inline-block; width: 8px; height: 8px; border-radius: 50%; background: var(--accent); vertical-align: middle; margin: 0 2px; }
+.star { border: 0; background: none; cursor: pointer; padding: 0 2px; font-size: 15px; line-height: 1; color: var(--muted); vertical-align: middle; }
+.star[aria-pressed="true"] { color: var(--owner-marks); }
+.tag.want { background: var(--ok-soft); color: var(--ok); }
+.tag.skip { background: var(--surface-2); color: var(--muted); }
+.tag.stance { background: var(--warn-soft); }
+.selbar .sep { width: 1px; height: 20px; background: var(--border); margin: 0 4px; }
+.marks-body { display: flex; flex-direction: column; gap: 10px; }
+.marks-body h4 { margin: 0 0 4px; font-size: 12px; color: var(--muted); font-weight: 600; }
+.marks-row { display: flex; flex-wrap: wrap; gap: 6px; align-items: center; }
+.marks-body input.mark-note {
+  width: 100%; border: 1px solid var(--border); background: var(--surface); border-radius: 6px; padding: 5px 8px;
+}
+.marks-body input.mark-note:disabled { opacity: .45; cursor: not-allowed; }
+.btn.seg[aria-pressed="true"] { background: var(--accent-soft); border-color: var(--accent); color: var(--accent); }
+.marks-body .hint { font-size: 12px; color: var(--muted); margin: 0; }
 </style>
 </head>
 <body>
@@ -305,8 +328,14 @@ body.show-owner .owner { display: inline-block; }
   <button type="button" class="job-indicator" id="jobIndicator" hidden></button>
   <button type="button" class="btn danger" id="jobStop" hidden>停止</button>
   <span class="spacer"></span>
-  <span class="proto">原型：假資料，重新整理後抓取、評分、設定的變動都會消失</span>
+  <span class="proto">原型：假資料，重新整理後抓取、評分、設定、標記的變動都會消失</span>
   <label class="toggle"><input type="checkbox" id="noKeyToggle"> 模擬沒有 API key</label>
+  <label class="toggle">我的最愛與想投
+    <select id="markMode">
+      <option value="separate">分開</option>
+      <option value="merged">合成一種</option>
+    </select>
+  </label>
   <label class="toggle"><input type="checkbox" id="ownerToggle"> 顯示功能歸屬</label>
 </header>
 
@@ -341,6 +370,11 @@ body.show-owner .owner { display: inline-block; }
           <option value="none">未評分</option>
         </select>
         <span class="hint">&nbsp;</span>
+      </div>
+      <div class="field">
+        <label for="fMark">標記 <span class="owner marks">job-marks</span></label>
+        <select id="fMark"></select>
+        <label class="toggle hint"><input type="checkbox" id="fHideSkipped"> 隱藏略過的職缺</label>
       </div>
       <div class="field" id="fJustSavedWrap" hidden>
         <span class="label">暫時篩選 <span class="owner db">job-database</span></span>
@@ -956,9 +990,57 @@ JOBS.forEach((job, i) => {
   if (i % 4 === 1) addScore(scoreJob(job, new Date(2026, 8, 18, 21, 30 + (i % 20), 0), profileB, "gemini-3.8-pro"));
 });
 
+// ================= 標記 =================
+// 職缺代碼 -> 標記；沒有的職缺當作未讀、沒有標記
+const MARKS = {};
+const markOf = code => MARKS[code] ??= { 已讀: false, 意向: null, 最愛: false, 備註: "", 表態: null };
+const peekMark = code => MARKS[code] || null;
+
+// 我的最愛與想投：分開時是兩種標記；合成一種時沒有另外的我的最愛，想投就是我的最愛
+let markMode = "separate";
+const merged = () => markMode === "merged";
+const isFav = job => {
+  const m = peekMark(job.職缺代碼);
+  return merged() ? m?.意向 === "想投" : !!m?.最愛;
+};
+// 表態針對的評分不是目前的評分時，回傳當時那一筆
+function stanceOutdated(job) {
+  const s = peekMark(job.職缺代碼)?.表態;
+  const cur = current(job);
+  if (!s || !cur || s.評分時間 === cur.評分時間) return null;
+  return (SCORES[job.職缺代碼] || []).find(r => r.評分時間 === s.評分時間) || null;
+}
+
+// 初始資料：約三分之二看過，其中一部分標了想投、略過、我的最愛或備註
+const NOTES = ["已投遞，等回覆", "朋友在這裡，可以問內推", "薪資要再問", "通勤太遠"];
+JOBS.forEach((job, i) => {
+  if (i % 3 === 0) return;
+  const m = markOf(job.職缺代碼);
+  m.已讀 = true;
+  if (i % 7 === 2) m.意向 = "想投";
+  if (i % 7 === 5) m.意向 = "略過";
+  if (i % 11 === 4) m.最愛 = true;
+  if (i % 13 === 1) m.備註 = NOTES[i % NOTES.length];
+});
+// 表態：淘汰但其實想要的（誤殺）、分數剛好、針對舊評分（之後又重評過）
+(function seedStances() {
+  const scored = JOBS.filter(j => current(j));
+  const stance = (job, 方向, 備註, rec = current(job)) => {
+    const m = markOf(job.職缺代碼);
+    m.已讀 = true;
+    m.表態 = { 方向, 備註, 評分時間: rec.評分時間 };
+  };
+  const out = scored.find(j => current(j).淘汰);
+  if (out) stance(out, "偏低", "淘汰理由是薪資，但這個方向很想做");
+  const ok = scored.find(j => !current(j).淘汰 && j !== out);
+  if (ok) stance(ok, "剛好", "");
+  const twice = scored.find(j => SCORES[j.職缺代碼].length > 1 && j !== out && j !== ok);
+  if (twice) stance(twice, "偏高", "技能其實不太對得上", scoreHistory(twice).at(-1));
+})();
+
 // ================= 欄位定義 =================
 
-const OWNER = { scraper: "104-job-scraper", db: "job-database", auto: "job-auto-scoring" };
+const OWNER = { scraper: "104-job-scraper", db: "job-database", auto: "job-auto-scoring", marks: "job-marks" };
 const ownerTag = o => `<span class="owner ${o}">${OWNER[o]}</span>`;
 
 // 代表的評分：評分時間最新的一筆，時間相同時取後寫入的
@@ -998,13 +1080,31 @@ const COLUMNS = [
   { key: "供應商", owner: "auto", get: j => current(j)?.供應商 ?? null },
   { key: "模型", owner: "auto", get: j => current(j)?.模型 ?? null, cls: "nowrap" },
   ...DIMS.map(d => ({ key: d, owner: "auto", num: true, get: j => current(j)?.評分明細?.維度?.[d]?.分數 ?? null })),
+  { key: "已讀", owner: "marks", get: j => peekMark(j.職缺代碼)?.已讀 ? "已讀" : "未讀", cls: "nowrap" },
+  { key: "意向", owner: "marks", get: j => peekMark(j.職缺代碼)?.意向 ?? null, render: v => v ? intentTag(v) : nul() },
+  { key: "我的最愛", owner: "marks", get: j => isFav(j) ? "★" : null },
+  { key: "表態", owner: "marks", get: j => stanceText(j), cls: "nowrap", render: v => v ? `<span class="tag stance">${esc(v)}</span>` : nul() },
+  { key: "標記備註", owner: "marks", get: j => peekMark(j.職缺代碼)?.備註 || null, cls: "clip" },
 ];
+function intentTag(v) { return `<span class="tag ${v === "想投" ? "want" : "skip"}">${esc(v)}</span>`; }
+// 淘汰的職缺沒有總分，表態改成淘汰合理（剛好）或不該淘汰（偏低）
+const STANCES = [["偏高", "分數偏高"], ["剛好", "分數剛好"], ["偏低", "分數偏低"]];
+const OUT_STANCES = [["剛好", "淘汰合理"], ["偏低", "不該淘汰"]];
+const stanceChoices = rec => rec.淘汰 ? OUT_STANCES : STANCES;
+const stanceLabel = (方向, rec) => stanceChoices(rec).find(([v]) => v === 方向)?.[1] ?? 方向;
+const scoreSummary = rec => rec.淘汰 ? "淘汰" : `總分 ${rec.總分}`;
+function stanceText(job) {
+  const s = peekMark(job.職缺代碼)?.表態;
+  if (!s) return null;
+  const old = stanceOutdated(job);
+  return old ? `${stanceLabel(s.方向, old)}（舊評分）` : stanceLabel(s.方向, current(job));
+}
 const COL = Object.fromEntries(COLUMNS.map(c => [c.key, c]));
 
 const DEFAULT_VIEW = {
   columns: ["職缺名稱", "公司名稱", "地區", "薪資待遇", "總分", "淘汰", "評語", "最後出現時間"],
   sort: { key: "總分", dir: "desc" },
-  filters: { keyword: "", area: "", min: "", max: "", status: "all" },
+  filters: { keyword: "", area: "", min: "", max: "", status: "all", mark: "all", hideSkipped: "" },
 };
 // 預覽只有職缺欄位契約的欄位：首次、最後出現時間是存入時才決定的，不在預覽顯示
 const inPreview = k => COL[k]?.owner === "db" && k !== "首次出現時間" && k !== "最後出現時間";
@@ -1150,6 +1250,11 @@ function createTable(root, opts) {
         <button class="btn primary" type="button" data-act="score">送去評分</button>
         <button class="btn" type="button" data-act="trial-add">加入試跑清單</button>
         ${ownerTag("auto")}
+        ${opts.marks ? `<span class="sep"></span>
+        <button class="btn" type="button" data-act="mark-batch" data-value="想投">標為想投</button>
+        <button class="btn" type="button" data-act="mark-batch" data-value="略過">標為略過</button>
+        <button class="btn" type="button" data-act="mark-batch" data-value="已讀">標為已讀</button>
+        ${ownerTag("marks")}` : ""}
       </span>`}
       <span class="spacer"></span>
       ${opts.extraTools || ""}
@@ -1177,6 +1282,7 @@ function createTable(root, opts) {
     if (act === "none") { t.selected.clear(); renderAll(); }
     if (act === "score") openModal("score");
     if (act === "trial-add") addToTrialList(rowsOf(t).filter(j => t.selected.has(j.職缺代碼)).map(j => j.職缺代碼));
+    if (act === "mark-batch") batchMark(t, b.dataset.value);
     if (act === "cols") {
       t.pop.hidden = !t.pop.hidden;
       t.colBtn.setAttribute("aria-expanded", String(!t.pop.hidden));
@@ -1219,6 +1325,8 @@ function createTable(root, opts) {
 
   t.body.addEventListener("click", e => {
     if (e.target.closest("a")) return;
+    const mark = e.target.closest("[data-act^='mark-']");
+    if (mark) { markAct(t, mark); return; }
     const sel = e.target.closest("td.sel");
     if (sel && sel.querySelector("input")) {
       const cb = sel.querySelector("input");
@@ -1257,6 +1365,20 @@ function createTable(root, opts) {
       if (next) next.focus();
     }
   });
+  // 輸入法選字中不重畫，選完再補畫，免得選字被打斷
+  t.body.addEventListener("compositionstart", () => { t.composing = true; });
+  t.body.addEventListener("compositionend", () => {
+    t.composing = false;
+    if (t.renderPending) { t.renderPending = false; renderTable(t); }
+  });
+  // 備註打字時只存資料不重畫，重畫會打斷輸入法的選字
+  t.body.addEventListener("input", e => {
+    const inp = e.target.closest("input.mark-note");
+    if (!inp) return;
+    const m = markOf(inp.dataset.code);
+    if (inp.dataset.field === "備註") m.備註 = inp.value;
+    else if (m.表態) m.表態.備註 = inp.value;
+  });
   // details 的 toggle 事件不會冒泡，用捕獲記住評分依據是否展開
   t.body.addEventListener("toggle", e => {
     const d = e.target.closest && e.target.closest("details.basis");
@@ -1277,6 +1399,8 @@ const findJob = (t, code) => t.opts.getRows().find(j => j.職缺代碼 === code)
 
 function toggleRow(t, code) {
   t.openCode = t.openCode === code ? null : code;
+  // 展開就算看過
+  if (t.opts.marks && t.openCode) markOf(code).已讀 = true;
   renderTable(t);
   const again = t.body.querySelector(`tr.row[data-code="${code}"]`);
   if (again) again.focus({ preventScroll: true });
@@ -1315,6 +1439,7 @@ function statusTag(code) {
 }
 
 function renderTable(t) {
+  if (t.composing) { t.renderPending = true; return; }
   const rows = rowsOf(t);
   const cols = colsOf(t);
   const sort = sortOf(t);
@@ -1336,6 +1461,7 @@ function renderTable(t) {
     const addBtn = t.root.querySelector('[data-act="trial-add"]');
     addBtn.disabled = !n || busy?.type === "trial";
     addBtn.title = busy?.type === "trial" ? "試跑中不能改試跑清單" : "";
+    t.root.querySelectorAll('[data-act="mark-batch"]').forEach(b => { b.disabled = !n; });
   }
 
   const allChecked = rows.length > 0 && rows.every(j => t.selected.has(j.職缺代碼));
@@ -1356,6 +1482,10 @@ function renderTable(t) {
     t.body.innerHTML = `<tr><td class="empty" colspan="${colspan}">${esc(t.opts.emptyText())}</td></tr>`;
     return;
   }
+  // 背景作業重畫時，保留正在打的備註的焦點與游標
+  const active = document.activeElement;
+  const keep = active && t.body.contains(active) && active.matches("input.mark-note")
+    ? { code: active.dataset.code, field: active.dataset.field, start: active.selectionStart, end: active.selectionEnd } : null;
   t.body.innerHTML = rows.map(job => {
     const code = job.職缺代碼;
     const open = code === t.openCode;
@@ -1367,9 +1497,14 @@ function renderTable(t) {
       const c = COL[k];
       return `<td class="${[c.num ? "num" : "", c.cls || ""].join(" ")}">${cellHTML(c, job)}</td>`;
     }).join("");
-    const tr = `<tr class="row ${open ? "open" : ""}" data-code="${esc(code)}" tabindex="0" aria-expanded="${open}">${sel}${cells}</tr>`;
+    const rowCls = t.opts.rowClass ? t.opts.rowClass(job) : "";
+    const tr = `<tr class="row ${open ? "open" : ""} ${rowCls}" data-code="${esc(code)}" tabindex="0" aria-expanded="${open}">${sel}${cells}</tr>`;
     return open ? tr + `<tr class="detail"><td colspan="${colspan}">${detailHTML(t, job)}</td></tr>` : tr;
   }).join("");
+  if (keep) {
+    const again = t.body.querySelector(`input.mark-note[data-code="${keep.code}"][data-field="${keep.field}"]`);
+    if (again) { again.focus({ preventScroll: true }); again.setSelectionRange(keep.start, keep.end); }
+  }
 }
 
 // withTimes 為 false 時不列出現時間：預覽的職缺還沒存入，出現時間要存入時才決定
@@ -1454,7 +1589,109 @@ function detailHTML(t, job) {
       </details>
     </section>` : "";
 
-  return `<div class="detail-grid">${jobPanelHTML(job)}${scorePanel}${aiPanel}${histPanel}${basisPanel}</div>`;
+  const markPanel = t.opts.marks ? markPanelHTML(job) : "";
+  return `<div class="detail-grid">${jobPanelHTML(job)}${markPanel}${scorePanel}${aiPanel}${histPanel}${basisPanel}</div>`;
+}
+
+// ================= 標記的呈現與操作 =================
+function markBadge(job) {
+  const code = job.職缺代碼;
+  const m = peekMark(code);
+  let html = m?.已讀 ? "" : '<span class="unread-dot" title="未讀" aria-label="未讀"></span>';
+  if (!merged()) {
+    const fav = !!m?.最愛;
+    html += `<button type="button" class="star" data-act="mark-fav" data-code="${esc(code)}" aria-pressed="${fav}" aria-label="${fav ? "移出" : "加入"}我的最愛" title="${fav ? "移出" : "加入"}我的最愛">${fav ? "★" : "☆"}</button>`;
+  }
+  if (m?.意向) html += intentTag(m.意向);
+  return html;
+}
+function markRowClass(job) {
+  const m = peekMark(job.職缺代碼);
+  return [m?.已讀 ? "" : "unread", m?.意向 === "略過" ? "skipped" : ""].join(" ");
+}
+
+function markPanelHTML(job) {
+  const code = esc(job.職缺代碼);
+  const m = peekMark(job.職缺代碼) || {};
+  const seg = (act, value, label, on, disabled = false) =>
+    `<button type="button" class="btn seg" data-act="${act}" data-value="${value}" data-code="${code}" aria-pressed="${on}" ${disabled ? "disabled" : ""}>${label}</button>`;
+
+  const intent = `
+    <div>
+      <h4>意向</h4>
+      <div class="marks-row">
+        ${seg("mark-intent", "想投", "想投", m.意向 === "想投")}
+        ${seg("mark-intent", "略過", "略過", m.意向 === "略過")}
+        ${m.意向 ? `<button type="button" class="linkbtn" data-act="mark-intent" data-value="" data-code="${code}">清除</button>` : ""}
+        ${merged() ? "" : seg("mark-fav", "", m.最愛 ? "★ 我的最愛" : "☆ 加入我的最愛", !!m.最愛)}
+      </div>
+      ${merged() ? '<p class="hint">想投的職缺就是我的最愛</p>' : ""}
+    </div>`;
+
+  const note = `
+    <div>
+      <h4>備註</h4>
+      <input class="mark-note" data-field="備註" data-code="${code}" value="${esc(m.備註 || "")}" maxlength="100" placeholder="例如：已投遞、等朋友內推" aria-label="備註">
+    </div>`;
+
+  const cur = current(job);
+  let stance;
+  if (!cur) {
+    stance = '<p class="null">還沒有評分，無法表態</p>';
+  } else {
+    const s = m.表態;
+    const old = stanceOutdated(job);
+    const target = old ? `這個表態針對 ${esc(showTime(old.評分時間))} 的評分（${scoreSummary(old)}）：${stanceLabel(s.方向, old)}。之後又評過，重新選一次會改成針對目前的評分`
+      : `針對目前的評分：${scoreSummary(cur)}`;
+    stance = `
+      ${old ? `<div class="viewing">${target}</div>` : `<p class="hint">${target}</p>`}
+      <div class="marks-row">
+        ${stanceChoices(cur).map(([v, label]) => seg("mark-stance", v, label, s?.方向 === v && !old)).join("")}
+        ${s ? `<button type="button" class="linkbtn" data-act="mark-stance" data-value="" data-code="${code}">清除</button>` : ""}
+      </div>
+      <input class="mark-note" data-field="表態備註" data-code="${code}" value="${esc(s?.備註 || "")}" maxlength="100" placeholder="一句話說明，例如：淘汰理由不成立" aria-label="表態備註" ${s ? "" : "disabled"}>`;
+  }
+
+  return `
+    <section class="panel">
+      <h3>我的標記 ${ownerTag("marks")}</h3>
+      <div class="marks-body">
+        ${intent}
+        ${note}
+        <div>
+          <h4>對 AI 評分的表態</h4>
+          ${stance}
+        </div>
+        <div><button type="button" class="linkbtn" data-act="mark-unread" data-code="${code}">標為未讀並收起</button></div>
+      </div>
+    </section>`;
+}
+
+function markAct(t, el) {
+  const code = el.dataset.code;
+  const v = el.dataset.value;
+  const m = markOf(code);
+  const act = el.dataset.act;
+  if (act === "mark-fav") m.最愛 = !m.最愛;
+  // 再按一次已選的意向就是取消
+  if (act === "mark-intent") m.意向 = !v || m.意向 === v ? null : v;
+  if (act === "mark-stance") {
+    const cur = current(findJob(t, code));
+    const same = m.表態 && m.表態.方向 === v && m.表態.評分時間 === cur.評分時間;
+    m.表態 = !v || same ? null : { 方向: v, 備註: m.表態?.備註 ?? "", 評分時間: cur.評分時間 };
+  }
+  if (act === "mark-unread") { m.已讀 = false; t.openCode = null; }
+  renderAll();
+}
+
+function batchMark(t, value) {
+  const codes = rowsOf(t).filter(j => t.selected.has(j.職缺代碼)).map(j => j.職缺代碼);
+  for (const code of codes) {
+    if (value === "已讀") markOf(code).已讀 = true;
+    else markOf(code).意向 = value;
+  }
+  toast(`已把 ${codes.length} 筆標為${value}`);
+  renderAll();
 }
 
 const verName = v => `第 ${v.版本} 版「${v.名稱}」`;
@@ -1514,15 +1751,33 @@ function matches(job) {
     if (min !== null && s < min) return false;
     if (max !== null && s > max) return false;
   }
+  const m = peekMark(job.職缺代碼);
+  if (f.hideSkipped && f.mark !== "skip" && m?.意向 === "略過") return false;
+  if (f.mark === "unread" && m?.已讀) return false;
+  if (f.mark === "want" && m?.意向 !== "想投") return false;
+  if (f.mark === "skip" && m?.意向 !== "略過") return false;
+  if (f.mark === "none" && m?.意向) return false;
+  if (f.mark === "fav" && !isFav(job)) return false;
+  if (f.mark === "stance" && !m?.表態) return false;
   return true;
 }
 
 const mainTable = createTable(document.getElementById("mainTable"), {
-  getRows: () => JOBS.filter(matches),
+  // 展開中的列不因標記改變而從篩選結果消失，收起後才重新篩選
+  getRows: () => JOBS.filter(j => matches(j) || j.職缺代碼 === mainTable.openCode),
   countText: n => `符合 ${n} 筆／共 ${JOBS.length} 筆`,
   emptyText: () => "沒有符合條件的職缺",
   extraTools: '<button class="btn" type="button" id="resetView">還原預設檢視</button>',
+  marks: true,
+  rowBadge: markBadge,
+  rowClass: markRowClass,
+  pickerGroups: [["db", "職缺"], ["auto", "評分"], ["marks", "標記"]],
 });
+
+const MARK_FILTERS = [
+  ["all", "全部"], ["unread", "未讀"], ["want", "想投"], ["skip", "略過"],
+  ["none", "沒標想投或略過"], ["fav", "我的最愛"], ["stance", "有表態"],
+];
 
 function renderFilters() {
   const f = view.filters;
@@ -1531,8 +1786,16 @@ function renderFilters() {
   document.getElementById("fMin").value = f.min;
   document.getElementById("fMax").value = f.max;
   document.getElementById("fStatus").value = f.status;
+  const fMark = document.getElementById("fMark");
+  fMark.innerHTML = MARK_FILTERS.filter(([v]) => !(merged() && v === "fav"))
+    .map(([v, label]) => `<option value="${v}">${label}</option>`).join("");
+  fMark.value = f.mark;
+  const hide = document.getElementById("fHideSkipped");
+  hide.checked = !!f.hideSkipped;
   document.getElementById("fJustSavedWrap").hidden = !justSaved;
-  for (const id of ["fKeyword", "fArea", "fMin", "fMax", "fStatus", "clearFilters"]) document.getElementById(id).disabled = !!justSaved;
+  for (const id of ["fKeyword", "fArea", "fMin", "fMax", "fStatus", "fMark", "fHideSkipped", "clearFilters"]) document.getElementById(id).disabled = !!justSaved;
+  // 只看略過的職缺時，隱藏略過沒有意義
+  if (f.mark === "skip") hide.disabled = true;
   if (justSaved) document.getElementById("fJustSaved").textContent = `剛存入的 ${justSaved.n} 筆`;
 }
 
@@ -1540,12 +1803,16 @@ function renderFilters() {
 function filtersChanged() {
   mainTable.selected.clear();
   mainTable.frozen = null;
+  // 展開中的列只在標記改變時保留；改了篩選而不符合時收起
+  const open = mainTable.openCode && byCode(mainTable.openCode);
+  if (open && !matches(open)) mainTable.openCode = null;
   saveView(); renderFilters(); renderAll();
 }
 
-for (const [id, key, ev] of [["fKeyword", "keyword", "input"], ["fArea", "area", "input"], ["fMin", "min", "input"], ["fMax", "max", "input"], ["fStatus", "status", "change"]]) {
+for (const [id, key, ev] of [["fKeyword", "keyword", "input"], ["fArea", "area", "input"], ["fMin", "min", "input"], ["fMax", "max", "input"], ["fStatus", "status", "change"], ["fMark", "mark", "change"]]) {
   document.getElementById(id).addEventListener(ev, e => { view.filters[key] = e.target.value; filtersChanged(); });
 }
+document.getElementById("fHideSkipped").addEventListener("change", e => { view.filters.hideSkipped = e.target.checked ? "1" : ""; filtersChanged(); });
 document.getElementById("fJustSavedClear").addEventListener("click", () => { justSaved = null; filtersChanged(); });
 document.getElementById("clearFilters").addEventListener("click", () => {
   view.filters = clone(DEFAULT_VIEW.filters);
@@ -2242,6 +2509,13 @@ function renderAll() {
   TABLES.forEach(renderTable);
   renderSettingsMeta();
 }
+
+// 合成一種時沒有我的最愛，只看我的最愛改成只看想投；標記的資料不變，切回分開時還在
+document.getElementById("markMode").addEventListener("change", e => {
+  markMode = e.target.value;
+  if (merged() && view.filters.mark === "fav") { view.filters.mark = "want"; saveView(); }
+  renderFilters(); renderAll();
+});
 
 document.getElementById("ownerToggle").addEventListener("change", e => {
   document.body.classList.toggle("show-owner", e.target.checked);
