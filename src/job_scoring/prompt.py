@@ -1,7 +1,12 @@
 """由提示詞模板組合評分提示詞。模板是使用者在設定頁編輯的文字，以 $變數 放入個人資料與職缺內容。"""
 
+import json
 from typing import Any
 
+from pydantic import ValidationError
+from pydantic_core import ErrorDetails
+
+from job_scoring.llm import LLMResponseError
 from job_scoring.models import Preferences
 
 SYSTEM_MARKER = "<!-- SYSTEM -->"
@@ -14,6 +19,14 @@ VARIABLES = PERSONAL_VARIABLES + JOB_VARIABLES
 
 # 比對時長的名稱優先，一個名稱是另一個的開頭時才不會被短的搶先
 _BY_LENGTH = sorted(VARIABLES, key=len, reverse=True)
+
+# 重打時附在 user 提示詞後的錯誤說明：以分隔線與標題和資料分開，AI 才不會把它當成職缺內容的一部分
+RETRY_HEADER = (
+    "---\n\n# 上一次的回應沒有通過檢查\n\n"
+    "以上是評分用的資料，內容沒有變。你上一次的回應有以下問題，請修正後依相同格式重新回應："
+)
+# 錯誤說明中「收到的值」最多列出幾個字，避免把過長的欄位值塞回提示詞
+MAX_INPUT_CHARS = 80
 
 # 送評時的職缺內容快照：送進 AI 的欄位，加上計算薪資分數與淘汰用的欄位
 SNAPSHOT_FIELDS = ("職缺名稱", "公司名稱", "產業類別", "電腦專長", "科系要求", "工作內容", "薪資待遇", "薪資下限", "薪資上限")
@@ -152,3 +165,64 @@ def build_prompt(job: dict[str, Any], prefs: Preferences, experience: str, templ
         **{name: _field(job.get(name)) for name in JOB_VARIABLES},
     }
     return _substitute(system, values), _substitute(user, values)
+
+
+def _describe_error(error: ErrorDetails) -> str:
+    """
+    把一項 Pydantic 驗證錯誤寫成給 AI 看的一行中文說明：哪個欄位、錯在哪、收到的值
+
+    :param error: ErrorDetails, ValidationError.errors() 的一項
+    :return: str, 例如「career_fit.score：要是 1–5 的整數或 null（收到：6）」
+    """
+    loc = error["loc"]
+    if not loc:
+        # 整份回應的格式不對：收到的值就是整份回應，不附內容，只寫錯在哪
+        if error["type"] == "json_invalid":
+            # Pydantic 的訊息寫出在哪個位置出錯，例如 EOF while parsing a string at line 1 column 57
+            return f"整份回應：不是合法的 JSON（{error['msg'].removeprefix('Invalid JSON: ')}）"
+        return f"整份回應：{_message(error)}"
+    field = ".".join(str(part) for part in loc)
+    if error["type"] == "missing":
+        return f"{field}：缺少這個欄位"
+    message = "要是 1–5 的整數或 null" if loc[-1] == "score" else _message(error)
+    # 以 JSON 寫出收到的值：換行等控制字元會被跳脫，一個問題才維持一行
+    value = error["input"]
+    text = f"「{json.dumps(value, ensure_ascii=False)[1:-1]}」" if isinstance(value, str) else json.dumps(value, ensure_ascii=False)
+    if len(text) > MAX_INPUT_CHARS:
+        text = text[:MAX_INPUT_CHARS] + "…"
+    return f"{field}：{message}（收到：{text}）"
+
+
+def _message(error: ErrorDetails) -> str:
+    """
+    Pydantic 驗證錯誤的說明，常見的改寫成中文，其他保留原文
+
+    :param error: ErrorDetails, ValidationError.errors() 的一項
+    :return: str, 錯在哪
+    """
+    if error["type"] == "model_type":
+        return "要是 JSON 物件"
+    if error["type"] == "value_error":
+        # validator 自己的訊息，不帶 Pydantic 加上的「Value error, 」前綴
+        return str(error["ctx"]["error"])
+    return error["msg"]
+
+
+def retry_feedback(user: str, error: LLMResponseError | ValidationError) -> str:
+    """
+    AI 回應不能用而重打時，在第一次的 user 提示詞後面附上上一次的錯誤清單。
+
+    送一樣的提示詞時，AI 不知道上一次錯在哪，容易再犯同樣的錯，所以把沒通過檢查的原因告訴它。
+    只附錯誤清單、不附上一次的完整回應：錯誤清單已經帶著錯的值，不必改 LLM client 的介面讓它交出原始文字。
+    評分依據的提示詞由模板與職缺快照組回，不含這段附加的文字：附加的只是「請修正」，評分用的資料不變。
+
+    :param user: str, 第一次送出的 user 提示詞
+    :param error: LLMResponseError or ValidationError, 上一次的回應沒有文字，或不符合 schema
+    :return: str, 附上錯誤清單的 user 提示詞
+    """
+    if isinstance(error, ValidationError):
+        problems = [_describe_error(e) for e in error.errors(include_url=False)]
+    else:
+        problems = ["上一次的回應是空的"]
+    items = "\n".join(f"- {problem}" for problem in problems)
+    return f"{user}\n\n{RETRY_HEADER}\n\n{items}"

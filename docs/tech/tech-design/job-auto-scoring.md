@@ -102,6 +102,7 @@ flowchart LR
    - 回應不能用時，`scorer.py` 立即重打：
      - 次數由 `RESPONSE_RETRIES`（1）決定。
      - 哪些錯誤會重打見 [§5](#5-錯誤處理)。
+     - 重打時改送 `prompt.retry_feedback` 組出的 user 提示詞：第一次的提示詞加上上一次的錯誤清單，見 [§2.3](#23-提示詞模板)。
    - 重打放在 `scorer.py`，不放在供應商的 client：重打幾次是評分規則，換供應商時不必重寫。
 3. `rules.py` 算薪資分數，`scorer.py` 算總分。
 4. 交給 `job_db/scores.py` 新增一列（[§3.2](#32-job_scores)），連同評分依據：設定的三個版本號與職缺內容快照。
@@ -132,7 +133,7 @@ flowchart LR
 
 ### 2.3 提示詞模板
 
-實現 FR-score-ai、FR-settings-check。模板的規則見[功能文件的提示詞模板](../../product/features/job-auto-scoring.md#428-提示詞模板)。
+實現 FR-score-ai、FR-score-retry、FR-settings-check。模板的規則見[功能文件的提示詞模板](../../product/features/job-auto-scoring.md#428-提示詞模板)。
 
 - 模板依 `<!-- SYSTEM -->`、`<!-- USER -->` 拆成兩段。
 - SYSTEM 標記之前的內容是模板的註解，不送給 AI，也不檢查。
@@ -143,6 +144,13 @@ flowchart LR
   - 其他的 `$`（例如接數字或空白）原樣保留。
 - 職缺欄位為 `null` 或空字串、個人資料為空時，放入「（無資料）」。
 - 職缺內容快照取送進 AI 的 6 個欄位，加上淘汰與薪資計分用的 3 個欄位（見[功能文件的評分依據的內容](../../product/features/job-auto-scoring.md#1121-評分依據的內容)）。
+- 重打時附加的錯誤說明由 `retry_feedback` 組出，文字寫在程式裡，不在模板裡：
+  - 從 `ValidationError.errors()` 逐項寫出欄位、中文說明與收到的值。
+  - 收到的值以 JSON 寫出（物件與陣列也附），換行等控制字元會被跳脫，一個問題才維持一行。
+  - `loc` 是空的（整份回應的格式不對）時，欄位寫「整份回應」、不附收到的值。
+  - `json_invalid` 附 Pydantic 訊息裡的出錯位置。
+  - `LLMResponseError` 只寫回應是空的。
+  - 評分依據的提示詞由 `build_prompt` 組回，不含這段附加的文字。
 
 ### 2.4 設定頁
 
@@ -545,6 +553,7 @@ AI 必須輸出以下 JSON（Pydantic 模型 `AIAssessment`）：
     - 回傳超出範圍的分數。
     - 只有第一次回應不能用（超出範圍的分數或 `LLMResponseError`），用來測重打。
     - 兩次不能用的原因不同（先是超出範圍的分數、再是只有空白的總評），用來確認失敗原因是最後一次的。
+    - 每次的 user 提示詞都記下來，用來確認重打時附上的錯誤。
   - 網頁用的版本換掉 API 建立 client 的函式，另外可以停在指定的職缺，用來觀察評分中的狀態。
 - 網頁的評分測試用已換掉預設範例的設定：偏好與經歷都是第 2 版。
 - 資料庫建在 `tmp_path`。
@@ -588,7 +597,7 @@ npm test --prefix frontend -- drafts scoring dry-run
 - [AC-score-confirm](../../product/features/job-auto-scoring.md#ac-score-confirm送出前的確認)：`uv run pytest tests/test_browser_scoring.py -k confirm` 與 `uv run pytest tests/test_web_scoring.py -k "plan or selected_model or no_api_key"`
 - [AC-score-order](../../product/features/job-auto-scoring.md#ac-score-order照表格順序評分)：`uv run pytest tests/test_web_scoring.py -k order_failure_and_summary`
   - 職缺依表格的顯示順序送出：`uv run pytest tests/test_browser_scoring.py -k run_progress`
-- [AC-score-retry](../../product/features/job-auto-scoring.md#ac-score-retry回應不能用時重打一次)：`uv run pytest tests/test_job_scoring_batch.py tests/test_job_scoring_scorer.py -k retry`
+- [AC-score-retry](../../product/features/job-auto-scoring.md#ac-score-retry回應不能用時重打一次)：`uv run pytest tests/test_job_scoring_batch.py tests/test_job_scoring_scorer.py tests/test_job_scoring_prompt.py -k retry`
 - [AC-score-failure](../../product/features/job-auto-scoring.md#ac-score-failure單筆失敗不中斷整批)：`uv run pytest tests/test_web_scoring.py -k order_failure_and_summary` 與 `uv run pytest tests/test_browser_scoring.py -k run_summary_and_failure`
 - [AC-score-run](../../product/features/job-auto-scoring.md#ac-score-run評分中停止與摘要)：`uv run pytest tests/test_browser_scoring.py -k "run_progress or run_summary"` 與 `uv run pytest tests/test_web_scoring.py -k "running_state or stop"`，以及 `npm test --prefix frontend -- scoring/summary`
 

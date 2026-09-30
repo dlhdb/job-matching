@@ -20,7 +20,7 @@ from job_scoring.models import (
     JobScore,
     Preferences,
 )
-from job_scoring.prompt import build_prompt, snapshot
+from job_scoring.prompt import build_prompt, retry_feedback, snapshot
 from job_scoring.rules import check_hard_filters, round_half_up, score_salary
 from job_scoring.settings import EXPERIENCE, PREFERENCES, TEMPLATE, ScoringSettings
 
@@ -90,7 +90,8 @@ def _combine(job: dict[str, Any], prefs: Preferences, assessment: AIAssessment) 
 
 def _assess(client: LLMClient, system: str, user: str) -> AIAssessment:
     """
-    呼叫 AI 評分；回應不能用（沒有文字或不符合 schema）時立即重打，最多 RESPONSE_RETRIES 次。
+    呼叫 AI 評分；回應不能用（沒有文字或不符合 schema）時立即重打，最多 RESPONSE_RETRIES 次，
+    重打時在 user 提示詞後附上上一次的錯誤（見 prompt.retry_feedback）。
     API 錯誤不重打：暫時性的錯誤 SDK 已經重試過，其餘的重打也一樣失敗。
 
     :param client: LLMClient, LLM client
@@ -100,13 +101,15 @@ def _assess(client: LLMClient, system: str, user: str) -> AIAssessment:
     :raises LLMError: LLM 呼叫失敗，或重打後回應仍沒有文字
     :raises pydantic.ValidationError: 重打後回應仍不符合 schema
     """
+    prompt = user
     for _ in range(RESPONSE_RETRIES):
         try:
-            return client.assess(system, user)
-        except (LLMResponseError, ValidationError):
-            pass
+            return client.assess(system, prompt)
+        except (LLMResponseError, ValidationError) as e:
+            # 重打時告訴 AI 上一次錯在哪，不然容易再犯同樣的錯；每次都以第一次的提示詞為底，只附最近一次的錯誤
+            prompt = retry_feedback(user, e)
     # 最後一次的例外直接往外拋，失敗原因就是最後一次的
-    return client.assess(system, user)
+    return client.assess(system, prompt)
 
 
 def score_job(job: dict[str, Any], settings: ScoringSettings, client: LLMClient | None) -> JobScore:

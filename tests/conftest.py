@@ -460,16 +460,18 @@ class BatchFakeLLMClient:
     - "empty_once"：第一次拋出 LLMResponseError（回應沒有文字），之後正常
     - "invalid_then_blank"：第一次以 6 分驗證，之後以只有空白的總評驗證，兩種都拋出 ValidationError
 
-    沒列到的職缺回傳預設的 make_assessment()；calls 依序記下每次呼叫的職缺名稱
+    沒列到的職缺回傳預設的 make_assessment()；calls 依序記下每次呼叫的職缺名稱，prompts 記下每次的 user 提示詞
     """
 
     def __init__(self, behaviors):
         self.behaviors = behaviors
         self.calls = []
+        self.prompts = []
 
     def assess(self, system, user):
         name = next((n for n in self.behaviors if n in user), None)
         self.calls.append(name)
+        self.prompts.append(user)
         first_call = self.calls.count(name) == 1
         behavior = self.behaviors.get(name, {})
         if behavior == "llm_error":

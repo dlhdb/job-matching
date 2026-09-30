@@ -119,6 +119,12 @@ def test_score_batch_retry(make_job, scoring_settings, make_batch_client, db_con
     # 失敗原因是重打那一次的（總評空白），不是第一次的 6 分
     assert "comment" in results[1].failure
     assert "career_fit" not in results[1].failure
+    # 重打時附上的是上一次的錯誤：兩筆的第一次都是 6 分
+    a_first, a_retry, b_first, b_retry, _ = client.prompts
+    for first, retry in ((a_first, a_retry), (b_first, b_retry)):
+        assert "上一次的回應沒有通過檢查" not in first
+        assert retry.startswith(first)
+        assert retry.endswith("- career_fit.score：要是 1–5 的整數或 null（收到：6）")
     assert "模擬的 API 錯誤" in results[2].failure
     assert set(_score_rows(db_conn)) == {"a"}
 

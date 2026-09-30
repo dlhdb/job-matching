@@ -118,6 +118,12 @@ def test_score_job_retry_unusable_response_then_ok(ok_job, scoring_settings, mak
 
     assert len(client.calls) == 2
     assert result.total == 75
+    # 重打時以第一次的提示詞為底，附上上一次的錯誤
+    first, retry = client.prompts
+    assert "上一次的回應沒有通過檢查" not in first
+    assert retry.startswith(first + "\n\n---\n\n")
+    expected = "career_fit.score：要是 1–5 的整數或 null（收到：6）" if behavior == "invalid_once" else "上一次的回應是空的"
+    assert retry.endswith(f"- {expected}")
 
 
 def test_score_job_retry_gives_up_after_one_retry(ok_job, scoring_settings, make_batch_client):
