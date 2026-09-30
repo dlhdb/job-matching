@@ -250,8 +250,10 @@ P0～P2 的項目在標題下依序寫：
     - 重打在評分流程共用，不必各自寫
   - [Pydantic AI](https://pydantic.dev/docs/ai/overview/) 內建輸出驗證、驗證不過時把錯誤回給模型重試，也支援多家供應商
 - 影響的功能：job-auto-scoring
-- 怎麼決定：試用 Pydantic AI 接 Gemini，看：
-  - 內容層級的檢查寫不寫得出來，例如理由要引用職缺內容、分數和理由不矛盾
-  - 驗證不過時把錯誤回給 AI 重打，次數控制得住，能維持[決策紀錄：AI 回應不能用時重打一次](../docs/decisions/product/retry-unusable-ai-response.md)的最多 1 次
-  - 能不能保留現有設定，例如 `store=False`
-  - 改寫 `llm.py`、`scorer.py` 的改動量
+- 怎麼決定：
+  - 出現以下任一種需求時才評估，只為了驗證與重打不換框架：
+    - 評分時讓 AI 自己查資料（呼叫工具）
+    - 接第二家 AI 供應商
+    - 評分變成多步驟
+  - 評估時照細節檔的清單試用 Pydantic AI 接 Gemini
+- 細節見 [ideas/pydantic-ai.md](ideas/pydantic-ai.md)：現況已經做到的、各觸發條件為什麼需要它、試用時逐項確認的事
