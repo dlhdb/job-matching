@@ -6,7 +6,7 @@
 
 from typing import Self
 
-from pydantic import BaseModel, ConfigDict, Field, model_validator
+from pydantic import BaseModel, ConfigDict, Field, field_validator, model_validator
 
 # 評分維度，順序即輸出、未知維度清單的排列順序
 CAREER_FIT = "職涯方向契合度"
@@ -95,9 +95,25 @@ class Preferences(_ProfileModel):
 # AI 輸出：英文欄位名，讓各家模型的 schema 較穩定
 # ---------------------------------------------------------------------------
 
+def _check_not_blank(value: str) -> str:
+    """
+    確認文字不是空字串或只有空白；只檢查、不修改值
+
+    不用 min_length 或 pattern：兩者會寫進送給 AI 的 JSON schema，而且 min_length 擋不住只有空白的字串
+
+    :param value: str, AI 回傳的理由或總評
+    :return: str, 原本的值
+    """
+    if not value.strip():
+        raise ValueError("不可為空字串或只有空白")
+    return value
+
+
 class AIDimension(BaseModel):
     score: int | None = Field(ge=1, le=5, description="1–5 的整數；資訊不足時為 null")
     reason: str = Field(description="評分理由，需具體引用職缺內容")
+
+    _check_reason = field_validator("reason")(_check_not_blank)
 
 
 class AIAssessment(BaseModel):
@@ -105,6 +121,8 @@ class AIAssessment(BaseModel):
     skill_match: AIDimension = Field(description="技能匹配度")
     industry_fit: AIDimension = Field(description="產業公司吸引力")
     comment: str = Field(description="一到兩句總評")
+
+    _check_comment = field_validator("comment")(_check_not_blank)
 
 
 # ---------------------------------------------------------------------------

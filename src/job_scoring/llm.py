@@ -26,6 +26,10 @@ class LLMError(RuntimeError):
     """建立 client 或呼叫 LLM 失敗（缺少 API key、網路或 API 錯誤、回應為空）"""
 
 
+class LLMResponseError(LLMError):
+    """LLM 有回應，但內容不能用（例如沒有文字）；和 API 錯誤分開，呼叫端才能決定要不要重打"""
+
+
 class LLMClient(Protocol):
     def assess(self, system: str, user: str) -> AIAssessment:
         """
@@ -34,6 +38,7 @@ class LLMClient(Protocol):
         :param system: str, system 提示詞
         :param user: str, user 提示詞
         :return: AIAssessment, 通過 schema 驗證的評分結果
+        :raises LLMResponseError: 有回應但內容不能用
         :raises LLMError: 呼叫失敗
         :raises pydantic.ValidationError: 回應不符合 schema
         """
@@ -66,7 +71,8 @@ class GeminiClient:
         :param system: str, system 提示詞
         :param user: str, user 提示詞
         :return: AIAssessment, 通過 schema 驗證的評分結果
-        :raises LLMError: API 呼叫失敗或回應沒有文字
+        :raises LLMResponseError: 回應沒有文字
+        :raises LLMError: API 呼叫失敗
         :raises pydantic.ValidationError: 回應不符合 schema
         """
         try:
@@ -93,7 +99,7 @@ class GeminiClient:
         output_text = getattr(interaction, "output_text", None)
         if not output_text:
             status = getattr(interaction, "status", None)
-            raise LLMError(f"Gemini 沒有回傳文字（status: {status}）")
+            raise LLMResponseError(f"Gemini 沒有回傳文字（status: {status}）")
         return AIAssessment.model_validate_json(output_text)
 
 

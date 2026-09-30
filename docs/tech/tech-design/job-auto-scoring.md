@@ -92,13 +92,17 @@ flowchart LR
 
 ### 2.1 單筆評分
 
-實現 FR-score-salary、FR-score-ai、FR-score-total、FR-score-store、FR-filter、FR-history-append、FR-basis-record。業務規則見[功能文件的評分流程](../../product/features/job-auto-scoring.md#423-評分流程)。
+實現 FR-score-salary、FR-score-ai、FR-score-retry、FR-score-total、FR-score-store、FR-filter、FR-history-append、FR-basis-record。業務規則見[功能文件的評分流程](../../product/features/job-auto-scoring.md#423-評分流程)。
 
 `scorer.score_and_save` 評分並寫入資料庫，[整批評分](#22-整批評分)的每一筆都經過這一步：
 
 1. 以 `rules.py` 檢查硬性淘汰，被淘汰的職缺不呼叫 AI。
 2. 沒被淘汰時，`prompt.py` 用設定的模板組出提示詞，再用呼叫端傳入的 client 呼叫 AI。
    - 每次都呼叫，不查上次的評分。
+   - 回應不能用時，`scorer.py` 立即重打：
+     - 次數由 `RESPONSE_RETRIES`（1）決定。
+     - 哪些錯誤會重打見 [§5](#5-錯誤處理)。
+   - 重打放在 `scorer.py`，不放在供應商的 client：重打幾次是評分規則，換供應商時不必重寫。
 3. `rules.py` 算薪資分數，`scorer.py` 算總分。
 4. 交給 `job_db/scores.py` 新增一列（[§3.2](#32-job_scores)），連同評分依據：設定的三個版本號與職缺內容快照。
    - 被淘汰的職缺，`供應商`、`模型` 寫 `NULL`，評分依據照樣記。
@@ -451,7 +455,15 @@ class LLMClient(Protocol):
   - `store=False`：提示詞含個人經歷，不在伺服器端保存互動紀錄。
   - 不設定溫度等取樣參數：Gemini 3.8 Flash 已不支援 `temperature`、`top_p`、`top_k`（[官方說明](https://ai.google.dev/gemini-api/docs/latest-model)）。
   - SDK 的錯誤類別（HTTP、連線、逾時）沒有公開匯出，因此 `interactions.create` 拋出的任何例外都轉成 `LLMError`。
-  - `output_text` 為空時也是 `LLMError`。
+  - SDK 預設會自己重試，重試完仍失敗才拋出例外：
+    - 重試的對象：網路錯誤、逾時，以及 HTTP 408、409、429、5xx。
+    - 最多重試 3 次。
+    - 間隔從 0.5 秒以 2 倍增加、最多 8 秒。
+    - 回應帶 `Retry-After` 時照它等。
+    - 每次請求的逾時是 `REQUEST_TIMEOUT`（120 秒）。
+    - 一直逾時時一筆最久要等 (1 + 3) × 120 秒加上重試間隔。
+    - 以上是 `google-genai` 2.23 的預設值，升級 SDK 時要再確認。
+  - `output_text` 為空時是 `LLMResponseError`（`LLMError` 的子類別）：有回應但內容不能用，和 API 錯誤分開，`scorer.py` 才分得出哪些要重打。
   - 建構時檢查 `GEMINI_API_KEY`，沒有設定或是空字串就拋出 `LLMError`。
 
 ### 4.2 AI 輸出 schema
@@ -470,6 +482,10 @@ AI 必須輸出以下 JSON（Pydantic 模型 `AIAssessment`）：
 ```
 
 - 欄位使用英文名稱，讓 schema 對各家模型都比較穩定。
+- `reason`、`comment` 不可為空字串或只有空白，由 `field_validator` 檢查、不修改值。
+  - 不用 `min_length` 或 `pattern`：
+    - 兩者會寫進送給 AI 的 JSON schema，structured output 不一定支援。
+    - `min_length` 也擋不住只有空白的字串。
 - 由 `scorer.py` 轉成評分結果（`JobScore`）的中文鍵名。
   - `JobScore` 以 alias 定義中文鍵名，`model_dump(by_alias=True)` 的結果就是[功能文件的評分結果格式](../../product/features/job-auto-scoring.md#1321-評分結果格式)。
 - 不通過驗證時拋出 `ValidationError`，視為評分失敗，不自行修正分數。
@@ -478,7 +494,9 @@ AI 必須輸出以下 JSON（Pydantic 模型 `AIAssessment`）：
 
 整批評分：
 
-- 單筆的 `LLMError` 與 `ValidationError` 算單筆失敗，失敗原因記錄例外訊息，繼續下一筆。
+- 回應不能用（`LLMResponseError`、`ValidationError`）時，`scorer.py` 先重打 1 次，理由見[決策紀錄：AI 回應不能用時重打一次](../../decisions/product/retry-unusable-ai-response.md)。
+  - 其他 `LLMError` 是 API 錯誤，SDK 已經重試過（見 [§4.1](#41-llm-供應商抽象層)），不重打。
+- 重打後仍失敗的，以及單筆的其他 `LLMError`，算單筆失敗：失敗原因記錄最後一次的例外訊息，繼續下一筆。
 - client 建立失敗（`ValueError` 不支援的供應商、`LLMError` 缺少 API key）時在開始評分前往外拋。
 - `sqlite3.Error` 讓評分中止，已寫入的職缺留在資料庫。
 - 其他例外代表程式錯誤，直接往外拋。
@@ -522,7 +540,11 @@ AI 必須輸出以下 JSON（Pydantic 模型 `AIAssessment`）：
   - 偏好的 `目標方向`、經歷、職缺的工作內容分別放入 `目標標記-AAA`、`經歷標記-BBB`、`工作標記-CCC`，用來檢查提示詞的內容。
   - 測試設定的版本號是偏好第 2 版、經歷第 3 版、模板第 1 版，三個都不同，才分得出寫錯欄。
 - 假的 LLM client：回傳固定內容並記錄呼叫次數。
-  - 整批用的版本可以對指定職缺拋出 `LLMError` 或回傳超出範圍的分數。
+  - 整批用的版本可以對指定職缺：
+    - 拋出 `LLMError`。
+    - 回傳超出範圍的分數。
+    - 只有第一次回應不能用（超出範圍的分數或 `LLMResponseError`），用來測重打。
+    - 兩次不能用的原因不同（先是超出範圍的分數、再是只有空白的總評），用來確認失敗原因是最後一次的。
   - 網頁用的版本換掉 API 建立 client 的函式，另外可以停在指定的職缺，用來觀察評分中的狀態。
 - 網頁的評分測試用已換掉預設範例的設定：偏好與經歷都是第 2 版。
 - 資料庫建在 `tmp_path`。
@@ -550,7 +572,7 @@ npm test --prefix frontend -- drafts scoring dry-run
 
 - [AC-score-salary](../../product/features/job-auto-scoring.md#ac-score-salary薪資計分)：`uv run pytest tests/test_job_scoring_rules.py -k score_salary`
 - [AC-score-total](../../product/features/job-auto-scoring.md#ac-score-total總分計算)：`uv run pytest tests/test_job_scoring_scorer.py -k compute_total`
-- [AC-score-flow](../../product/features/job-auto-scoring.md#ac-score-flow評分流程與-ai-回應處理)：`uv run pytest tests/test_job_scoring_scorer.py -k score_job`
+- [AC-score-flow](../../product/features/job-auto-scoring.md#ac-score-flow評分流程與-ai-回應處理)：`uv run pytest tests/test_job_scoring_scorer.py -k "score_job or ai_assessment"`
   - 送給 AI 的資料與「（無資料）」：`uv run pytest tests/test_job_scoring_prompt.py`
 - [AC-score-settings](../../product/features/job-auto-scoring.md#ac-score-settings評分用的設定)：`uv run pytest tests/test_web_scoring.py -k settings_read_at_start`
   - 以假的 LLM 停在第一筆，這時經由設定頁的 API 儲存第 3 版。
@@ -566,6 +588,7 @@ npm test --prefix frontend -- drafts scoring dry-run
 - [AC-score-confirm](../../product/features/job-auto-scoring.md#ac-score-confirm送出前的確認)：`uv run pytest tests/test_browser_scoring.py -k confirm` 與 `uv run pytest tests/test_web_scoring.py -k "plan or selected_model or no_api_key"`
 - [AC-score-order](../../product/features/job-auto-scoring.md#ac-score-order照表格順序評分)：`uv run pytest tests/test_web_scoring.py -k order_failure_and_summary`
   - 職缺依表格的顯示順序送出：`uv run pytest tests/test_browser_scoring.py -k run_progress`
+- [AC-score-retry](../../product/features/job-auto-scoring.md#ac-score-retry回應不能用時重打一次)：`uv run pytest tests/test_job_scoring_batch.py tests/test_job_scoring_scorer.py -k retry`
 - [AC-score-failure](../../product/features/job-auto-scoring.md#ac-score-failure單筆失敗不中斷整批)：`uv run pytest tests/test_web_scoring.py -k order_failure_and_summary` 與 `uv run pytest tests/test_browser_scoring.py -k run_summary_and_failure`
 - [AC-score-run](../../product/features/job-auto-scoring.md#ac-score-run評分中停止與摘要)：`uv run pytest tests/test_browser_scoring.py -k "run_progress or run_summary"` 與 `uv run pytest tests/test_web_scoring.py -k "running_state or stop"`，以及 `npm test --prefix frontend -- scoring/summary`
 

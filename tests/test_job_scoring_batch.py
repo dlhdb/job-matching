@@ -101,6 +101,28 @@ def test_score_batch_failure_does_not_stop(make_job, scoring_settings, make_batc
     assert results[2].total == 75
 
 
+def test_score_batch_retry(make_job, scoring_settings, make_batch_client, db_conn):
+    jobs = [
+        make_job(**{"職缺代碼": "a", "職缺名稱": "甲職缺"}),
+        make_job(**{"職缺代碼": "b", "職缺名稱": "乙職缺"}),
+        make_job(**{"職缺代碼": "c", "職缺名稱": "丙職缺"}),
+    ]
+    client = make_batch_client({"甲職缺": "invalid_once", "乙職缺": "invalid_then_blank", "丙職缺": "llm_error"})
+    _seed(db_conn, *jobs)
+
+    results = score_batch(jobs, scoring_settings, lambda: client, **_store(db_conn))
+
+    # 回應不能用時重打一次；API 錯誤不重打
+    assert client.calls == ["甲職缺", "甲職缺", "乙職缺", "乙職缺", "丙職缺"]
+    assert results[0].failure is None
+    assert results[0].total == 75
+    # 失敗原因是重打那一次的（總評空白），不是第一次的 6 分
+    assert "comment" in results[1].failure
+    assert "career_fit" not in results[1].failure
+    assert "模擬的 API 錯誤" in results[2].failure
+    assert set(_score_rows(db_conn)) == {"a"}
+
+
 def test_score_batch_all_eliminated_no_client(out_job, scoring_settings, db_conn):
     def _factory():
         pytest.fail("全部被淘汰時不應建立 client")

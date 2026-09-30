@@ -5,8 +5,10 @@ from datetime import datetime
 from fractions import Fraction
 from typing import Any
 
+from pydantic import ValidationError
+
 from job_db import save_auto_score
-from job_scoring.llm import LLMClient
+from job_scoring.llm import LLMClient, LLMResponseError
 from job_scoring.models import (
     CAREER_FIT,
     DIMENSIONS,
@@ -24,6 +26,8 @@ from job_scoring.settings import EXPERIENCE, PREFERENCES, TEMPLATE, ScoringSetti
 
 # 分數未知的維度以此分數（中性）代入，讓每筆職缺都用相同的維度與權重計算，總分才能互相比較
 UNKNOWN_SCORE = 3
+# AI 回應不能用時最多重打幾次；每次重打都多花一次 AI 費用
+RESPONSE_RETRIES = 1
 
 
 def compute_total(scores: dict[str, int | None], weights: dict[str, float]) -> int:
@@ -84,16 +88,37 @@ def _combine(job: dict[str, Any], prefs: Preferences, assessment: AIAssessment) 
     )
 
 
+def _assess(client: LLMClient, system: str, user: str) -> AIAssessment:
+    """
+    呼叫 AI 評分；回應不能用（沒有文字或不符合 schema）時立即重打，最多 RESPONSE_RETRIES 次。
+    API 錯誤不重打：暫時性的錯誤 SDK 已經重試過，其餘的重打也一樣失敗。
+
+    :param client: LLMClient, LLM client
+    :param system: str, system 提示詞
+    :param user: str, user 提示詞
+    :return: AIAssessment, 通過 schema 驗證的評分結果
+    :raises LLMError: LLM 呼叫失敗，或重打後回應仍沒有文字
+    :raises pydantic.ValidationError: 重打後回應仍不符合 schema
+    """
+    for _ in range(RESPONSE_RETRIES):
+        try:
+            return client.assess(system, user)
+        except (LLMResponseError, ValidationError):
+            pass
+    # 最後一次的例外直接往外拋，失敗原因就是最後一次的
+    return client.assess(system, user)
+
+
 def score_job(job: dict[str, Any], settings: ScoringSettings, client: LLMClient | None) -> JobScore:
     """
-    對單筆職缺評分；被淘汰的職缺不呼叫 LLM。
+    對單筆職缺評分；被淘汰的職缺不呼叫 LLM，AI 回應不能用時重打一次。
 
     :param job: dict, 符合職缺欄位契約的單筆職缺
     :param settings: ScoringSettings, 評分用的偏好、經歷與提示詞模板
     :param client: LLMClient or None, LLM client；呼叫端確定這筆會被淘汰時才可以是 None
     :return: JobScore, 評分結果
-    :raises LLMError: LLM 呼叫失敗
-    :raises pydantic.ValidationError: LLM 回應不符合 schema
+    :raises LLMError: LLM 呼叫失敗，或重打後回應仍沒有文字
+    :raises pydantic.ValidationError: 重打後 LLM 回應仍不符合 schema
     :raises ValueError: 沒被淘汰卻沒有提供 client，代表呼叫端的程式錯誤
     """
     prefs = settings.preferences
@@ -103,7 +128,7 @@ def score_job(job: dict[str, Any], settings: ScoringSettings, client: LLMClient 
     if client is None:
         raise ValueError(f"職缺 {job.get('職缺代碼')} 需要呼叫 AI，但沒有提供 LLM client")
     system, user = build_prompt(job, prefs, settings.experience, settings.template)
-    return _combine(job, prefs, client.assess(system, user))
+    return _combine(job, prefs, _assess(client, system, user))
 
 
 def score_and_save(
@@ -127,8 +152,8 @@ def score_and_save(
     :param provider: str, client 使用的 LLM 供應商
     :param model: str, client 使用的模型名稱
     :return: JobScore, 評分結果
-    :raises LLMError: LLM 呼叫失敗
-    :raises pydantic.ValidationError: LLM 回應不符合 schema
+    :raises LLMError: LLM 呼叫失敗，或重打後回應仍沒有文字
+    :raises pydantic.ValidationError: 重打後 LLM 回應仍不符合 schema
     :raises sqlite3.Error: 寫入資料庫失敗
     """
     score = score_job(job, settings, client)

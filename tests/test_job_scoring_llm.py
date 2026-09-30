@@ -67,7 +67,7 @@ def test_gemini_client_wraps_sdk_error(fake_sdk):
 def test_gemini_client_empty_output(fake_sdk):
     fake_sdk(None)
 
-    with pytest.raises(llm.LLMError):
+    with pytest.raises(llm.LLMResponseError):
         llm.GeminiClient("m").assess("s", "u")
 
 

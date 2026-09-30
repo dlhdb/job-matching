@@ -15,7 +15,7 @@ import yaml
 
 import fetch_104_jobs
 from job_db import add_version, open_db, save_run
-from job_scoring.llm import LLMError
+from job_scoring.llm import LLMError, LLMResponseError
 from job_scoring.models import AIAssessment
 from job_scoring.settings import DEFAULTS, TEMPLATE, ScoringSettings, ensure_defaults, parse_preferences
 from web import create_app
@@ -451,8 +451,16 @@ class BatchFakeLLMClient:
     """
     整批用的假 LLM client：依 user 提示詞中的職缺名稱決定行為
 
-    behaviors 的值可以是 dict（make_assessment 的參數）、"llm_error"（拋出 LLMError）
-    或 "invalid"（以 6 分驗證，拋出 ValidationError）；沒列到的職缺回傳預設的 make_assessment()
+    behaviors 的值可以是：
+
+    - dict：make_assessment 的參數
+    - "llm_error"：拋出 LLMError
+    - "invalid"：每次都以 6 分驗證，拋出 ValidationError
+    - "invalid_once"：第一次以 6 分驗證，之後正常
+    - "empty_once"：第一次拋出 LLMResponseError（回應沒有文字），之後正常
+    - "invalid_then_blank"：第一次以 6 分驗證，之後以只有空白的總評驗證，兩種都拋出 ValidationError
+
+    沒列到的職缺回傳預設的 make_assessment()；calls 依序記下每次呼叫的職缺名稱
     """
 
     def __init__(self, behaviors):
@@ -462,11 +470,18 @@ class BatchFakeLLMClient:
     def assess(self, system, user):
         name = next((n for n in self.behaviors if n in user), None)
         self.calls.append(name)
+        first_call = self.calls.count(name) == 1
         behavior = self.behaviors.get(name, {})
         if behavior == "llm_error":
             raise LLMError("模擬的 API 錯誤")
-        if behavior == "invalid":
+        if behavior == "invalid" or (behavior == "invalid_once" and first_call):
             return make_assessment(career=6)
+        if behavior == "empty_once" and first_call:
+            raise LLMResponseError("模擬的空回應")
+        if behavior == "invalid_then_blank":
+            return make_assessment(career=6) if first_call else make_assessment(comment=" ")
+        if isinstance(behavior, str):
+            return make_assessment()
         return make_assessment(**behavior)
 
 

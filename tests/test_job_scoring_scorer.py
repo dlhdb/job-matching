@@ -3,6 +3,7 @@
 import pytest
 from pydantic import ValidationError
 
+from job_scoring.llm import LLMError, LLMResponseError
 from job_scoring.models import AIAssessment
 from job_scoring.scorer import compute_total, score_job
 
@@ -71,3 +72,66 @@ def test_score_job_rejects_out_of_range_score():
 
     with pytest.raises(ValidationError):
         AIAssessment.model_validate(response)
+
+
+@pytest.mark.parametrize("field, value", [
+    ("reason", ""),
+    ("reason", " \n"),
+    ("comment", ""),
+    ("comment", "　 "),
+])
+def test_ai_assessment_rejects_blank_text(field, value):
+    response = {
+        "career_fit": {"score": 4, "reason": "r"},
+        "skill_match": {"score": None, "reason": "r"},
+        "industry_fit": {"score": 3, "reason": "r"},
+        "comment": "總評",
+    }
+    if field == "reason":
+        response["skill_match"]["reason"] = value
+    else:
+        response["comment"] = value
+
+    with pytest.raises(ValidationError):
+        AIAssessment.model_validate(response)
+
+
+def test_ai_assessment_keeps_text_as_is():
+    response = {
+        "career_fit": {"score": 4, "reason": " 前後有空白 "},
+        "skill_match": {"score": None, "reason": "r"},
+        "industry_fit": {"score": 3, "reason": "r"},
+        "comment": " 總評 ",
+    }
+
+    assessment = AIAssessment.model_validate(response)
+
+    assert assessment.career_fit.reason == " 前後有空白 "
+    assert assessment.comment == " 總評 "
+
+
+@pytest.mark.parametrize("behavior", ["invalid_once", "empty_once"])
+def test_score_job_retry_unusable_response_then_ok(ok_job, scoring_settings, make_batch_client, behavior):
+    client = make_batch_client({"Python 工程師": behavior})
+
+    result = score_job(ok_job, scoring_settings, client)
+
+    assert len(client.calls) == 2
+    assert result.total == 75
+
+
+def test_score_job_retry_gives_up_after_one_retry(ok_job, scoring_settings, make_batch_client):
+    client = make_batch_client({"Python 工程師": "invalid"})
+
+    with pytest.raises(ValidationError):
+        score_job(ok_job, scoring_settings, client)
+    assert len(client.calls) == 2
+
+
+def test_score_job_retry_skips_api_error(ok_job, scoring_settings, make_batch_client):
+    client = make_batch_client({"Python 工程師": "llm_error"})
+
+    with pytest.raises(LLMError) as excinfo:
+        score_job(ok_job, scoring_settings, client)
+    assert not isinstance(excinfo.value, LLMResponseError)
+    assert len(client.calls) == 1
